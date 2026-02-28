@@ -1,7 +1,10 @@
 import SwiftUI
+import SwiftData
 
 struct ItineraryView: View {
-    let store: TripStore
+    let trip: Trip
+    @Environment(\.modelContext) private var modelContext
+    @State private var showingAddDaySheet = false
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -14,9 +17,16 @@ struct ItineraryView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: AppTheme.spacingM) {
-                    ForEach(Array(store.sortedDays.enumerated()), id: \.element.id) { index, day in
+                    ForEach(Array(trip.sortedDays.enumerated()), id: \.element.id) { index, day in
                         NavigationLink(value: day.id) {
                             dayCard(day, index: index)
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                modelContext.delete(day)
+                            } label: {
+                                Label("Удалить день", systemImage: "trash")
+                            }
                         }
                     }
                 }
@@ -40,11 +50,23 @@ struct ItineraryView: View {
                             .frame(width: 12, height: 3)
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingAddDaySheet = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(AppTheme.sakuraPink)
+                    }
+                }
             }
             .navigationDestination(for: UUID.self) { dayId in
-                if let day = store.days.first(where: { $0.id == dayId }) {
-                    DayDetailView(store: store, day: day)
+                if let day = trip.days.first(where: { $0.id == dayId }) {
+                    DayDetailView(trip: trip, day: day)
                 }
+            }
+            .sheet(isPresented: $showingAddDaySheet) {
+                AddDaySheet(trip: trip)
             }
         }
     }
@@ -54,7 +76,6 @@ struct ItineraryView: View {
         let isPast = day.isPast
 
         return HStack(spacing: 0) {
-            // Bold day number column
             VStack(spacing: 2) {
                 if isToday {
                     Text("СЕЙЧАС")
@@ -77,12 +98,10 @@ struct ItineraryView: View {
             .frame(maxHeight: .infinity)
             .background(isToday ? AppTheme.sakuraPink : AppTheme.sakuraPink.opacity(isPast ? 0.03 : 0.06))
 
-            // Accent bar
             Rectangle()
                 .fill(dayAccentColor(day))
                 .frame(width: 4)
 
-            // Content
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
@@ -134,7 +153,6 @@ struct ItineraryView: View {
                     }
                 }
 
-                // Place icons
                 if !day.places.isEmpty {
                     HStack(spacing: 4) {
                         ForEach(day.places.prefix(5)) { place in
@@ -169,7 +187,6 @@ struct ItineraryView: View {
                         .lineLimit(1)
                 }
 
-                // Progress bar
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         Rectangle()
@@ -205,6 +222,9 @@ struct ItineraryView: View {
     }
 }
 
+#if DEBUG
 #Preview {
-    ItineraryView(store: TripStore())
+    ItineraryView(trip: .preview)
+        .modelContainer(.preview)
 }
+#endif

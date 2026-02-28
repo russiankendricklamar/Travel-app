@@ -1,8 +1,11 @@
 import SwiftUI
+import SwiftData
 
 struct MainTabView: View {
-    let store: TripStore
+    @Query var trips: [Trip]
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedTab: Tab = .dashboard
+    @State private var seeded = false
 
     enum Tab: String {
         case dashboard
@@ -13,41 +16,68 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            DashboardView(store: store)
-                .tabItem {
-                    Label("Главная", systemImage: "airplane")
-                }
-                .tag(Tab.dashboard)
+        Group {
+            if let trip = trips.first {
+                TabView(selection: $selectedTab) {
+                    DashboardView(trip: trip)
+                        .tabItem {
+                            Label("Главная", systemImage: "airplane")
+                        }
+                        .tag(Tab.dashboard)
 
-            ItineraryView(store: store)
-                .tabItem {
-                    Label("Маршрут", systemImage: "calendar")
-                }
-                .tag(Tab.itinerary)
+                    ItineraryView(trip: trip)
+                        .tabItem {
+                            Label("Маршрут", systemImage: "calendar")
+                        }
+                        .tag(Tab.itinerary)
 
-            TripMapView(store: store)
-                .tabItem {
-                    Label("Карта", systemImage: "map")
-                }
-                .tag(Tab.map)
+                    TripMapView(trip: trip)
+                        .tabItem {
+                            Label("Карта", systemImage: "map")
+                        }
+                        .tag(Tab.map)
 
-            ExpensesView(store: store)
-                .tabItem {
-                    Label("Расходы", systemImage: "yensign.circle")
-                }
-                .tag(Tab.expenses)
+                    ExpensesView(trip: trip)
+                        .tabItem {
+                            Label("Расходы", systemImage: "yensign.circle")
+                        }
+                        .tag(Tab.expenses)
 
-            JournalView(store: store)
-                .tabItem {
-                    Label("Дневник", systemImage: "book")
+                    JournalView(trip: trip)
+                        .tabItem {
+                            Label("Дневник", systemImage: "book")
+                        }
+                        .tag(Tab.journal)
                 }
-                .tag(Tab.journal)
+                .tint(AppTheme.sakuraPink)
+                .onAppear {
+                    trip.autoCompletePastDays()
+                }
+            } else {
+                VStack(spacing: AppTheme.spacingM) {
+                    ProgressView()
+                        .tint(AppTheme.sakuraPink)
+                    Text("ЗАГРУЗКА...")
+                        .font(.system(size: 11, weight: .black))
+                        .tracking(4)
+                        .foregroundStyle(AppTheme.textMuted)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(AppTheme.background)
+                .onAppear {
+                    if !seeded {
+                        seeded = true
+                        SampleData.seed(into: modelContext)
+                    }
+                }
+            }
         }
-        .tint(AppTheme.sakuraPink)
     }
 }
 
+#if DEBUG
 #Preview {
-    MainTabView(store: TripStore())
+    MainTabView()
+        .modelContainer(.preview)
 }
+#endif

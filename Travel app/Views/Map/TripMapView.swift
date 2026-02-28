@@ -1,8 +1,9 @@
 import SwiftUI
+import SwiftData
 import MapKit
 
 struct TripMapView: View {
-    let store: TripStore
+    let trip: Trip
 
     @State private var selectedPlace: Place?
     @State private var cameraPosition: MapCameraPosition = .region(
@@ -13,7 +14,7 @@ struct TripMapView: View {
     )
 
     private var allPlaces: [Place] {
-        store.allPlaces
+        trip.allPlaces
     }
 
     var body: some View {
@@ -62,19 +63,16 @@ struct TripMapView: View {
                         } label: {
                             Label("Показать все", systemImage: "map")
                         }
-
                         Button {
                             zoomToCity("Токио")
                         } label: {
                             Label("Токио", systemImage: "building.2")
                         }
-
                         Button {
                             zoomToCity("Киото")
                         } label: {
                             Label("Киото", systemImage: "building.columns")
                         }
-
                         Button {
                             zoomToCity("Осака")
                         } label: {
@@ -217,7 +215,7 @@ struct TripMapView: View {
     }
 
     private func zoomToCity(_ city: String) {
-        let cityPlaces = store.days
+        let cityPlaces = trip.days
             .filter { $0.cityName == city }
             .flatMap(\.places)
 
@@ -234,18 +232,9 @@ struct TripMapView: View {
     }
 }
 
-// MARK: - Place Equatable for selection
-
-extension Place: Hashable {
-    static func == (lhs: Place, rhs: Place) -> Bool {
-        lhs.id == rhs.id
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-}
-
+#if DEBUG
 #Preview {
-    TripMapView(store: TripStore())
+    TripMapView(trip: .preview)
+        .modelContainer(.preview)
 }
+#endif

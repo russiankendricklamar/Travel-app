@@ -1,11 +1,13 @@
 import Foundation
 import CoreLocation
 import SwiftUI
+import SwiftData
 
 // MARK: - Trip
 
-struct Trip: Identifiable {
-    let id: UUID
+@Model
+final class Trip {
+    @Attribute(.unique) var id: UUID
     var name: String
     var destination: String
     var startDate: Date
@@ -14,6 +16,37 @@ struct Trip: Identifiable {
     var currency: String
     var coverSystemImage: String
     var flightDate: Date?
+
+    @Relationship(deleteRule: .cascade, inverse: \TripDay.trip)
+    var days: [TripDay] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \Expense.trip)
+    var expenses: [Expense] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \JournalEntry.trip)
+    var journalEntries: [JournalEntry] = []
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        destination: String,
+        startDate: Date,
+        endDate: Date,
+        budget: Double,
+        currency: String,
+        coverSystemImage: String,
+        flightDate: Date? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.destination = destination
+        self.startDate = startDate
+        self.endDate = endDate
+        self.budget = budget
+        self.currency = currency
+        self.coverSystemImage = coverSystemImage
+        self.flightDate = flightDate
+    }
 
     var totalDays: Int {
         Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 0
@@ -65,9 +98,83 @@ struct Trip: Identifiable {
     }
 }
 
+// MARK: - Trip Computed (from TripStore)
+
+extension Trip {
+    var phase: TripPhase {
+        if isUpcoming { return .preTrip }
+        if isActive { return .active }
+        return .postTrip
+    }
+
+    var totalSpent: Double {
+        expenses.reduce(0) { $0 + $1.amount }
+    }
+
+    var remainingBudget: Double {
+        budget - totalSpent
+    }
+
+    var budgetUsedPercent: Double {
+        guard budget > 0 else { return 0 }
+        return totalSpent / budget
+    }
+
+    var allPlaces: [Place] {
+        days.flatMap(\.places)
+    }
+
+    var placesVisitedCount: Int {
+        allPlaces.filter(\.isVisited).count
+    }
+
+    var totalPlacesCount: Int {
+        allPlaces.count
+    }
+
+    var expensesByCategory: [(category: ExpenseCategory, total: Double)] {
+        ExpenseCategory.allCases.compactMap { category in
+            let total = expenses
+                .filter { $0.category == category }
+                .reduce(0) { $0 + $1.amount }
+            guard total > 0 else { return nil }
+            return (category: category, total: total)
+        }
+        .sorted { $0.total > $1.total }
+    }
+
+    var recentExpenses: [Expense] {
+        Array(expenses.sorted { $0.date > $1.date }.prefix(5))
+    }
+
+    var todayDay: TripDay? {
+        days.first { $0.isToday }
+    }
+
+    var sortedDays: [TripDay] {
+        days.sorted { $0.date < $1.date }
+    }
+
+    var activeDay: TripDay? {
+        if let today = todayDay { return today }
+        return days
+            .filter { $0.isFuture }
+            .sorted { $0.date < $1.date }
+            .first
+    }
+
+    func autoCompletePastDays() {
+        for day in days where day.isPast {
+            for place in day.places where !place.isVisited {
+                place.isVisited = true
+            }
+        }
+    }
+}
+
 // MARK: - Trip Phase
 
-enum TripPhase {
+enum TripPhase: String, Codable {
     case preTrip
     case active
     case postTrip
@@ -83,14 +190,38 @@ enum TripPhase {
 
 // MARK: - Trip Day
 
-struct TripDay: Identifiable {
-    let id: UUID
+@Model
+final class TripDay {
+    @Attribute(.unique) var id: UUID
     var date: Date
     var title: String
     var cityName: String
-    var places: [Place]
-    var events: [TripEvent]
     var notes: String
+
+    var trip: Trip?
+
+    @Relationship(deleteRule: .cascade, inverse: \Place.day)
+    var places: [Place] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \TripEvent.day)
+    var events: [TripEvent] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \RoutePoint.day)
+    var routePoints: [RoutePoint] = []
+
+    init(
+        id: UUID = UUID(),
+        date: Date,
+        title: String,
+        cityName: String,
+        notes: String = ""
+    ) {
+        self.id = id
+        self.date = date
+        self.title = title
+        self.cityName = cityName
+        self.notes = notes
+    }
 
     var visitedCount: Int {
         places.filter(\.isVisited).count
@@ -113,14 +244,35 @@ struct TripDay: Identifiable {
 
 // MARK: - Trip Event
 
-struct TripEvent: Identifiable {
-    let id: UUID
+@Model
+final class TripEvent {
+    @Attribute(.unique) var id: UUID
     var title: String
     var subtitle: String
     var category: EventCategory
     var startTime: Date
     var endTime: Date
     var notes: String
+
+    var day: TripDay?
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        subtitle: String,
+        category: EventCategory,
+        startTime: Date,
+        endTime: Date,
+        notes: String = ""
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.category = category
+        self.startTime = startTime
+        self.endTime = endTime
+        self.notes = notes
+    }
 
     var duration: TimeInterval {
         endTime.timeIntervalSince(startTime)
@@ -175,7 +327,7 @@ struct TripEvent: Identifiable {
     }
 }
 
-enum EventCategory: String, CaseIterable, Identifiable {
+enum EventCategory: String, CaseIterable, Identifiable, Codable {
     case flight = "Перелёт"
     case train = "Поезд"
     case bus = "Автобус"
@@ -216,20 +368,54 @@ enum EventCategory: String, CaseIterable, Identifiable {
 
 // MARK: - Place
 
-struct Place: Identifiable {
-    let id: UUID
+@Model
+final class Place {
+    @Attribute(.unique) var id: UUID
     var name: String
     var nameJapanese: String
     var category: PlaceCategory
     var address: String
-    var coordinate: CLLocationCoordinate2D
+    var latitude: Double
+    var longitude: Double
     var isVisited: Bool
     var rating: Int?
     var notes: String
     var timeToSpend: String
+
+    var day: TripDay?
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        nameJapanese: String,
+        category: PlaceCategory,
+        address: String,
+        latitude: Double,
+        longitude: Double,
+        isVisited: Bool = false,
+        rating: Int? = nil,
+        notes: String = "",
+        timeToSpend: String = ""
+    ) {
+        self.id = id
+        self.name = name
+        self.nameJapanese = nameJapanese
+        self.category = category
+        self.address = address
+        self.latitude = latitude
+        self.longitude = longitude
+        self.isVisited = isVisited
+        self.rating = rating
+        self.notes = notes
+        self.timeToSpend = timeToSpend
+    }
 }
 
-enum PlaceCategory: String, CaseIterable, Identifiable {
+enum PlaceCategory: String, CaseIterable, Identifiable, Codable {
     case temple = "Храм"
     case shrine = "Святилище"
     case food = "Еда"
@@ -257,16 +443,35 @@ enum PlaceCategory: String, CaseIterable, Identifiable {
 
 // MARK: - Expense
 
-struct Expense: Identifiable {
-    let id: UUID
+@Model
+final class Expense {
+    @Attribute(.unique) var id: UUID
     var title: String
     var amount: Double
     var category: ExpenseCategory
     var date: Date
     var notes: String
+
+    var trip: Trip?
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        amount: Double,
+        category: ExpenseCategory,
+        date: Date,
+        notes: String = ""
+    ) {
+        self.id = id
+        self.title = title
+        self.amount = amount
+        self.category = category
+        self.date = date
+        self.notes = notes
+    }
 }
 
-enum ExpenseCategory: String, CaseIterable, Identifiable {
+enum ExpenseCategory: String, CaseIterable, Identifiable, Codable {
     case food = "Еда"
     case transport = "Транспорт"
     case accommodation = "Жильё"
@@ -290,15 +495,32 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
 
 // MARK: - Journal Entry
 
-struct JournalEntry: Identifiable {
-    let id: UUID
+@Model
+final class JournalEntry {
+    @Attribute(.unique) var id: UUID
     var date: Date
     var title: String
     var content: String
     var mood: Mood
+
+    var trip: Trip?
+
+    init(
+        id: UUID = UUID(),
+        date: Date,
+        title: String,
+        content: String,
+        mood: Mood
+    ) {
+        self.id = id
+        self.date = date
+        self.title = title
+        self.content = content
+        self.mood = mood
+    }
 }
 
-enum Mood: String, CaseIterable, Identifiable {
+enum Mood: String, CaseIterable, Identifiable, Codable {
     case amazing = "Восторг"
     case happy = "Радость"
     case neutral = "Спокойствие"
@@ -317,3 +539,26 @@ enum Mood: String, CaseIterable, Identifiable {
         }
     }
 }
+
+// MARK: - Preview Support
+
+#if DEBUG
+extension ModelContainer {
+    @MainActor
+    static var preview: ModelContainer {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try! ModelContainer(for: Trip.self, configurations: config)
+        SampleData.seed(into: container.mainContext)
+        return container
+    }
+}
+
+extension Trip {
+    @MainActor
+    static var preview: Trip {
+        let container = ModelContainer.preview
+        let descriptor = FetchDescriptor<Trip>()
+        return try! container.mainContext.fetch(descriptor).first!
+    }
+}
+#endif

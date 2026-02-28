@@ -1,66 +1,64 @@
 import SwiftUI
 import SwiftData
 
-struct AddExpenseSheet: View {
-    let trip: Trip
-    var editing: Expense?
+struct AddEventSheet: View {
+    let day: TripDay
+    var editing: TripEvent?
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
 
     @State private var title = ""
-    @State private var amountText = ""
-    @State private var category: ExpenseCategory = .food
-    @State private var date = Date()
+    @State private var subtitle = ""
+    @State private var category: EventCategory = .other
+    @State private var startTime = Date()
+    @State private var endTime = Date()
     @State private var notes = ""
 
     private var isValid: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty
-            && Double(amountText) != nil
-            && Double(amountText)! > 0
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && endTime > startTime
     }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 AppTheme.background.ignoresSafeArea()
-
                 ScrollView {
                     VStack(spacing: AppTheme.spacingM) {
                         HStack {
-                            Image(systemName: "yensign.circle.fill")
+                            Image(systemName: "calendar.badge.plus")
                                 .font(.system(size: 16, weight: .bold))
-                            Text(editing != nil ? "РЕДАКТИРОВАТЬ РАСХОД" : "НОВЫЙ РАСХОД")
+                            Text(editing != nil ? "РЕДАКТИРОВАТЬ СОБЫТИЕ" : "НОВОЕ СОБЫТИЕ")
                                 .font(.system(size: 12, weight: .black))
                                 .tracking(3)
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(AppTheme.sakuraPink)
+                        .background(AppTheme.oceanBlue)
 
                         SakuraFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                            TextField("Рамен Ichiran", text: $title)
+                            TextField("Shinkansen Nozomi", text: $title)
                                 .textFieldStyle(SakuraTextFieldStyle())
                         }
-
-                        SakuraFormField(label: "СУММА (JPY)", color: AppTheme.templeGold) {
-                            TextField("1290", text: $amountText)
-                                .keyboardType(.numberPad)
+                        SakuraFormField(label: "ОПИСАНИЕ", color: AppTheme.textMuted) {
+                            TextField("Токио → Киото", text: $subtitle)
                                 .textFieldStyle(SakuraTextFieldStyle())
                         }
-
                         SakuraFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
                             categoryPicker
                         }
-
-                        SakuraFormField(label: "ДАТА", color: AppTheme.sakuraPink) {
-                            DatePicker("", selection: $date, displayedComponents: .date)
+                        SakuraFormField(label: "НАЧАЛО", color: AppTheme.bambooGreen) {
+                            DatePicker("", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
                                 .datePickerStyle(.compact)
                                 .labelsHidden()
                                 .tint(AppTheme.sakuraPink)
                         }
-
-                        SakuraFormField(label: "ЗАМЕТКА", color: AppTheme.textMuted) {
+                        SakuraFormField(label: "КОНЕЦ", color: AppTheme.toriiRed) {
+                            DatePicker("", selection: $endTime, displayedComponents: [.date, .hourAndMinute])
+                                .datePickerStyle(.compact)
+                                .labelsHidden()
+                                .tint(AppTheme.sakuraPink)
+                        }
+                        SakuraFormField(label: "ЗАМЕТКИ", color: AppTheme.textMuted) {
                             TextField("Дополнительные детали...", text: $notes)
                                 .textFieldStyle(SakuraTextFieldStyle())
                         }
@@ -79,7 +77,7 @@ struct AddExpenseSheet: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { saveExpense() } label: {
+                    Button { save() } label: {
                         Text("СОХРАНИТЬ")
                             .font(.system(size: 11, weight: .black))
                             .tracking(1)
@@ -91,10 +89,18 @@ struct AddExpenseSheet: View {
             .onAppear {
                 if let e = editing {
                     title = e.title
-                    amountText = String(Int(e.amount))
+                    subtitle = e.subtitle
                     category = e.category
-                    date = e.date
+                    startTime = e.startTime
+                    endTime = e.endTime
                     notes = e.notes
+                } else {
+                    // Default times based on day's date
+                    var comps = Calendar.current.dateComponents([.year, .month, .day], from: day.date)
+                    comps.hour = 9
+                    startTime = Calendar.current.date(from: comps) ?? Date()
+                    comps.hour = 10
+                    endTime = Calendar.current.date(from: comps) ?? Date()
                 }
             }
         }
@@ -103,7 +109,7 @@ struct AddExpenseSheet: View {
     private var categoryPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
-                ForEach(ExpenseCategory.allCases) { cat in
+                ForEach(EventCategory.allCases) { cat in
                     Button {
                         category = cat
                     } label: {
@@ -117,10 +123,10 @@ struct AddExpenseSheet: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
                         .foregroundStyle(category == cat ? .white : AppTheme.textSecondary)
-                        .background(category == cat ? AppTheme.expenseColor(for: cat) : AppTheme.surface)
+                        .background(category == cat ? cat.color : AppTheme.surface)
                         .overlay(
                             Rectangle().stroke(
-                                category == cat ? AppTheme.expenseColor(for: cat) : AppTheme.border,
+                                category == cat ? cat.color : AppTheme.border,
                                 lineWidth: category == cat ? 2 : 1
                             )
                         )
@@ -130,77 +136,25 @@ struct AddExpenseSheet: View {
         }
     }
 
-    private func saveExpense() {
-        guard let amount = Double(amountText), amount > 0 else { return }
-
+    private func save() {
         if let e = editing {
             e.title = title.trimmingCharacters(in: .whitespaces)
-            e.amount = amount
+            e.subtitle = subtitle.trimmingCharacters(in: .whitespaces)
             e.category = category
-            e.date = date
+            e.startTime = startTime
+            e.endTime = endTime
             e.notes = notes.trimmingCharacters(in: .whitespaces)
         } else {
-            let expense = Expense(
+            let event = TripEvent(
                 title: title.trimmingCharacters(in: .whitespaces),
-                amount: amount,
+                subtitle: subtitle.trimmingCharacters(in: .whitespaces),
                 category: category,
-                date: date,
+                startTime: startTime,
+                endTime: endTime,
                 notes: notes.trimmingCharacters(in: .whitespaces)
             )
-            trip.expenses.append(expense)
+            day.events.append(event)
         }
         dismiss()
     }
 }
-
-// MARK: - Reusable Form Components
-
-struct SakuraTextFieldStyle: TextFieldStyle {
-    func _body(configuration: TextField<Self._Label>) -> some View {
-        configuration
-            .padding(12)
-            .foregroundStyle(AppTheme.textPrimary)
-            .background(AppTheme.card)
-            .overlay(
-                Rectangle()
-                    .stroke(AppTheme.border, lineWidth: 1)
-            )
-    }
-}
-
-struct SakuraFormField<Content: View>: View {
-    let label: String
-    let color: Color
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(color)
-                    .frame(width: 4)
-                Text(label)
-                    .font(.system(size: 9, weight: .black))
-                    .tracking(2)
-                    .foregroundStyle(color)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                Spacer()
-            }
-            .background(AppTheme.surface)
-
-            content()
-                .padding(.horizontal, AppTheme.spacingS)
-                .padding(.vertical, AppTheme.spacingS)
-                .background(AppTheme.card)
-        }
-        .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 1))
-    }
-}
-
-#if DEBUG
-#Preview {
-    AddExpenseSheet(trip: .preview)
-        .modelContainer(.preview)
-}
-#endif

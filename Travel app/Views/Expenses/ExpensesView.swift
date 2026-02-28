@@ -1,11 +1,13 @@
 import SwiftUI
+import SwiftData
 
 struct ExpensesView: View {
-    let store: TripStore
+    let trip: Trip
+    @Environment(\.modelContext) private var modelContext
     @State private var showingAddSheet = false
 
     private var sortedExpenses: [Expense] {
-        store.expenses.sorted { $0.date > $1.date }
+        trip.expenses.sorted { $0.date > $1.date }
     }
 
     private var currencyFormatter: NumberFormatter {
@@ -59,7 +61,7 @@ struct ExpensesView: View {
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
-                AddExpenseSheet(store: store)
+                AddExpenseSheet(trip: trip)
             }
         }
     }
@@ -74,7 +76,7 @@ struct ExpensesView: View {
                         .font(.system(size: 9, weight: .bold))
                         .tracking(3)
                         .foregroundStyle(AppTheme.textMuted)
-                    Text(formatYen(store.totalSpent))
+                    Text(formatYen(trip.totalSpent))
                         .font(.system(size: 28, weight: .black, design: .monospaced))
                         .foregroundStyle(AppTheme.toriiRed)
                 }
@@ -83,13 +85,12 @@ struct ExpensesView: View {
 
                 ZStack {
                     ProgressRing(
-                        progress: store.budgetUsedPercent,
-                        color: store.budgetUsedPercent > 0.9 ? AppTheme.toriiRed : AppTheme.bambooGreen,
+                        progress: trip.budgetUsedPercent,
+                        color: trip.budgetUsedPercent > 0.9 ? AppTheme.toriiRed : AppTheme.bambooGreen,
                         lineWidth: 6,
                         size: 60
                     )
-
-                    Text("\(Int(store.budgetUsedPercent * 100))%")
+                    Text("\(Int(trip.budgetUsedPercent * 100))%")
                         .font(.system(size: 14, weight: .black, design: .monospaced))
                         .foregroundStyle(AppTheme.textPrimary)
                 }
@@ -100,9 +101,9 @@ struct ExpensesView: View {
                         .font(.system(size: 9, weight: .bold))
                         .tracking(3)
                         .foregroundStyle(AppTheme.textMuted)
-                    Text(formatYen(store.remainingBudget))
+                    Text(formatYen(trip.remainingBudget))
                         .font(.system(size: 20, weight: .black, design: .monospaced))
-                        .foregroundStyle(store.remainingBudget >= 0 ? AppTheme.bambooGreen : AppTheme.toriiRed)
+                        .foregroundStyle(trip.remainingBudget >= 0 ? AppTheme.bambooGreen : AppTheme.toriiRed)
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(AppTheme.spacingM)
@@ -115,7 +116,7 @@ struct ExpensesView: View {
                     .tracking(2)
                     .foregroundStyle(.white.opacity(0.8))
                 Spacer()
-                Text(formatYen(store.trip.budget))
+                Text(formatYen(trip.budget))
                     .font(.system(size: 11, weight: .black, design: .monospaced))
                     .foregroundStyle(.white)
             }
@@ -132,38 +133,32 @@ struct ExpensesView: View {
         VStack(spacing: 0) {
             BoldSectionHeader(title: "ПО КАТЕГОРИЯМ", color: AppTheme.card)
                 .overlay(
-                    Rectangle()
-                        .fill(AppTheme.templeGold)
-                        .frame(width: 4),
+                    Rectangle().fill(AppTheme.templeGold).frame(width: 4),
                     alignment: .leading
                 )
                 .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 1))
 
-            let maxAmount = store.expensesByCategory.first?.total ?? 1
+            let maxAmount = trip.expensesByCategory.first?.total ?? 1
 
-            ForEach(Array(store.expensesByCategory.enumerated()), id: \.element.category) { index, item in
+            ForEach(Array(trip.expensesByCategory.enumerated()), id: \.element.category) { index, item in
                 HStack(spacing: 0) {
                     Rectangle()
                         .fill(AppTheme.expenseColor(for: item.category))
                         .frame(width: 5)
-
                     HStack(spacing: AppTheme.spacingS) {
                         Image(systemName: item.category.systemImage)
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 30, height: 30)
                             .background(AppTheme.expenseColor(for: item.category))
-
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.category.rawValue.uppercased())
                                 .font(.system(size: 10, weight: .black))
                                 .tracking(1)
                                 .foregroundStyle(AppTheme.textPrimary)
-
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
-                                    Rectangle()
-                                        .fill(AppTheme.surface)
+                                    Rectangle().fill(AppTheme.surface)
                                     Rectangle()
                                         .fill(AppTheme.expenseColor(for: item.category).opacity(0.35))
                                         .frame(width: geo.size.width * (item.total / maxAmount))
@@ -171,9 +166,7 @@ struct ExpensesView: View {
                             }
                             .frame(height: 4)
                         }
-
                         Spacer()
-
                         Text(formatYen(item.total))
                             .font(.system(size: 13, weight: .black, design: .monospaced))
                             .foregroundStyle(AppTheme.textPrimary)
@@ -193,15 +186,20 @@ struct ExpensesView: View {
         VStack(spacing: 0) {
             BoldSectionHeader(title: "ВСЕ РАСХОДЫ", color: AppTheme.card)
                 .overlay(
-                    Rectangle()
-                        .fill(AppTheme.sakuraPink)
-                        .frame(width: 4),
+                    Rectangle().fill(AppTheme.sakuraPink).frame(width: 4),
                     alignment: .leading
                 )
                 .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 1))
 
             ForEach(Array(sortedExpenses.enumerated()), id: \.element.id) { index, expense in
                 expenseRow(expense, index: index)
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            modelContext.delete(expense)
+                        } label: {
+                            Label("Удалить", systemImage: "trash")
+                        }
+                    }
             }
         }
         .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 2))
@@ -212,39 +210,32 @@ struct ExpensesView: View {
             Rectangle()
                 .fill(AppTheme.expenseColor(for: expense.category))
                 .frame(width: 4)
-
             HStack(spacing: AppTheme.spacingS) {
                 Image(systemName: expense.category.systemImage)
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 34, height: 34)
                     .background(AppTheme.expenseColor(for: expense.category))
-
                 VStack(alignment: .leading, spacing: 2) {
                     Text(expense.title.uppercased())
                         .font(.system(size: 12, weight: .bold))
                         .tracking(0.5)
                         .foregroundStyle(AppTheme.textPrimary)
                         .lineLimit(1)
-
                     HStack(spacing: AppTheme.spacingXS) {
                         Text(expense.category.rawValue.uppercased())
                             .font(.system(size: 8, weight: .black))
                             .tracking(1)
                             .foregroundStyle(AppTheme.expenseColor(for: expense.category))
-
                         Rectangle()
                             .fill(AppTheme.textMuted)
                             .frame(width: 1, height: 8)
-
                         Text(expense.date, style: .date)
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(AppTheme.textMuted)
                     }
                 }
-
                 Spacer()
-
                 Text(formatYen(expense.amount))
                     .font(.system(size: 15, weight: .black, design: .monospaced))
                     .foregroundStyle(AppTheme.textPrimary)
@@ -256,6 +247,9 @@ struct ExpensesView: View {
     }
 }
 
+#if DEBUG
 #Preview {
-    ExpensesView(store: TripStore())
+    ExpensesView(trip: .preview)
+        .modelContainer(.preview)
 }
+#endif

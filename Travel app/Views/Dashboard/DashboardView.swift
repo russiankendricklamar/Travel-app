@@ -1,7 +1,8 @@
 import SwiftUI
+import SwiftData
 
 struct DashboardView: View {
-    let store: TripStore
+    let trip: Trip
 
     @State private var appeared = false
     @State private var heroScale: CGFloat = 0.8
@@ -29,16 +30,18 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
-                    switch store.phase {
+                    switch trip.phase {
                     case .preTrip:
                         countdownHeroSection
                         flightInfoSection
+                        suicaWalletSection
                     case .active:
                         heroSection
                         pinkBanner
                         statsSection
                         budgetSection
                         recentExpensesSection
+                        suicaWalletSection
                     case .postTrip:
                         postTripHero
                         pinkBanner
@@ -86,7 +89,7 @@ struct DashboardView: View {
     }
 
     private func updateCountdown() {
-        if let flight = store.trip.flightDate, Date() < flight {
+        if let flight = trip.flightDate, Date() < flight {
             let components = Calendar.current.dateComponents(
                 [.day, .hour, .minute, .second],
                 from: Date(),
@@ -96,7 +99,7 @@ struct DashboardView: View {
             countdownHours = components.hour ?? 0
             countdownMinutes = components.minute ?? 0
             countdownSeconds = components.second ?? 0
-        } else if let countdown = store.trip.countdownToStart {
+        } else if let countdown = trip.countdownToStart {
             countdownDays = countdown.day ?? 0
             countdownHours = countdown.hour ?? 0
             countdownMinutes = countdown.minute ?? 0
@@ -112,7 +115,7 @@ struct DashboardView: View {
             statsOffset = 0
         }
         withAnimation(.easeOut(duration: 1.0).delay(0.3)) {
-            budgetWidth = store.budgetUsedPercent
+            budgetWidth = trip.budgetUsedPercent
         }
         animateCounter()
         withAnimation(.easeInOut(duration: 0.1).delay(0.4)) {
@@ -125,7 +128,7 @@ struct DashboardView: View {
     }
 
     private func animateCounter() {
-        let target = store.trip.currentDay
+        let target = trip.currentDay
         guard target > 0 else { return }
         let step = max(1, target / 20)
         Timer.scheduledTimer(withTimeInterval: 0.04, repeats: true) { timer in
@@ -143,7 +146,6 @@ struct DashboardView: View {
     private var countdownHeroSection: some View {
         VStack(spacing: 0) {
             ZStack {
-                // Glitch layers
                 Rectangle()
                     .fill(AppTheme.sakuraPink.opacity(0.1))
                     .offset(x: -4, y: -4)
@@ -159,7 +161,6 @@ struct DashboardView: View {
                         .tracking(6)
                         .foregroundStyle(AppTheme.sakuraPink)
 
-                    // Big countdown number (days)
                     Text("\(countdownDays)")
                         .font(.system(size: 140, weight: .black, design: .monospaced))
                         .foregroundStyle(AppTheme.textPrimary)
@@ -182,7 +183,6 @@ struct DashboardView: View {
                     }
                     .padding(.horizontal, AppTheme.spacingL)
 
-                    // Hours : Minutes : Seconds
                     HStack(spacing: 4) {
                         countdownUnit(value: countdownHours, label: "ЧАС")
                         countdownSeparator
@@ -254,7 +254,7 @@ struct DashboardView: View {
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(AppTheme.sakuraPink)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(store.trip.name.uppercased())
+                        Text(trip.name.uppercased())
                             .font(.system(size: 11, weight: .black))
                             .tracking(2)
                             .foregroundStyle(AppTheme.textPrimary)
@@ -268,7 +268,7 @@ struct DashboardView: View {
                             .font(.system(size: 8, weight: .bold))
                             .tracking(2)
                             .foregroundStyle(AppTheme.textMuted)
-                        if let flight = store.trip.flightDate {
+                        if let flight = trip.flightDate {
                             Text(flightDateFormatted(flight))
                                 .font(.system(size: 13, weight: .black, design: .monospaced))
                                 .foregroundStyle(AppTheme.sakuraPink)
@@ -338,7 +338,7 @@ struct DashboardView: View {
 
                 Spacer(minLength: 12)
 
-                Text(store.trip.name.uppercased())
+                Text(trip.name.uppercased())
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppTheme.textSecondary)
 
@@ -377,7 +377,7 @@ struct DashboardView: View {
                     .tracking(4)
                     .foregroundStyle(AppTheme.textPrimary)
 
-                Text(store.trip.name.uppercased())
+                Text(trip.name.uppercased())
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppTheme.textSecondary)
 
@@ -398,9 +398,62 @@ struct DashboardView: View {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ru_RU")
         formatter.dateFormat = "d MMM"
-        let start = formatter.string(from: store.trip.startDate)
-        let end = formatter.string(from: store.trip.endDate)
-        return "\(start) – \(end) // \(store.trip.totalDays) дн."
+        let start = formatter.string(from: trip.startDate)
+        let end = formatter.string(from: trip.endDate)
+        return "\(start) – \(end) // \(trip.totalDays) дн."
+    }
+
+    // MARK: - Suica Wallet Section
+
+    private var suicaWalletSection: some View {
+        Button {
+            if let url = URL(string: "shoebox://") {
+                UIApplication.shared.open(url) { success in
+                    if !success {
+                        if let appStore = URL(string: "https://apps.apple.com/app/suica/id1156875272") {
+                            UIApplication.shared.open(appStore)
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(AppTheme.bambooGreen)
+                    .frame(width: 5)
+
+                HStack(spacing: AppTheme.spacingS) {
+                    Image(systemName: "creditcard.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 36, height: 36)
+                        .background(AppTheme.bambooGreen)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("SUICA")
+                            .font(.system(size: 12, weight: .black))
+                            .tracking(2)
+                            .foregroundStyle(AppTheme.textPrimary)
+                        Text("ОТКРЫТЬ APPLE WALLET")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(1)
+                            .foregroundStyle(AppTheme.textMuted)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(AppTheme.bambooGreen)
+                }
+                .padding(AppTheme.spacingM)
+            }
+            .background(AppTheme.card)
+            .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 2))
+        }
+        .padding(.horizontal, AppTheme.spacingM)
+        .padding(.top, AppTheme.spacingM)
+        .offset(y: statsOffset)
     }
 
     // MARK: - Pink Banner
@@ -413,11 +466,11 @@ struct DashboardView: View {
             .padding(.horizontal, AppTheme.spacingM)
 
             HStack(spacing: 0) {
-                bannerStat("\(store.placesVisitedCount)/\(store.totalPlacesCount)", label: "МЕСТ", icon: "mappin.and.ellipse")
+                bannerStat("\(trip.placesVisitedCount)/\(trip.totalPlacesCount)", label: "МЕСТ", icon: "mappin.and.ellipse")
                 Rectangle().fill(.white.opacity(0.2)).frame(width: 2)
                 bannerStat("\(uniqueCities.count)", label: "ГОРОДОВ", icon: "building.2")
                 Rectangle().fill(.white.opacity(0.2)).frame(width: 2)
-                bannerStat(formatYen(store.totalSpent), label: "ПОТРАЧЕНО", icon: "yensign")
+                bannerStat(formatYen(trip.totalSpent), label: "ПОТРАЧЕНО", icon: "yensign")
             }
             .frame(height: 80)
             .background(AppTheme.sakuraPink)
@@ -446,7 +499,7 @@ struct DashboardView: View {
     }
 
     private var uniqueCities: [String] {
-        Array(Set(store.days.map(\.cityName))).sorted()
+        Array(Set(trip.days.map(\.cityName))).sorted()
     }
 
     // MARK: - Stats
@@ -455,13 +508,13 @@ struct DashboardView: View {
         VStack(spacing: 2) {
             HStack(spacing: 2) {
                 boldStat(
-                    value: "\(store.journalEntries.count)",
+                    value: "\(trip.journalEntries.count)",
                     label: "ЗАПИСЕЙ",
                     icon: "book.fill",
                     color: AppTheme.sakuraPink
                 )
                 boldStat(
-                    value: "\(Int(store.budgetUsedPercent * 100))%",
+                    value: "\(Int(trip.budgetUsedPercent * 100))%",
                     label: "БЮДЖЕТА",
                     icon: "chart.bar.fill",
                     color: AppTheme.templeGold
@@ -516,7 +569,7 @@ struct DashboardView: View {
                         .foregroundStyle(AppTheme.sakuraPink)
                 }
                 Spacer()
-                Text(formatYen(store.trip.budget))
+                Text(formatYen(trip.budget))
                     .font(.system(size: 14, weight: .black, design: .monospaced))
                     .foregroundStyle(AppTheme.textSecondary)
             }
@@ -548,7 +601,7 @@ struct DashboardView: View {
                         )
                         .frame(width: geo.size.width * budgetWidth)
 
-                    Text("\(Int(store.budgetUsedPercent * 100))%")
+                    Text("\(Int(trip.budgetUsedPercent * 100))%")
                         .font(.system(size: 22, weight: .black, design: .monospaced))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
@@ -563,7 +616,7 @@ struct DashboardView: View {
                         .font(.system(size: 8, weight: .bold))
                         .tracking(2)
                         .foregroundStyle(AppTheme.textMuted)
-                    Text(formatYen(store.totalSpent))
+                    Text(formatYen(trip.totalSpent))
                         .font(.system(size: 16, weight: .black, design: .monospaced))
                         .foregroundStyle(AppTheme.toriiRed)
                 }
@@ -577,18 +630,18 @@ struct DashboardView: View {
                         .font(.system(size: 8, weight: .bold))
                         .tracking(2)
                         .foregroundStyle(AppTheme.textMuted)
-                    Text(formatYen(store.remainingBudget))
+                    Text(formatYen(trip.remainingBudget))
                         .font(.system(size: 16, weight: .black, design: .monospaced))
-                        .foregroundStyle(store.remainingBudget >= 0 ? AppTheme.bambooGreen : AppTheme.toriiRed)
+                        .foregroundStyle(trip.remainingBudget >= 0 ? AppTheme.bambooGreen : AppTheme.toriiRed)
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(AppTheme.spacingS)
             }
             .background(AppTheme.card)
 
-            if !store.expensesByCategory.isEmpty {
-                let maxAmount = store.expensesByCategory.first?.total ?? 1
-                ForEach(store.expensesByCategory, id: \.category) { item in
+            if !trip.expensesByCategory.isEmpty {
+                let maxAmount = trip.expensesByCategory.first?.total ?? 1
+                ForEach(trip.expensesByCategory, id: \.category) { item in
                     HStack(spacing: 0) {
                         Rectangle()
                             .fill(AppTheme.expenseColor(for: item.category))
@@ -634,8 +687,8 @@ struct DashboardView: View {
     }
 
     private var budgetBarColor: Color {
-        if store.budgetUsedPercent > 0.9 { return AppTheme.toriiRed }
-        if store.budgetUsedPercent > 0.7 { return AppTheme.templeGold }
+        if trip.budgetUsedPercent > 0.9 { return AppTheme.toriiRed }
+        if trip.budgetUsedPercent > 0.7 { return AppTheme.templeGold }
         return AppTheme.bambooGreen
     }
 
@@ -654,7 +707,7 @@ struct DashboardView: View {
                         .tracking(4)
                         .foregroundStyle(AppTheme.sakuraPink)
                     Spacer()
-                    Text("\(store.recentExpenses.count)")
+                    Text("\(trip.recentExpenses.count)")
                         .font(.system(size: 16, weight: .black, design: .monospaced))
                         .foregroundStyle(AppTheme.sakuraPink.opacity(0.4))
                 }
@@ -662,7 +715,7 @@ struct DashboardView: View {
             }
             .background(AppTheme.card)
 
-            ForEach(Array(store.recentExpenses.enumerated()), id: \.element.id) { index, expense in
+            ForEach(Array(trip.recentExpenses.enumerated()), id: \.element.id) { index, expense in
                 HStack(spacing: 0) {
                     Rectangle()
                         .fill(AppTheme.expenseColor(for: expense.category))
@@ -709,6 +762,9 @@ struct DashboardView: View {
     }
 }
 
+#if DEBUG
 #Preview {
-    DashboardView(store: TripStore())
+    DashboardView(trip: .preview)
+        .modelContainer(.preview)
 }
+#endif

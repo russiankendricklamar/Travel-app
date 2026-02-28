@@ -1,8 +1,16 @@
 import SwiftUI
+import SwiftData
 
 struct DayDetailView: View {
-    let store: TripStore
+    let trip: Trip
     let day: TripDay
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var showingEditDay = false
+    @State private var showingAddPlace = false
+    @State private var showingAddEvent = false
+    @State private var editingPlace: Place?
+    @State private var editingEvent: TripEvent?
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -27,6 +35,46 @@ struct DayDetailView: View {
         .background(AppTheme.background)
         .navigationTitle(day.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showingEditDay = true
+                    } label: {
+                        Label("Редактировать день", systemImage: "pencil")
+                    }
+                    Button {
+                        showingAddPlace = true
+                    } label: {
+                        Label("Добавить место", systemImage: "mappin.circle")
+                    }
+                    Button {
+                        showingAddEvent = true
+                    } label: {
+                        Label("Добавить событие", systemImage: "calendar.badge.plus")
+                    }
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(AppTheme.sakuraPink)
+                }
+            }
+        }
+        .sheet(isPresented: $showingEditDay) {
+            EditDaySheet(day: day)
+        }
+        .sheet(isPresented: $showingAddPlace) {
+            AddPlaceSheet(day: day)
+        }
+        .sheet(isPresented: $showingAddEvent) {
+            AddEventSheet(day: day)
+        }
+        .sheet(item: $editingPlace) { place in
+            AddPlaceSheet(day: day, editing: place)
+        }
+        .sheet(item: $editingEvent) { event in
+            AddEventSheet(day: day, editing: event)
+        }
     }
 
     // MARK: - Header
@@ -58,7 +106,6 @@ struct DayDetailView: View {
             .padding(AppTheme.spacingM)
             .background(AppTheme.oceanBlue)
 
-            // Progress bar under header
             GeometryReader { geo in
                 let progress = day.places.isEmpty ? 0.0 : Double(day.visitedCount) / Double(day.places.count)
                 ZStack(alignment: .leading) {
@@ -88,6 +135,18 @@ struct DayDetailView: View {
 
             ForEach(day.events.sorted(by: { $0.startTime < $1.startTime })) { event in
                 EventCard(event: event)
+                    .contextMenu {
+                        Button {
+                            editingEvent = event
+                        } label: {
+                            Label("Редактировать", systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            modelContext.delete(event)
+                        } label: {
+                            Label("Удалить", systemImage: "trash")
+                        }
+                    }
             }
         }
     }
@@ -107,6 +166,18 @@ struct DayDetailView: View {
 
             ForEach(Array(day.places.enumerated()), id: \.element.id) { index, place in
                 placeRow(place, index: index)
+                    .contextMenu {
+                        Button {
+                            editingPlace = place
+                        } label: {
+                            Label("Редактировать", systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            modelContext.delete(place)
+                        } label: {
+                            Label("Удалить", systemImage: "trash")
+                        }
+                    }
             }
         }
     }
@@ -129,7 +200,7 @@ struct DayDetailView: View {
             VStack(alignment: .leading, spacing: AppTheme.spacingS) {
                 HStack(alignment: .top) {
                     Button {
-                        store.togglePlaceVisited(dayId: day.id, placeId: place.id)
+                        place.isVisited.toggle()
                     } label: {
                         Image(systemName: place.isVisited ? "checkmark.square.fill" : "square")
                             .font(.system(size: 22, weight: .bold))
@@ -160,11 +231,11 @@ struct DayDetailView: View {
 
                         if let rating = place.rating {
                             StarRatingView(rating: rating) { newRating in
-                                store.ratePlace(dayId: day.id, placeId: place.id, rating: newRating)
+                                place.rating = newRating
                             }
                         } else if place.isVisited {
                             StarRatingView(rating: 0) { newRating in
-                                store.ratePlace(dayId: day.id, placeId: place.id, rating: newRating)
+                                place.rating = newRating
                             }
                         }
 
@@ -219,8 +290,98 @@ struct DayDetailView: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        DayDetailView(store: TripStore(), day: TripStore().days[0])
+// MARK: - Edit Day Sheet
+
+struct EditDaySheet: View {
+    let day: TripDay
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var title: String = ""
+    @State private var cityName: String = ""
+    @State private var notes: String = ""
+    @State private var date: Date = Date()
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AppTheme.background.ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: AppTheme.spacingM) {
+                        HStack {
+                            Image(systemName: "pencil.line")
+                                .font(.system(size: 16, weight: .bold))
+                            Text("РЕДАКТИРОВАТЬ ДЕНЬ")
+                                .font(.system(size: 12, weight: .black))
+                                .tracking(3)
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(AppTheme.oceanBlue)
+
+                        SakuraFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
+                            TextField("Название дня", text: $title)
+                                .textFieldStyle(SakuraTextFieldStyle())
+                        }
+                        SakuraFormField(label: "ГОРОД", color: AppTheme.oceanBlue) {
+                            TextField("Город", text: $cityName)
+                                .textFieldStyle(SakuraTextFieldStyle())
+                        }
+                        SakuraFormField(label: "ДАТА", color: AppTheme.sakuraPink) {
+                            DatePicker("", selection: $date, displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                                .labelsHidden()
+                                .tint(AppTheme.sakuraPink)
+                        }
+                        SakuraFormField(label: "ЗАМЕТКИ", color: AppTheme.textMuted) {
+                            TextField("Заметки", text: $notes)
+                                .textFieldStyle(SakuraTextFieldStyle())
+                        }
+                    }
+                    .padding(AppTheme.spacingM)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Text("ОТМЕНА")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(1)
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        day.title = title.trimmingCharacters(in: .whitespaces)
+                        day.cityName = cityName.trimmingCharacters(in: .whitespaces)
+                        day.notes = notes.trimmingCharacters(in: .whitespaces)
+                        day.date = date
+                        dismiss()
+                    } label: {
+                        Text("СОХРАНИТЬ")
+                            .font(.system(size: 11, weight: .black))
+                            .tracking(1)
+                            .foregroundStyle(AppTheme.sakuraPink)
+                    }
+                }
+            }
+            .onAppear {
+                title = day.title
+                cityName = day.cityName
+                notes = day.notes
+                date = day.date
+            }
+        }
     }
 }
+
+#if DEBUG
+#Preview {
+    let trip = Trip.preview
+    NavigationStack {
+        DayDetailView(trip: trip, day: trip.sortedDays[0])
+    }
+    .modelContainer(.preview)
+}
+#endif
