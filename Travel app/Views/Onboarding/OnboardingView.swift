@@ -456,7 +456,7 @@ struct OnboardingView: View {
         )
         modelContext.insert(trip)
 
-        NotificationManager.shared.scheduleAll(for: trip)
+        Task { await NotificationManager.shared.scheduleAll(for: trip) }
 
         hasCompletedOnboarding = true
     }

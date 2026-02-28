@@ -6,16 +6,24 @@ struct ExpensesView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showingAddSheet = false
 
+    @AppStorage("preferredCurrency") private var preferredCurrency = "JPY"
+
     private var sortedExpenses: [Expense] {
         trip.expenses.sorted { $0.date > $1.date }
     }
 
+    private var currency: CurrencyService { CurrencyService.shared }
+
+    private func formatAmount(_ jpyAmount: Double) -> String {
+        if preferredCurrency == "JPY" {
+            return currency.format(jpyAmount, currency: "JPY")
+        }
+        let converted = currency.convert(jpyAmount, from: "JPY", to: preferredCurrency)
+        return currency.format(converted, currency: preferredCurrency)
+    }
+
     private func formatYen(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.groupingSeparator = " "
-        let formatted = formatter.string(from: NSNumber(value: Int(amount))) ?? "0"
-        return "\u{00A5}\(formatted)"
+        currency.format(amount, currency: "JPY")
     }
 
     var body: some View {
@@ -64,7 +72,7 @@ struct ExpensesView: View {
                         .font(.system(size: 9, weight: .bold))
                         .tracking(3)
                         .foregroundStyle(.tertiary)
-                    Text(formatYen(trip.totalSpent))
+                    Text(formatAmount(trip.totalSpent))
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundStyle(AppTheme.toriiRed)
                 }
@@ -90,7 +98,7 @@ struct ExpensesView: View {
                         .font(.system(size: 9, weight: .bold))
                         .tracking(3)
                         .foregroundStyle(.tertiary)
-                    Text(formatYen(trip.remainingBudget))
+                    Text(formatAmount(trip.remainingBudget))
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundStyle(trip.remainingBudget >= 0 ? AppTheme.bambooGreen : AppTheme.toriiRed)
                 }
@@ -103,7 +111,7 @@ struct ExpensesView: View {
                     .tracking(2)
                     .foregroundStyle(.white.opacity(0.8))
                 Spacer()
-                Text(formatYen(trip.budget))
+                Text(formatAmount(trip.budget))
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
             }
@@ -163,7 +171,7 @@ struct ExpensesView: View {
                         }
                         .frame(height: 8)
 
-                        Text(formatYen(item.total))
+                        Text(formatAmount(item.total))
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
                     }
@@ -243,9 +251,16 @@ struct ExpensesView: View {
                 }
             }
             Spacer()
-            Text(formatYen(expense.amount))
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(formatAmount(expense.amount))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                if preferredCurrency != "JPY" {
+                    Text(formatYen(expense.amount))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                }
+            }
         }
         .padding(10)
         .background(.ultraThinMaterial)

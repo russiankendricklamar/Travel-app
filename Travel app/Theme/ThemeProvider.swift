@@ -40,9 +40,9 @@ enum ColorPalette: String, CaseIterable, Identifiable {
             ]
         case .midnight:
             return [
-                Color(hex: "0F0A1A"),
-                Color(hex: "1A0F2E"),
-                Color(hex: "150A25"),
+                Color(hex: "000000"),
+                Color(hex: "050505"),
+                Color(hex: "0A0A0A"),
             ]
         case .imperial:
             return [

@@ -12,11 +12,21 @@ struct AddExpenseSheet: View {
     @State private var category: ExpenseCategory = .food
     @State private var date = Date()
     @State private var notes = ""
+    @State private var inputCurrency = "JPY"
+
+    private var currency: CurrencyService { CurrencyService.shared }
 
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
             && Double(amountText) != nil
             && Double(amountText)! > 0
+    }
+
+    private var convertedJPY: Double? {
+        guard let amount = Double(amountText), amount > 0 else { return nil }
+        if inputCurrency == "JPY" { return amount }
+        let result = currency.convert(amount, from: inputCurrency, to: "JPY")
+        return result > 0 ? result : nil
     }
 
     var body: some View {
@@ -30,10 +40,26 @@ struct AddExpenseSheet: View {
                             .textFieldStyle(GlassTextFieldStyle())
                     }
 
-                    GlassFormField(label: "СУММА (JPY)", color: AppTheme.templeGold) {
-                        TextField("1290", text: $amountText)
-                            .keyboardType(.numberPad)
-                            .textFieldStyle(GlassTextFieldStyle())
+                    // Amount + currency selector
+                    GlassFormField(label: "СУММА (\(inputCurrency))", color: AppTheme.templeGold) {
+                        VStack(spacing: AppTheme.spacingS) {
+                            TextField(inputCurrency == "JPY" ? "1290" : "10.00", text: $amountText)
+                                .keyboardType(inputCurrency == "JPY" ? .numberPad : .decimalPad)
+                                .textFieldStyle(GlassTextFieldStyle())
+
+                            currencySelector
+
+                            if inputCurrency != "JPY", let jpy = convertedJPY {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 10))
+                                    Text("\u{2248} \u{00A5}\(Int(jpy))")
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                }
+                                .foregroundStyle(AppTheme.templeGold)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
                     }
 
                     GlassFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
@@ -82,10 +108,51 @@ struct AddExpenseSheet: View {
                     category = e.category
                     date = e.date
                     notes = e.notes
+                    inputCurrency = "JPY"
+                }
+            }
+            .task {
+                await currency.fetchRates()
+            }
+        }
+    }
+
+    // MARK: - Currency Selector
+
+    private var currencySelector: some View {
+        HStack(spacing: 6) {
+            ForEach(CurrencyService.supportedCurrencies, id: \.self) { code in
+                let isSelected = inputCurrency == code
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
+                        inputCurrency = code
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(CurrencyService.symbols[code] ?? code)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                        Text(code)
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(0.5)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(isSelected ? .white : .secondary)
+                    .background(isSelected ? AppTheme.templeGold : .clear)
+                    .background { if !isSelected { Color.clear.background(.ultraThinMaterial) } }
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule().stroke(
+                            isSelected ? AppTheme.templeGold.opacity(0.5) : Color.white.opacity(0.2),
+                            lineWidth: 0.5
+                        )
+                    )
                 }
             }
         }
     }
+
+    // MARK: - Category Picker
 
     private var categoryPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -120,19 +187,30 @@ struct AddExpenseSheet: View {
         }
     }
 
+    // MARK: - Save
+
     private func saveExpense() {
         guard let amount = Double(amountText), amount > 0 else { return }
 
+        // Convert to JPY if needed
+        let jpyAmount: Double
+        if inputCurrency == "JPY" {
+            jpyAmount = amount
+        } else {
+            jpyAmount = currency.convert(amount, from: inputCurrency, to: "JPY")
+            guard jpyAmount > 0 else { return }
+        }
+
         if let e = editing {
             e.title = title.trimmingCharacters(in: .whitespaces)
-            e.amount = amount
+            e.amount = jpyAmount
             e.category = category
             e.date = date
             e.notes = notes.trimmingCharacters(in: .whitespaces)
         } else {
             let expense = Expense(
                 title: title.trimmingCharacters(in: .whitespaces),
-                amount: amount,
+                amount: jpyAmount,
                 category: category,
                 date: date,
                 notes: notes.trimmingCharacters(in: .whitespaces)

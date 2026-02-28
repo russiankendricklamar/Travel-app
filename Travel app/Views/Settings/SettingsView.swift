@@ -13,9 +13,45 @@ struct SettingsView: View {
     @AppStorage("notif_morning") private var notifMorning = true
     @AppStorage("notif_event") private var notifEvent = true
     @AppStorage("notif_budget") private var notifBudget = true
+    @AppStorage("notif_weather") private var notifWeather = true
+
+    // Notification times (stored as hour * 60 + minute)
+    @AppStorage("notif_morning_time") private var morningTimeMinutes = 480   // 8:00
+    @AppStorage("notif_event_lead") private var eventLeadMinutes = 30       // 30 min before
+    @AppStorage("notif_weather_morning_time") private var weatherMorningMinutes = 480  // 8:00
+    @AppStorage("notif_weather_evening_time") private var weatherEveningMinutes = 1260 // 21:00
+
+    // Bindings for DatePicker
+    private var morningTime: Binding<Date> {
+        timeBinding(minutes: $morningTimeMinutes)
+    }
+    private var weatherMorningTime: Binding<Date> {
+        timeBinding(minutes: $weatherMorningMinutes)
+    }
+    private var weatherEveningTime: Binding<Date> {
+        timeBinding(minutes: $weatherEveningMinutes)
+    }
+
+    private func timeBinding(minutes: Binding<Int>) -> Binding<Date> {
+        Binding<Date>(
+            get: {
+                let h = minutes.wrappedValue / 60
+                let m = minutes.wrappedValue % 60
+                return Calendar.current.date(from: DateComponents(hour: h, minute: m)) ?? Date()
+            },
+            set: { newDate in
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                minutes.wrappedValue = (comps.hour ?? 8) * 60 + (comps.minute ?? 0)
+            }
+        )
+    }
 
     // Currency
     @AppStorage("preferredCurrency") private var currency = "JPY"
+    @AppStorage("useCustomRates") private var useCustomRates = false
+    @AppStorage("customRate_USD") private var customRateUSD: Double = 150.0
+    @AppStorage("customRate_RUB") private var customRateRUB: Double = 1.7
+    @AppStorage("customRate_CNY") private var customRateCNY: Double = 21.0
 
     @State private var showResetConfirmation = false
 
@@ -30,6 +66,7 @@ struct SettingsView: View {
                     paletteSection
                     notificationSection
                     currencySection
+                    exchangeRatesSection
                     languageSection
                     dataSection
                     aboutSection
@@ -134,19 +171,19 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("УВЕДОМЛЕНИЯ", icon: "bell.fill")
 
-            notifToggle(
+            notifToggleWithTime(
                 title: "Утренний план",
-                subtitle: "Каждый день в 8:00",
                 icon: "sunrise.fill",
                 color: AppTheme.templeGold,
-                isOn: $notifMorning
+                isOn: $notifMorning,
+                time: morningTime
             )
-            notifToggle(
+            notifToggleWithPicker(
                 title: "Напоминания о событиях",
-                subtitle: "За 30 мин до начала",
                 icon: "clock.fill",
                 color: AppTheme.sakuraPink,
-                isOn: $notifEvent
+                isOn: $notifEvent,
+                leadMinutes: $eventLeadMinutes
             )
             notifToggle(
                 title: "Бюджет",
@@ -154,6 +191,14 @@ struct SettingsView: View {
                 icon: "yensign.circle.fill",
                 color: AppTheme.toriiRed,
                 isOn: $notifBudget
+            )
+            notifToggleWithTwoTimes(
+                title: "Прогноз погоды",
+                icon: "cloud.sun.fill",
+                color: AppTheme.oceanBlue,
+                isOn: $notifWeather,
+                morningTime: weatherMorningTime,
+                eveningTime: weatherEveningTime
             )
         }
         .padding(AppTheme.spacingM)
@@ -200,6 +245,82 @@ struct SettingsView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
     }
 
+    private func notifToggleWithTime(title: String, icon: String, color: Color, isOn: Binding<Bool>, time: Binding<Date>) -> some View {
+        VStack(spacing: 0) {
+            notifToggle(title: title, subtitle: formatTimeMinutes(time.wrappedValue), icon: icon, color: color, isOn: isOn)
+            if isOn.wrappedValue {
+                DatePicker("", selection: time, displayedComponents: .hourAndMinute)
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .frame(height: 100)
+                    .clipped()
+                    .padding(.horizontal, 10)
+            }
+        }
+    }
+
+    private func notifToggleWithPicker(title: String, icon: String, color: Color, isOn: Binding<Bool>, leadMinutes: Binding<Int>) -> some View {
+        VStack(spacing: 0) {
+            notifToggle(title: title, subtitle: "За \(leadMinutes.wrappedValue) мин до начала", icon: icon, color: color, isOn: isOn)
+            if isOn.wrappedValue {
+                HStack(spacing: 8) {
+                    ForEach([15, 30, 60], id: \.self) { mins in
+                        let selected = leadMinutes.wrappedValue == mins
+                        Button {
+                            withAnimation(.spring(response: 0.3)) { leadMinutes.wrappedValue = mins }
+                        } label: {
+                            Text("\(mins) мин")
+                                .font(.system(size: 12, weight: .bold))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .foregroundStyle(selected ? .white : .secondary)
+                                .background(selected ? color : .clear)
+                                .background { if !selected { Color.clear.background(.ultraThinMaterial) } }
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(selected ? color.opacity(0.5) : Color.white.opacity(0.2), lineWidth: 0.5))
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(10)
+            }
+        }
+    }
+
+    private func notifToggleWithTwoTimes(title: String, icon: String, color: Color, isOn: Binding<Bool>, morningTime: Binding<Date>, eveningTime: Binding<Date>) -> some View {
+        VStack(spacing: 0) {
+            notifToggle(title: title, subtitle: "\(formatTimeMinutes(morningTime.wrappedValue)) и \(formatTimeMinutes(eveningTime.wrappedValue))", icon: icon, color: color, isOn: isOn)
+            if isOn.wrappedValue {
+                VStack(spacing: 6) {
+                    HStack {
+                        Text("Утро")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        DatePicker("", selection: morningTime, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .tint(color)
+                    }
+                    HStack {
+                        Text("Вечер")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        DatePicker("", selection: eveningTime, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .tint(color)
+                    }
+                }
+                .padding(10)
+            }
+        }
+    }
+
+    private func formatTimeMinutes(_ date: Date) -> String {
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return String(format: "%d:%02d", comps.hour ?? 0, comps.minute ?? 0)
+    }
+
     // MARK: - Currency Section
 
     private var currencySection: some View {
@@ -207,12 +328,12 @@ struct SettingsView: View {
             sectionLabel("ВАЛЮТА", icon: "banknote.fill")
 
             HStack(spacing: 8) {
-                ForEach(["JPY", "USD", "EUR", "RUB"], id: \.self) { code in
+                ForEach(CurrencyService.supportedCurrencies, id: \.self) { code in
                     currencyButton(code)
                 }
             }
 
-            Text("Только для отображения. Суммы хранятся в JPY.")
+            Text("Для отображения сумм. Хранение в JPY.")
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 4)
@@ -228,7 +349,7 @@ struct SettingsView: View {
 
     private func currencyButton(_ code: String) -> some View {
         let isSelected = currency == code
-        let symbols: [String: String] = ["JPY": "\u{00A5}", "USD": "$", "EUR": "\u{20AC}", "RUB": "\u{20BD}"]
+        let symbols = CurrencyService.symbols
         return Button {
             withAnimation(.spring(response: 0.3)) { currency = code }
         } label: {
@@ -251,6 +372,121 @@ struct SettingsView: View {
                     .stroke(isSelected ? AppTheme.sakuraPink : Color.white.opacity(0.15), lineWidth: isSelected ? 1.5 : 0.5)
             )
         }
+    }
+
+    // MARK: - Exchange Rates Section
+
+    private var exchangeRatesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("КУРСЫ ВАЛЮТ", icon: "arrow.left.arrow.right")
+
+            Toggle(isOn: $useCustomRates) {
+                HStack(spacing: 8) {
+                    Image(systemName: useCustomRates ? "hand.draw.fill" : "antenna.radiowaves.left.and.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppTheme.templeGold)
+                    Text(useCustomRates ? "Свои курсы" : "Онлайн курсы")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+            }
+            .tint(AppTheme.sakuraPink)
+            .padding(10)
+            .background(.thinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+
+            if useCustomRates {
+                customRateRow("USD", binding: $customRateUSD)
+                customRateRow("RUB", binding: $customRateRUB)
+                customRateRow("CNY", binding: $customRateCNY)
+            } else {
+                apiRatesView
+            }
+        }
+        .padding(AppTheme.spacingM)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+        .task {
+            if !useCustomRates {
+                await CurrencyService.shared.fetchRates()
+            }
+        }
+    }
+
+    private func customRateRow(_ code: String, binding: Binding<Double>) -> some View {
+        HStack(spacing: 8) {
+            Text("1 \(code)")
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
+                .frame(width: 55, alignment: .leading)
+            Text("=")
+                .foregroundStyle(.secondary)
+            TextField("150", value: binding, format: .number)
+                .keyboardType(.decimalPad)
+                .textFieldStyle(GlassTextFieldStyle())
+                .frame(maxWidth: 100)
+            Text("JPY")
+                .font(.system(size: 11, weight: .bold))
+                .tracking(1)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(10)
+        .background(.thinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+    }
+
+    private var apiRatesView: some View {
+        let svc = CurrencyService.shared
+        return VStack(spacing: 6) {
+            ForEach(["USD", "RUB", "CNY"], id: \.self) { code in
+                let jpyPer = svc.jpyPerUnit(of: code)
+                HStack {
+                    Text("1 \(code)")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Text(jpyPer > 0 ? "\u{00A5}\(String(format: "%.2f", jpyPer))" : "—")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(AppTheme.templeGold)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+            }
+
+            HStack {
+                if let updated = svc.lastUpdated {
+                    Text("Обновлено: \(updated, style: .relative) назад")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                }
+                Spacer()
+                Button {
+                    Task {
+                        svc.invalidateCache()
+                        await svc.fetchRates()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        if svc.isLoading {
+                            ProgressView().scaleEffect(0.6)
+                        }
+                        Text("Обновить")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundStyle(AppTheme.templeGold)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 4)
+        }
+        .padding(.vertical, 8)
+        .background(.thinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
     }
 
     // MARK: - Language Section

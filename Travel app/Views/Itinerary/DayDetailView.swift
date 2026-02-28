@@ -26,6 +26,7 @@ struct DayDetailView: View {
         ScrollView {
             VStack(spacing: AppTheme.spacingM) {
                 headerSection
+                DayWeatherSection(day: day)
                 gpsTrackingSection
                 if !day.events.isEmpty {
                     eventsSection

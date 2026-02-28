@@ -4,6 +4,7 @@ struct SideMenuView: View {
     @Binding var isOpen: Bool
     let trip: Trip
     @State private var showSettings = false
+    @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
 
     var body: some View {
         ZStack {
@@ -46,6 +47,7 @@ struct SideMenuView: View {
                 )
                 .shadow(color: .black.opacity(0.2), radius: 24, x: 8, y: 0)
                 .offset(x: isOpen ? 0 : -320)
+                .id(palette)
 
                 Spacer()
             }
@@ -60,21 +62,6 @@ struct SideMenuView: View {
 
     private var profileHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [AppTheme.sakuraPink, AppTheme.sakuraPink.opacity(0.6)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 56, height: 56)
-                Text("JP")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-
             Text(trip.name)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(.primary)

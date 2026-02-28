@@ -32,6 +32,7 @@ struct DashboardView: View {
                             countdownSeconds: countdownSeconds,
                             statsOffset: statsOffset
                         )
+                        DashboardWeatherSection(trip: trip)
                     case .active:
                         DashboardActiveSection(
                             trip: trip,
@@ -40,6 +41,7 @@ struct DashboardView: View {
                             counterValue: counterValue,
                             budgetWidth: budgetWidth
                         )
+                        DashboardWeatherSection(trip: trip)
                     case .postTrip:
                         postTripHero
                         statsBanner
