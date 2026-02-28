@@ -28,7 +28,6 @@ enum SampleData {
 
         buildDays(trip: trip, startDate: startDate, calendar: calendar)
         buildExpenses(trip: trip, startDate: startDate, calendar: calendar)
-        buildJournal(trip: trip, startDate: startDate, calendar: calendar)
 
         context.insert(trip)
     }
@@ -251,22 +250,4 @@ enum SampleData {
         ])
     }
 
-    // MARK: - Journal
-
-    private static func buildJournal(trip: Trip, startDate: Date, calendar: Calendar) {
-        trip.journalEntries.append(contentsOf: [
-            JournalEntry(
-                date: startDate,
-                title: "Первый день в Токио!",
-                content: "Наконец-то прилетел в Нариту. Система поездов невероятно удобная. Перекрёсток Сибуя ночью завораживает \u{2014} сотни людей движутся в идеальной гармонии. Рамен в Ichiran \u{2014} лучший, что я пробовал. Это путешествие уже превосходит все ожидания.",
-                mood: .amazing
-            ),
-            JournalEntry(
-                date: calendar.date(byAdding: .day, value: 1, to: startDate)!,
-                title: "Храмы и аниме",
-                content: "Сэнсо-дзи в утреннем тумане \u{2014} волшебство. Дым благовоний, огромный фонарь у ворот Каминаримон. На улице Накамисэ столько вкусного. Акихабара днём \u{2014} перегрузка всех чувств в лучшем смысле.",
-                mood: .happy
-            )
-        ])
-    }
 }

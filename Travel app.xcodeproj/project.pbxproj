@@ -251,6 +251,8 @@
 				DEVELOPMENT_TEAM = 9UCR65VBLX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "GPS-трекинг маршрутов в стиле Strava для записи путешествия";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Отображение вашего местоположения на карте путешествия";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -284,6 +286,8 @@
 				DEVELOPMENT_TEAM = 9UCR65VBLX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "GPS-трекинг маршрутов в стиле Strava для записи путешествия";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Отображение вашего местоположения на карте путешествия";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

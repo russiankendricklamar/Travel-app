@@ -1,15 +1,9 @@
 import SwiftUI
 
 enum AppTheme {
-    // MARK: - Background Colors (Sakura Light)
-    static let background = Color(hex: "FEFCFD")
-    static let surface = Color(hex: "FDF2F8")
-    static let card = Color(hex: "FFFFFF")
-    static let cardHover = Color(hex: "FFF5F9")
-
-    // MARK: - Accent Colors (Japan Sakura)
-    static let sakuraPink = Color(hex: "EC4899")
-    static let sakuraLight = Color(hex: "FBCFE8")
+    // MARK: - Accent Colors — palette-aware
+    static var sakuraPink: Color { ColorPalette.current.accentColor }
+    static var sakuraLight: Color { sakuraPink.opacity(0.3) }
     static let toriiRed = Color(hex: "E11D48")
     static let templeGold = Color(hex: "D97706")
     static let bambooGreen = Color(hex: "16A34A")
@@ -22,20 +16,42 @@ enum AppTheme {
     static let softGreen = Color(hex: "F0FDF4")
     static let softBlue = Color(hex: "EFF6FF")
 
-    // MARK: - Text Colors (Dark on Light)
+    // MARK: - Legacy Colors (kept for backward compat, prefer .primary/.secondary)
+    static let background = Color(hex: "FEFCFD")
+    static let surface = Color(hex: "FDF2F8")
+    static let card = Color(hex: "FFFFFF")
+    static let cardHover = Color(hex: "FFF5F9")
     static let textPrimary = Color(hex: "1A1A2E")
     static let textSecondary = Color(hex: "64748B")
     static let textMuted = Color(hex: "94A3B8")
 
     // MARK: - Semantic Colors
-    static let primary = sakuraPink
+    static var primary: Color { sakuraPink }
     static let success = bambooGreen
     static let warning = templeGold
     static let info = oceanBlue
 
     // MARK: - Border
     static let border = Color(hex: "F3D5E4")
-    static let borderAccent = sakuraPink
+    static var borderAccent: Color { sakuraPink }
+
+    // MARK: - Glassmorphism Radii
+    static let radiusSmall: CGFloat = 8
+    static let radiusMedium: CGFloat = 16
+    static let radiusLarge: CGFloat = 20
+    static let radiusXL: CGFloat = 24
+
+    // MARK: - Spacing
+    static let spacingXS: CGFloat = 4
+    static let spacingS: CGFloat = 8
+    static let spacingM: CGFloat = 16
+    static let spacingL: CGFloat = 24
+    static let spacingXL: CGFloat = 32
+
+    // MARK: - Glass Border Widths
+    static let borderWidth: CGFloat = 0.5
+    static let borderWidthThick: CGFloat = 1.0
+    static let borderWidthBold: CGFloat = 1.5
 
     // MARK: - Category Colors
     static func categoryColor(for category: String) -> Color {
@@ -64,34 +80,6 @@ enum AppTheme {
         }
     }
 
-    // MARK: - Mood Colors
-    static func moodColor(for mood: Mood) -> Color {
-        switch mood {
-        case .amazing: return templeGold
-        case .happy: return bambooGreen
-        case .neutral: return oceanBlue
-        case .tired: return textMuted
-        case .frustrated: return toriiRed
-        }
-    }
-
-    // MARK: - Brutalist: No Rounded Corners
-    static let radiusSmall: CGFloat = 0
-    static let radiusMedium: CGFloat = 0
-    static let radiusLarge: CGFloat = 0
-    static let radiusXL: CGFloat = 0
-
-    // MARK: - Spacing
-    static let spacingXS: CGFloat = 4
-    static let spacingS: CGFloat = 8
-    static let spacingM: CGFloat = 16
-    static let spacingL: CGFloat = 24
-    static let spacingXL: CGFloat = 32
-
-    // MARK: - Brutalist Border Width
-    static let borderWidth: CGFloat = 2
-    static let borderWidthThick: CGFloat = 3
-    static let borderWidthBold: CGFloat = 4
 }
 
 // MARK: - Color Extension for Hex
@@ -120,62 +108,81 @@ extension Color {
     }
 }
 
-// MARK: - Brutalist View Modifiers
+// MARK: - Glassmorphism View Modifiers
 
 struct CardStyle: ViewModifier {
+    @Environment(\.colorScheme) var scheme
+
     func body(content: Content) -> some View {
         content
-            .background(AppTheme.card)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
             .overlay(
-                Rectangle()
-                    .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
+                RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                    .stroke(Color.white.opacity(scheme == .dark ? 0.12 : 0.3), lineWidth: 0.5)
             )
+            .shadow(color: .black.opacity(0.08), radius: 16, x: 0, y: 8)
     }
 }
 
 struct SurfaceStyle: ViewModifier {
+    @Environment(\.colorScheme) var scheme
+
     func body(content: Content) -> some View {
         content
-            .background(AppTheme.surface)
+            .background(.thinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
             .overlay(
-                Rectangle()
-                    .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
+                RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                    .stroke(Color.white.opacity(scheme == .dark ? 0.08 : 0.2), lineWidth: 0.5)
             )
     }
 }
 
 struct AccentCardStyle: ViewModifier {
+    @Environment(\.colorScheme) var scheme
+
     func body(content: Content) -> some View {
         content
-            .background(AppTheme.card)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
             .overlay(
-                Rectangle()
-                    .stroke(AppTheme.sakuraPink, lineWidth: AppTheme.borderWidthThick)
+                RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [AppTheme.sakuraPink.opacity(0.6), AppTheme.sakuraPink.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
             )
+            .shadow(color: AppTheme.sakuraPink.opacity(0.12), radius: 12, x: 0, y: 6)
     }
 }
 
-/// Bold card with a thick colored left accent bar
 struct AccentBarCardStyle: ViewModifier {
     let accentColor: Color
+    @Environment(\.colorScheme) var scheme
 
     func body(content: Content) -> some View {
         HStack(spacing: 0) {
-            Rectangle()
+            RoundedRectangle(cornerRadius: 2)
                 .fill(accentColor)
-                .frame(width: 5)
+                .frame(width: 4)
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(AppTheme.card)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
         .overlay(
-            Rectangle()
-                .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
+            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                .stroke(Color.white.opacity(scheme == .dark ? 0.1 : 0.25), lineWidth: 0.5)
         )
+        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
 }
 
-/// Glitch-offset card — a shadow rectangle behind for depth
 struct GlitchCardStyle: ViewModifier {
     let glitchColor: Color
     let offset: CGFloat
@@ -185,37 +192,70 @@ struct GlitchCardStyle: ViewModifier {
         self.offset = offset
     }
 
+    @Environment(\.colorScheme) var scheme
+
     func body(content: Content) -> some View {
-        ZStack {
-            Rectangle()
-                .fill(glitchColor.opacity(0.3))
-                .offset(x: offset, y: offset)
-            content
-                .background(AppTheme.card)
-                .overlay(
-                    Rectangle()
-                        .stroke(glitchColor, lineWidth: AppTheme.borderWidthThick)
-                )
-        }
+        content
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [glitchColor.opacity(0.5), glitchColor.opacity(0.1), .clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+            )
+            .shadow(color: glitchColor.opacity(0.2), radius: 20, x: 0, y: 10)
     }
 }
 
-/// Section header with full-width colored background
 struct BoldSectionHeader: View {
     let title: String
     let color: Color
 
     var body: some View {
-        Text(title)
-            .font(.system(size: 11, weight: .black))
-            .tracking(4)
-            .foregroundStyle(color == AppTheme.card ? AppTheme.textPrimary : .white)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, AppTheme.spacingM)
-            .padding(.vertical, 10)
-            .background(color)
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color)
+                .frame(width: 4, height: 16)
+            Text(title)
+                .font(.system(size: 11, weight: .bold))
+                .tracking(2)
+                .foregroundStyle(color)
+            Spacer()
+        }
+        .padding(.horizontal, AppTheme.spacingM)
+        .padding(.vertical, 10)
     }
 }
+
+// MARK: - Gradient Background
+
+struct GradientBackground: ViewModifier {
+    @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
+
+    private var resolved: ColorPalette {
+        ColorPalette(rawValue: palette) ?? .sakura
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                LinearGradient(
+                    colors: resolved.backgroundColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+            }
+    }
+}
+
+// MARK: - View Extensions
 
 extension View {
     func cardStyle() -> some View {
@@ -236,5 +276,9 @@ extension View {
 
     func glitchCard(_ color: Color = AppTheme.sakuraPink, offset: CGFloat = 5) -> some View {
         modifier(GlitchCardStyle(glitchColor: color, offset: offset))
+    }
+
+    func sakuraGradientBackground() -> some View {
+        modifier(GradientBackground())
     }
 }

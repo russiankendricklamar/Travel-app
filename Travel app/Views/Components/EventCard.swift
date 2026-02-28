@@ -8,66 +8,62 @@ struct EventCard: View {
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Color bar + icon
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(event.category.color)
-                    .frame(width: 48)
-                    .overlay(
-                        VStack(spacing: 4) {
-                            Image(systemName: event.category.systemImage)
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundStyle(.white)
-                            if event.isOngoing {
-                                Circle()
-                                    .fill(.white)
-                                    .frame(width: 6, height: 6)
-                                    .opacity(pulseOpacity)
-                            }
-                        }
+        HStack(spacing: AppTheme.spacingS) {
+            // Icon circle
+            Image(systemName: event.category.systemImage)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(
+                    LinearGradient(
+                        colors: [event.category.color, event.category.color.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
-            }
+                )
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+                .overlay {
+                    if event.isOngoing {
+                        RoundedRectangle(cornerRadius: AppTheme.radiusSmall)
+                            .stroke(event.category.color, lineWidth: 2)
+                            .opacity(pulseOpacity)
+                    }
+                }
 
-            VStack(alignment: .leading, spacing: 6) {
-                // Time range
+            VStack(alignment: .leading, spacing: 4) {
+                // Time range + status
                 HStack {
                     Text(event.formattedTimeRange)
-                        .font(.system(size: 12, weight: .black, design: .monospaced))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundStyle(event.category.color)
 
-                    Rectangle()
-                        .fill(event.category.color.opacity(0.3))
-                        .frame(height: 1)
+                    Spacer()
 
                     Text(event.formattedDuration)
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(AppTheme.textMuted)
-
-                    Spacer()
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.tertiary)
 
                     statusBadge
                 }
 
                 // Title
-                Text(event.title.uppercased())
+                Text(event.title)
                     .font(.system(size: 14, weight: .bold))
-                    .tracking(0.5)
-                    .foregroundStyle(AppTheme.textPrimary)
+                    .foregroundStyle(.primary)
 
                 if !event.subtitle.isEmpty {
                     Text(event.subtitle)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                 }
 
                 // Progress bar for ongoing events
                 if event.isOngoing {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            Rectangle()
-                                .fill(AppTheme.surface)
-                            Rectangle()
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(.thinMaterial)
+                            RoundedRectangle(cornerRadius: 3)
                                 .fill(event.category.color)
                                 .frame(width: geo.size.width * event.progress)
                         }
@@ -76,7 +72,7 @@ struct EventCard: View {
 
                     if let remaining = event.timeUntilEnd {
                         Text(formatRemaining(remaining))
-                            .font(.system(size: 10, weight: .black, design: .monospaced))
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
                             .foregroundStyle(event.category.color)
                     }
                 }
@@ -95,18 +91,22 @@ struct EventCard: View {
                 if !event.notes.isEmpty {
                     Text(event.notes)
                         .font(.system(size: 11))
-                        .foregroundStyle(AppTheme.textMuted)
+                        .foregroundStyle(.tertiary)
                 }
             }
-            .padding(AppTheme.spacingS)
         }
-        .background(event.isOngoing ? event.category.color.opacity(0.04) : AppTheme.card)
+        .padding(AppTheme.spacingS)
+        .background(event.isOngoing ? event.category.color.opacity(0.06) : .clear)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
         .overlay(
-            Rectangle().stroke(
-                event.isOngoing ? event.category.color : AppTheme.border,
-                lineWidth: event.isOngoing ? 2 : 1
-            )
+            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                .stroke(
+                    event.isOngoing ? event.category.color.opacity(0.4) : Color.white.opacity(0.15),
+                    lineWidth: event.isOngoing ? 1 : 0.5
+                )
         )
+        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
         .onReceive(timer) { _ in
             now = Date()
         }
@@ -114,19 +114,20 @@ struct EventCard: View {
 
     private var pulseOpacity: Double {
         let interval = now.timeIntervalSince1970
-        return 0.5 + 0.5 * sin(interval * 2)
+        return 0.3 + 0.7 * sin(interval * 2)
     }
 
     private var statusBadge: some View {
         Group {
             if event.isOngoing {
                 Text("СЕЙЧАС")
-                    .font(.system(size: 8, weight: .black))
+                    .font(.system(size: 8, weight: .bold))
                     .tracking(1)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
                     .foregroundStyle(.white)
                     .background(event.category.color)
+                    .clipShape(Capsule())
             } else if event.isPast {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 12))
@@ -144,35 +145,4 @@ struct EventCard: View {
         }
         return "\(minutes)мин"
     }
-}
-
-#Preview {
-    let calendar = Calendar.current
-    let now = Date()
-    let events = [
-        TripEvent(
-            id: UUID(), title: "Shinkansen Nozomi",
-            subtitle: "Токио → Киото",
-            category: .train,
-            startTime: calendar.date(byAdding: .minute, value: -30, to: now)!,
-            endTime: calendar.date(byAdding: .hour, value: 1, to: now)!,
-            notes: "Вагон 7, место 3A"
-        ),
-        TripEvent(
-            id: UUID(), title: "Прилёт в Нариту",
-            subtitle: "NRT → Токио",
-            category: .flight,
-            startTime: calendar.date(byAdding: .hour, value: 2, to: now)!,
-            endTime: calendar.date(byAdding: .hour, value: 3, to: now)!,
-            notes: ""
-        )
-    ]
-
-    VStack(spacing: 8) {
-        ForEach(events) { event in
-            EventCard(event: event)
-        }
-    }
-    .padding()
-    .background(AppTheme.background)
 }

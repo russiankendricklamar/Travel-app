@@ -8,45 +8,41 @@ struct StatCard: View {
     let color: Color
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Bold color accent bar
-            Rectangle()
-                .fill(color)
-                .frame(width: 5)
-
+        HStack {
             VStack(alignment: .leading, spacing: AppTheme.spacingS) {
-                HStack {
-                    Image(systemName: icon)
-                        .font(.system(size: 16, weight: .black))
-                        .foregroundStyle(color)
-                    Spacer()
-                }
-
                 Text(value)
-                    .font(.system(size: 26, weight: .black, design: .monospaced))
-                    .foregroundStyle(AppTheme.textPrimary)
-                    .shadow(color: color.opacity(0.2), radius: 8, x: 0, y: 0)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(color)
 
                 Text(title.uppercased())
-                    .font(.system(size: 10, weight: .black))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(2)
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
 
                 if !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(AppTheme.textMuted)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.tertiary)
                 }
             }
-            .padding(AppTheme.spacingM)
+            Spacer()
+            Image(systemName: icon)
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(color.opacity(0.2))
         }
+        .padding(AppTheme.spacingM)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.card)
-        .overlay(Rectangle().stroke(AppTheme.border, lineWidth: AppTheme.borderWidth))
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(color.opacity(0.15), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
     }
 }
 
-// MARK: - Progress Ring (Brutalist: Square)
+// MARK: - Progress Ring (Glass: Circular)
 
 struct ProgressRing: View {
     let progress: Double
@@ -63,20 +59,20 @@ struct ProgressRing: View {
 
     var body: some View {
         ZStack {
-            Rectangle()
+            Circle()
                 .stroke(color.opacity(0.15), lineWidth: lineWidth)
 
-            Rectangle()
+            Circle()
                 .trim(from: 0, to: min(progress, 1.0))
-                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .square))
+                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .shadow(color: color.opacity(0.4), radius: 4, x: 0, y: 0)
+                .shadow(color: color.opacity(0.3), radius: 4, x: 0, y: 0)
         }
         .frame(width: size, height: size)
     }
 }
 
-// MARK: - Category Badge (Brutalist Bold)
+// MARK: - Category Badge (Glass: Capsule)
 
 struct CategoryBadge: View {
     let category: PlaceCategory
@@ -88,21 +84,18 @@ struct CategoryBadge: View {
             Image(systemName: category.systemImage)
                 .font(.system(size: 10, weight: .bold))
             Text(category.rawValue.uppercased())
-                .font(.system(size: 9, weight: .black))
+                .font(.system(size: 9, weight: .bold))
                 .tracking(0.5)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
         .foregroundStyle(color)
-        .background(color.opacity(0.15))
-        .overlay(
-            Rectangle()
-                .stroke(color.opacity(0.4), lineWidth: 1.5)
-        )
+        .background(color.opacity(0.12))
+        .clipShape(Capsule())
     }
 }
 
-// MARK: - Star Rating (Bolder)
+// MARK: - Star Rating
 
 struct StarRatingView: View {
     let rating: Int
@@ -120,7 +113,7 @@ struct StarRatingView: View {
             ForEach(1...maxRating, id: \.self) { index in
                 Image(systemName: index <= rating ? "star.fill" : "star")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(index <= rating ? AppTheme.templeGold : AppTheme.textMuted.opacity(0.4))
+                    .foregroundStyle(index <= rating ? AppTheme.templeGold : Color.secondary.opacity(0.3))
                     .shadow(
                         color: index <= rating ? AppTheme.templeGold.opacity(0.3) : .clear,
                         radius: 3,
@@ -149,5 +142,4 @@ struct StarRatingView: View {
         ProgressRing(progress: 0.65, color: AppTheme.toriiRed)
     }
     .padding()
-    .background(AppTheme.background)
 }

@@ -10,8 +10,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     var isTracking = false
     var currentLocation: CLLocationCoordinate2D?
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
-
-    private var activeDay: TripDay?
+    private(set) var activeDay: TripDay?
     private var modelContext: ModelContext?
 
     private override init() {

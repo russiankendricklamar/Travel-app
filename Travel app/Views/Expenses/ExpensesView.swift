@@ -10,15 +10,11 @@ struct ExpensesView: View {
         trip.expenses.sorted { $0.date > $1.date }
     }
 
-    private var currencyFormatter: NumberFormatter {
+    private func formatYen(_ amount: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.groupingSeparator = " "
-        return formatter
-    }
-
-    private func formatYen(_ amount: Double) -> String {
-        let formatted = currencyFormatter.string(from: NSNumber(value: Int(amount))) ?? "0"
+        let formatted = formatter.string(from: NSNumber(value: Int(amount))) ?? "0"
         return "\u{00A5}\(formatted)"
     }
 
@@ -33,22 +29,14 @@ struct ExpensesView: View {
                 .padding(.horizontal, AppTheme.spacingM)
                 .padding(.bottom, AppTheme.spacingXL)
             }
-            .background(AppTheme.background)
+            .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    HStack(spacing: 6) {
-                        Rectangle()
-                            .fill(AppTheme.sakuraPink)
-                            .frame(width: 12, height: 3)
-                        Text("РАСХОДЫ")
-                            .font(.system(size: 14, weight: .black))
-                            .tracking(4)
-                            .foregroundStyle(AppTheme.textPrimary)
-                        Rectangle()
-                            .fill(AppTheme.sakuraPink)
-                            .frame(width: 12, height: 3)
-                    }
+                    Text("РАСХОДЫ")
+                        .font(.system(size: 14, weight: .bold))
+                        .tracking(4)
+                        .foregroundStyle(AppTheme.sakuraPink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -69,19 +57,19 @@ struct ExpensesView: View {
     // MARK: - Summary
 
     private var summarySection: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
+        VStack(spacing: AppTheme.spacingS) {
+            HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ПОТРАЧЕНО")
                         .font(.system(size: 9, weight: .bold))
                         .tracking(3)
-                        .foregroundStyle(AppTheme.textMuted)
+                        .foregroundStyle(.tertiary)
                     Text(formatYen(trip.totalSpent))
-                        .font(.system(size: 28, weight: .black, design: .monospaced))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundStyle(AppTheme.toriiRed)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(AppTheme.spacingM)
+
+                Spacer()
 
                 ZStack {
                     ProgressRing(
@@ -91,24 +79,23 @@ struct ExpensesView: View {
                         size: 60
                     )
                     Text("\(Int(trip.budgetUsedPercent * 100))%")
-                        .font(.system(size: 14, weight: .black, design: .monospaced))
-                        .foregroundStyle(AppTheme.textPrimary)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
                 }
-                .padding(.vertical, AppTheme.spacingS)
+
+                Spacer()
 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("ОСТАТОК")
                         .font(.system(size: 9, weight: .bold))
                         .tracking(3)
-                        .foregroundStyle(AppTheme.textMuted)
+                        .foregroundStyle(.tertiary)
                     Text(formatYen(trip.remainingBudget))
-                        .font(.system(size: 20, weight: .black, design: .monospaced))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundStyle(trip.remainingBudget >= 0 ? AppTheme.bambooGreen : AppTheme.toriiRed)
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(AppTheme.spacingM)
             }
-            .background(AppTheme.card)
+            .padding(AppTheme.spacingM)
 
             HStack {
                 Text("БЮДЖЕТ")
@@ -117,133 +104,156 @@ struct ExpensesView: View {
                     .foregroundStyle(.white.opacity(0.8))
                 Spacer()
                 Text(formatYen(trip.budget))
-                    .font(.system(size: 11, weight: .black, design: .monospaced))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
             }
             .padding(.horizontal, AppTheme.spacingM)
-            .padding(.vertical, 6)
-            .background(AppTheme.sakuraPink)
+            .padding(.vertical, 8)
+            .background(
+                LinearGradient(
+                    colors: [AppTheme.sakuraPink, AppTheme.sakuraPink.opacity(0.8)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
         }
-        .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 2))
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 6)
     }
 
     // MARK: - Category Breakdown
 
     private var categoryBreakdown: some View {
         VStack(spacing: 0) {
-            BoldSectionHeader(title: "ПО КАТЕГОРИЯМ", color: AppTheme.card)
-                .overlay(
-                    Rectangle().fill(AppTheme.templeGold).frame(width: 4),
-                    alignment: .leading
-                )
-                .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 1))
+            GlassSectionHeader(title: "ПО КАТЕГОРИЯМ", color: AppTheme.templeGold)
 
             let maxAmount = trip.expensesByCategory.first?.total ?? 1
 
-            ForEach(Array(trip.expensesByCategory.enumerated()), id: \.element.category) { index, item in
-                HStack(spacing: 0) {
-                    Rectangle()
-                        .fill(AppTheme.expenseColor(for: item.category))
-                        .frame(width: 5)
-                    HStack(spacing: AppTheme.spacingS) {
+            VStack(spacing: 6) {
+                ForEach(trip.expensesByCategory, id: \.category) { item in
+                    let color = AppTheme.expenseColor(for: item.category)
+                    HStack(spacing: 8) {
                         Image(systemName: item.category.systemImage)
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(.white)
-                            .frame(width: 30, height: 30)
-                            .background(AppTheme.expenseColor(for: item.category))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.category.rawValue.uppercased())
-                                .font(.system(size: 10, weight: .black))
-                                .tracking(1)
-                                .foregroundStyle(AppTheme.textPrimary)
-                            GeometryReader { geo in
-                                ZStack(alignment: .leading) {
-                                    Rectangle().fill(AppTheme.surface)
-                                    Rectangle()
-                                        .fill(AppTheme.expenseColor(for: item.category).opacity(0.35))
-                                        .frame(width: geo.size.width * (item.total / maxAmount))
-                                }
+                            .frame(width: 28, height: 28)
+                            .background(color)
+                            .clipShape(RoundedRectangle(cornerRadius: 7))
+
+                        Text(item.category.rawValue.uppercased())
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(1)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 70, alignment: .leading)
+
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(color.opacity(0.1))
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(color.opacity(0.4))
+                                    .frame(width: geo.size.width * (item.total / maxAmount))
                             }
-                            .frame(height: 4)
                         }
-                        Spacer()
+                        .frame(height: 8)
+
                         Text(formatYen(item.total))
-                            .font(.system(size: 13, weight: .black, design: .monospaced))
-                            .foregroundStyle(AppTheme.textPrimary)
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
                     }
-                    .padding(.horizontal, AppTheme.spacingS)
-                    .padding(.vertical, 10)
                 }
-                .background(index % 2 == 0 ? AppTheme.card : AppTheme.surface)
             }
+            .padding(.horizontal, AppTheme.spacingM)
+            .padding(.bottom, AppTheme.spacingM)
         }
-        .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 2))
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
     }
 
     // MARK: - Expenses List
 
     private var expensesList: some View {
         VStack(spacing: 0) {
-            BoldSectionHeader(title: "ВСЕ РАСХОДЫ", color: AppTheme.card)
-                .overlay(
-                    Rectangle().fill(AppTheme.sakuraPink).frame(width: 4),
-                    alignment: .leading
-                )
-                .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 1))
+            GlassSectionHeader(title: "ВСЕ РАСХОДЫ", color: AppTheme.sakuraPink)
 
-            ForEach(Array(sortedExpenses.enumerated()), id: \.element.id) { index, expense in
-                expenseRow(expense, index: index)
-                    .contextMenu {
-                        Button(role: .destructive) {
-                            modelContext.delete(expense)
-                        } label: {
-                            Label("Удалить", systemImage: "trash")
+            VStack(spacing: 6) {
+                ForEach(sortedExpenses) { expense in
+                    expenseRow(expense)
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                modelContext.delete(expense)
+                            } label: {
+                                Label("Удалить", systemImage: "trash")
+                            }
                         }
-                    }
+                }
             }
+            .padding(.horizontal, AppTheme.spacingM)
+            .padding(.bottom, AppTheme.spacingM)
         }
-        .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 2))
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
     }
 
-    private func expenseRow(_ expense: Expense, index: Int) -> some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(AppTheme.expenseColor(for: expense.category))
-                .frame(width: 4)
-            HStack(spacing: AppTheme.spacingS) {
-                Image(systemName: expense.category.systemImage)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 34, height: 34)
-                    .background(AppTheme.expenseColor(for: expense.category))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(expense.title.uppercased())
-                        .font(.system(size: 12, weight: .bold))
-                        .tracking(0.5)
-                        .foregroundStyle(AppTheme.textPrimary)
-                        .lineLimit(1)
-                    HStack(spacing: AppTheme.spacingXS) {
-                        Text(expense.category.rawValue.uppercased())
-                            .font(.system(size: 8, weight: .black))
-                            .tracking(1)
-                            .foregroundStyle(AppTheme.expenseColor(for: expense.category))
-                        Rectangle()
-                            .fill(AppTheme.textMuted)
-                            .frame(width: 1, height: 8)
-                        Text(expense.date, style: .date)
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(AppTheme.textMuted)
-                    }
+    private func expenseRow(_ expense: Expense) -> some View {
+        let color = AppTheme.expenseColor(for: expense.category)
+        return HStack(spacing: AppTheme.spacingS) {
+            Image(systemName: expense.category.systemImage)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(
+                    LinearGradient(
+                        colors: [color, color.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(expense.title)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                HStack(spacing: AppTheme.spacingXS) {
+                    Text(expense.category.rawValue.uppercased())
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(color)
+                    Text(expense.date, style: .date)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.tertiary)
                 }
-                Spacer()
-                Text(formatYen(expense.amount))
-                    .font(.system(size: 15, weight: .black, design: .monospaced))
-                    .foregroundStyle(AppTheme.textPrimary)
             }
-            .padding(.horizontal, AppTheme.spacingS)
-            .padding(.vertical, 10)
+            Spacer()
+            Text(formatYen(expense.amount))
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
         }
-        .background(index % 2 == 0 ? AppTheme.card : AppTheme.surface)
+        .padding(10)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+        )
     }
 }
 

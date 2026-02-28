@@ -18,47 +18,35 @@ struct AddDaySheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppTheme.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: AppTheme.spacingM) {
-                        HStack {
-                            Image(systemName: "calendar.badge.plus")
-                                .font(.system(size: 16, weight: .bold))
-                            Text("НОВЫЙ ДЕНЬ")
-                                .font(.system(size: 12, weight: .black))
-                                .tracking(3)
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(AppTheme.sakuraPink)
+            ScrollView {
+                VStack(spacing: AppTheme.spacingM) {
+                    SheetHeader(icon: "calendar.badge.plus", title: "НОВЫЙ ДЕНЬ", color: AppTheme.sakuraPink)
 
-                        SakuraFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                            TextField("Прилёт и Сибуя", text: $title)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-
-                        SakuraFormField(label: "ГОРОД", color: AppTheme.oceanBlue) {
-                            TextField("Токио", text: $cityName)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-
-                        SakuraFormField(label: "ДАТА", color: AppTheme.sakuraPink) {
-                            DatePicker("", selection: $date, displayedComponents: .date)
-                                .datePickerStyle(.compact)
-                                .labelsHidden()
-                                .tint(AppTheme.sakuraPink)
-                        }
-
-                        SakuraFormField(label: "ЗАМЕТКИ", color: AppTheme.textMuted) {
-                            TextField("Дополнительные детали...", text: $notes)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
+                    GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
+                        TextField("Прилёт и Сибуя", text: $title)
+                            .textFieldStyle(GlassTextFieldStyle())
                     }
-                    .padding(AppTheme.spacingM)
+
+                    GlassFormField(label: "ГОРОД", color: AppTheme.oceanBlue) {
+                        TextField("Токио", text: $cityName)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+
+                    GlassFormField(label: "ДАТА", color: AppTheme.sakuraPink) {
+                        DatePicker("", selection: $date, displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .tint(AppTheme.sakuraPink)
+                    }
+
+                    GlassFormField(label: "ЗАМЕТКИ", color: .secondary) {
+                        TextField("Дополнительные детали...", text: $notes)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
                 }
+                .padding(AppTheme.spacingM)
             }
+            .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -66,15 +54,15 @@ struct AddDaySheet: View {
                         Text("ОТМЕНА")
                             .font(.system(size: 11, weight: .bold))
                             .tracking(1)
-                            .foregroundStyle(AppTheme.textSecondary)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { save() } label: {
                         Text("СОХРАНИТЬ")
-                            .font(.system(size: 11, weight: .black))
+                            .font(.system(size: 11, weight: .bold))
                             .tracking(1)
-                            .foregroundStyle(isValid ? AppTheme.sakuraPink : AppTheme.textMuted)
+                            .foregroundStyle(isValid ? AppTheme.sakuraPink : .secondary)
                     }
                     .disabled(!isValid)
                 }

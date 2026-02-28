@@ -33,22 +33,14 @@ struct ItineraryView: View {
                 .padding(.horizontal, AppTheme.spacingM)
                 .padding(.bottom, AppTheme.spacingXL)
             }
-            .background(AppTheme.background)
+            .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    HStack(spacing: 6) {
-                        Rectangle()
-                            .fill(AppTheme.sakuraPink)
-                            .frame(width: 12, height: 3)
-                        Text("МАРШРУТ")
-                            .font(.system(size: 14, weight: .black))
-                            .tracking(4)
-                            .foregroundStyle(AppTheme.textPrimary)
-                        Rectangle()
-                            .fill(AppTheme.sakuraPink)
-                            .frame(width: 12, height: 3)
-                    }
+                    Text("МАРШРУТ")
+                        .font(.system(size: 14, weight: .bold))
+                        .tracking(4)
+                        .foregroundStyle(AppTheme.sakuraPink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -75,33 +67,32 @@ struct ItineraryView: View {
         let isToday = day.isToday
         let isPast = day.isPast
 
-        return HStack(spacing: 0) {
+        return HStack(spacing: AppTheme.spacingS) {
+            // Day number
             VStack(spacing: 2) {
                 if isToday {
                     Text("СЕЙЧАС")
-                        .font(.system(size: 8, weight: .black))
+                        .font(.system(size: 8, weight: .bold))
                         .tracking(1)
                         .foregroundStyle(.white)
                 } else {
                     Text(String(format: "%02d", index + 1))
-                        .font(.system(size: 28, weight: .black, design: .monospaced))
-                        .foregroundStyle(isToday ? .white : (isPast ? AppTheme.textMuted : AppTheme.sakuraPink))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(isPast ? Color.secondary.opacity(0.5) : AppTheme.sakuraPink)
                 }
                 if !isToday {
                     Text("ДЕНЬ")
                         .font(.system(size: 7, weight: .bold))
                         .tracking(2)
-                        .foregroundStyle(isToday ? .white.opacity(0.8) : AppTheme.textMuted)
+                        .foregroundStyle(.tertiary)
                 }
             }
-            .frame(width: 56)
+            .frame(width: 52)
             .frame(maxHeight: .infinity)
-            .background(isToday ? AppTheme.sakuraPink : AppTheme.sakuraPink.opacity(isPast ? 0.03 : 0.06))
+            .background(isToday ? AppTheme.sakuraPink : AppTheme.sakuraPink.opacity(isPast ? 0.04 : 0.08))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
 
-            Rectangle()
-                .fill(dayAccentColor(day))
-                .frame(width: 4)
-
+            // Content
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
@@ -109,16 +100,17 @@ struct ItineraryView: View {
                             Text(dateFormatter.string(from: day.date).uppercased())
                                 .font(.system(size: 9, weight: .bold))
                                 .tracking(1.5)
-                                .foregroundStyle(AppTheme.textMuted)
+                                .foregroundStyle(.tertiary)
 
                             if isToday {
                                 Text("СЕГОДНЯ")
-                                    .font(.system(size: 8, weight: .black))
+                                    .font(.system(size: 8, weight: .bold))
                                     .tracking(1)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
                                     .foregroundStyle(.white)
                                     .background(AppTheme.sakuraPink)
+                                    .clipShape(Capsule())
                             }
 
                             if isPast {
@@ -130,7 +122,7 @@ struct ItineraryView: View {
 
                         Text(day.title)
                             .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(isPast ? AppTheme.textSecondary : AppTheme.textPrimary)
+                            .foregroundStyle(isPast ? .secondary : .primary)
                             .multilineTextAlignment(.leading)
                     }
 
@@ -138,18 +130,19 @@ struct ItineraryView: View {
 
                     VStack(alignment: .trailing, spacing: 3) {
                         Text(day.cityName.uppercased())
-                            .font(.system(size: 9, weight: .black))
+                            .font(.system(size: 9, weight: .bold))
                             .tracking(1)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .foregroundStyle(.white)
                             .background(AppTheme.oceanBlue.opacity(isPast ? 0.5 : 1))
+                            .clipShape(Capsule())
 
                         Text("\(day.visitedCount)/\(day.places.count)")
-                            .font(.system(size: 14, weight: .black, design: .monospaced))
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundStyle(day.visitedCount == day.places.count && !day.places.isEmpty
                                 ? AppTheme.bambooGreen
-                                : AppTheme.textSecondary)
+                                : .secondary)
                     }
                 }
 
@@ -158,23 +151,19 @@ struct ItineraryView: View {
                         ForEach(day.places.prefix(5)) { place in
                             Image(systemName: place.category.systemImage)
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(
+                                .foregroundStyle(.white)
+                                .frame(width: 22, height: 22)
+                                .background(
                                     place.isVisited
                                         ? AppTheme.bambooGreen
                                         : AppTheme.categoryColor(for: place.category.rawValue)
                                 )
-                                .frame(width: 22, height: 22)
-                                .background(
-                                    (place.isVisited
-                                        ? AppTheme.bambooGreen
-                                        : AppTheme.categoryColor(for: place.category.rawValue)
-                                    ).opacity(0.1)
-                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
                         if day.places.count > 5 {
                             Text("+\(day.places.count - 5)")
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundStyle(AppTheme.textMuted)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.tertiary)
                         }
                         Spacer()
                     }
@@ -183,42 +172,47 @@ struct ItineraryView: View {
                 if !day.notes.isEmpty {
                     Text(day.notes)
                         .font(.caption)
-                        .foregroundStyle(AppTheme.textMuted)
+                        .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
 
+                // Progress bar
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
-                        Rectangle()
-                            .fill(AppTheme.surface)
-                            .frame(height: 5)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(.thinMaterial)
+                            .frame(height: 4)
 
                         let progress = day.places.isEmpty ? 0.0 : Double(day.visitedCount) / Double(day.places.count)
-                        Rectangle()
+                        RoundedRectangle(cornerRadius: 3)
                             .fill(dayAccentColor(day))
-                            .frame(width: geometry.size.width * progress, height: 5)
+                            .frame(width: geometry.size.width * progress, height: 4)
                     }
                 }
-                .frame(height: 5)
+                .frame(height: 4)
             }
-            .padding(AppTheme.spacingM)
+            .padding(AppTheme.spacingS)
         }
-        .background(AppTheme.card)
+        .padding(AppTheme.spacingXS)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
         .overlay(
-            Rectangle().stroke(
-                isToday ? AppTheme.sakuraPink : AppTheme.border,
-                lineWidth: isToday ? 3 : 2
-            )
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(
+                    isToday ? AppTheme.sakuraPink.opacity(0.4) : Color.white.opacity(0.2),
+                    lineWidth: isToday ? 1.5 : 0.5
+                )
         )
+        .shadow(color: isToday ? AppTheme.sakuraPink.opacity(0.1) : .black.opacity(0.05), radius: 8, x: 0, y: 4)
     }
 
     private func dayAccentColor(_ day: TripDay) -> Color {
         if day.isToday { return AppTheme.sakuraPink }
-        guard !day.places.isEmpty else { return AppTheme.textMuted }
+        guard !day.places.isEmpty else { return .secondary }
         let progress = Double(day.visitedCount) / Double(day.places.count)
         if progress >= 1.0 { return AppTheme.bambooGreen }
         if progress > 0 { return AppTheme.sakuraPink }
-        return AppTheme.textMuted
+        return .secondary
     }
 }
 

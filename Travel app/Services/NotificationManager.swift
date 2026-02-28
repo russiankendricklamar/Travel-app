@@ -74,30 +74,11 @@ final class NotificationManager {
         UNUserNotificationCenter.current().add(request)
     }
 
-    // MARK: - Journal Reminder (daily at 21:00)
-
-    func scheduleJournalReminders(for trip: Trip) {
-        cancelCategory("journal")
-        for day in trip.sortedDays {
-            var comps = Calendar.current.dateComponents([.year, .month, .day], from: day.date)
-            comps.hour = 21; comps.minute = 0
-            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
-            let content = UNMutableNotificationContent()
-            content.title = "Дневник"
-            content.body = "Запишите впечатления о сегодняшнем дне"
-            content.sound = .default
-            content.categoryIdentifier = "journal"
-            let request = UNNotificationRequest(identifier: "journal-\(day.id)", content: content, trigger: trigger)
-            UNUserNotificationCenter.current().add(request)
-        }
-    }
-
     // MARK: - Schedule All
 
     func scheduleAll(for trip: Trip) {
         scheduleMorningPlans(for: trip)
         scheduleAllEventReminders(for: trip)
-        scheduleJournalReminders(for: trip)
     }
 
     // MARK: - Cancel

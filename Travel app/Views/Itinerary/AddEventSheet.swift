@@ -19,53 +19,45 @@ struct AddEventSheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppTheme.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: AppTheme.spacingM) {
-                        HStack {
-                            Image(systemName: "calendar.badge.plus")
-                                .font(.system(size: 16, weight: .bold))
-                            Text(editing != nil ? "РЕДАКТИРОВАТЬ СОБЫТИЕ" : "НОВОЕ СОБЫТИЕ")
-                                .font(.system(size: 12, weight: .black))
-                                .tracking(3)
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(AppTheme.oceanBlue)
+            ScrollView {
+                VStack(spacing: AppTheme.spacingM) {
+                    SheetHeader(
+                        icon: "calendar.badge.plus",
+                        title: editing != nil ? "РЕДАКТИРОВАТЬ СОБЫТИЕ" : "НОВОЕ СОБЫТИЕ",
+                        color: AppTheme.oceanBlue
+                    )
 
-                        SakuraFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                            TextField("Shinkansen Nozomi", text: $title)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-                        SakuraFormField(label: "ОПИСАНИЕ", color: AppTheme.textMuted) {
-                            TextField("Токио → Киото", text: $subtitle)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-                        SakuraFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
-                            categoryPicker
-                        }
-                        SakuraFormField(label: "НАЧАЛО", color: AppTheme.bambooGreen) {
-                            DatePicker("", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                                .datePickerStyle(.compact)
-                                .labelsHidden()
-                                .tint(AppTheme.sakuraPink)
-                        }
-                        SakuraFormField(label: "КОНЕЦ", color: AppTheme.toriiRed) {
-                            DatePicker("", selection: $endTime, displayedComponents: [.date, .hourAndMinute])
-                                .datePickerStyle(.compact)
-                                .labelsHidden()
-                                .tint(AppTheme.sakuraPink)
-                        }
-                        SakuraFormField(label: "ЗАМЕТКИ", color: AppTheme.textMuted) {
-                            TextField("Дополнительные детали...", text: $notes)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
+                    GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
+                        TextField("Shinkansen Nozomi", text: $title)
+                            .textFieldStyle(GlassTextFieldStyle())
                     }
-                    .padding(AppTheme.spacingM)
+                    GlassFormField(label: "ОПИСАНИЕ", color: .secondary) {
+                        TextField("Токио → Киото", text: $subtitle)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+                    GlassFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
+                        categoryPicker
+                    }
+                    GlassFormField(label: "НАЧАЛО", color: AppTheme.bambooGreen) {
+                        DatePicker("", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .tint(AppTheme.sakuraPink)
+                    }
+                    GlassFormField(label: "КОНЕЦ", color: AppTheme.toriiRed) {
+                        DatePicker("", selection: $endTime, displayedComponents: [.date, .hourAndMinute])
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .tint(AppTheme.sakuraPink)
+                    }
+                    GlassFormField(label: "ЗАМЕТКИ", color: .secondary) {
+                        TextField("Дополнительные детали...", text: $notes)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
                 }
+                .padding(AppTheme.spacingM)
             }
+            .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -73,15 +65,15 @@ struct AddEventSheet: View {
                         Text("ОТМЕНА")
                             .font(.system(size: 11, weight: .bold))
                             .tracking(1)
-                            .foregroundStyle(AppTheme.textSecondary)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { save() } label: {
                         Text("СОХРАНИТЬ")
-                            .font(.system(size: 11, weight: .black))
+                            .font(.system(size: 11, weight: .bold))
                             .tracking(1)
-                            .foregroundStyle(isValid ? AppTheme.sakuraPink : AppTheme.textMuted)
+                            .foregroundStyle(isValid ? AppTheme.sakuraPink : .secondary)
                     }
                     .disabled(!isValid)
                 }
@@ -95,7 +87,6 @@ struct AddEventSheet: View {
                     endTime = e.endTime
                     notes = e.notes
                 } else {
-                    // Default times based on day's date
                     var comps = Calendar.current.dateComponents([.year, .month, .day], from: day.date)
                     comps.hour = 9
                     startTime = Calendar.current.date(from: comps) ?? Date()
@@ -108,8 +99,8 @@ struct AddEventSheet: View {
 
     private var categoryPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
-                ForEach(EventCategory.allCases) { cat in
+            HStack(spacing: 6) {
+                ForEach(Array(EventCategory.allCases), id: \.self) { (cat: EventCategory) in
                     Button {
                         category = cat
                     } label: {
@@ -117,17 +108,19 @@ struct AddEventSheet: View {
                             Image(systemName: cat.systemImage)
                                 .font(.system(size: 12, weight: .bold))
                             Text(cat.rawValue.uppercased())
-                                .font(.system(size: 10, weight: .black))
+                                .font(.system(size: 10, weight: .bold))
                                 .tracking(0.5)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
-                        .foregroundStyle(category == cat ? .white : AppTheme.textSecondary)
-                        .background(category == cat ? cat.color : AppTheme.surface)
+                        .foregroundStyle(category == cat ? .white : .secondary)
+                        .background(category == cat ? cat.color : .clear)
+                        .background { if category != cat { Color.clear.background(.ultraThinMaterial) } }
+                        .clipShape(Capsule())
                         .overlay(
-                            Rectangle().stroke(
-                                category == cat ? cat.color : AppTheme.border,
-                                lineWidth: category == cat ? 2 : 1
+                            Capsule().stroke(
+                                category == cat ? cat.color.opacity(0.5) : Color.white.opacity(0.2),
+                                lineWidth: 0.5
                             )
                         )
                     }

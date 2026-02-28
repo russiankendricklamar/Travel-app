@@ -21,61 +21,53 @@ struct AddPlaceSheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppTheme.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: AppTheme.spacingM) {
-                        HStack {
-                            Image(systemName: "mappin.circle.fill")
-                                .font(.system(size: 16, weight: .bold))
-                            Text(editing != nil ? "РЕДАКТИРОВАТЬ МЕСТО" : "НОВОЕ МЕСТО")
-                                .font(.system(size: 12, weight: .black))
-                                .tracking(3)
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(AppTheme.sakuraPink)
+            ScrollView {
+                VStack(spacing: AppTheme.spacingM) {
+                    SheetHeader(
+                        icon: "mappin.circle.fill",
+                        title: editing != nil ? "РЕДАКТИРОВАТЬ МЕСТО" : "НОВОЕ МЕСТО",
+                        color: AppTheme.sakuraPink
+                    )
 
-                        SakuraFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                            TextField("Храм Сэнсо-дзи", text: $name)
-                                .textFieldStyle(SakuraTextFieldStyle())
+                    GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
+                        TextField("Храм Сэнсо-дзи", text: $name)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+                    GlassFormField(label: "ЯПОНСКОЕ НАЗВАНИЕ", color: AppTheme.templeGold) {
+                        TextField("浅草寺", text: $nameJapanese)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+                    GlassFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
+                        categoryPicker
+                    }
+                    GlassFormField(label: "АДРЕС", color: .secondary) {
+                        TextField("Адрес", text: $address)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+                    HStack(spacing: AppTheme.spacingS) {
+                        GlassFormField(label: "ШИРОТА", color: .secondary) {
+                            TextField("35.7148", text: $latitude)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(GlassTextFieldStyle())
                         }
-                        SakuraFormField(label: "ЯПОНСКОЕ НАЗВАНИЕ", color: AppTheme.templeGold) {
-                            TextField("浅草寺", text: $nameJapanese)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-                        SakuraFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
-                            categoryPicker
-                        }
-                        SakuraFormField(label: "АДРЕС", color: AppTheme.textMuted) {
-                            TextField("Адрес", text: $address)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-                        HStack(spacing: AppTheme.spacingS) {
-                            SakuraFormField(label: "ШИРОТА", color: AppTheme.textMuted) {
-                                TextField("35.7148", text: $latitude)
-                                    .keyboardType(.decimalPad)
-                                    .textFieldStyle(SakuraTextFieldStyle())
-                            }
-                            SakuraFormField(label: "ДОЛГОТА", color: AppTheme.textMuted) {
-                                TextField("139.7967", text: $longitude)
-                                    .keyboardType(.decimalPad)
-                                    .textFieldStyle(SakuraTextFieldStyle())
-                            }
-                        }
-                        SakuraFormField(label: "ВРЕМЯ НА ПОСЕЩЕНИЕ", color: AppTheme.sakuraPink) {
-                            TextField("1,5 ч", text: $timeToSpend)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-                        SakuraFormField(label: "ЗАМЕТКИ", color: AppTheme.textMuted) {
-                            TextField("Дополнительные детали...", text: $notes)
-                                .textFieldStyle(SakuraTextFieldStyle())
+                        GlassFormField(label: "ДОЛГОТА", color: .secondary) {
+                            TextField("139.7967", text: $longitude)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(GlassTextFieldStyle())
                         }
                     }
-                    .padding(AppTheme.spacingM)
+                    GlassFormField(label: "ВРЕМЯ НА ПОСЕЩЕНИЕ", color: AppTheme.sakuraPink) {
+                        TextField("1,5 ч", text: $timeToSpend)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+                    GlassFormField(label: "ЗАМЕТКИ", color: .secondary) {
+                        TextField("Дополнительные детали...", text: $notes)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
                 }
+                .padding(AppTheme.spacingM)
             }
+            .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -83,15 +75,15 @@ struct AddPlaceSheet: View {
                         Text("ОТМЕНА")
                             .font(.system(size: 11, weight: .bold))
                             .tracking(1)
-                            .foregroundStyle(AppTheme.textSecondary)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { save() } label: {
                         Text("СОХРАНИТЬ")
-                            .font(.system(size: 11, weight: .black))
+                            .font(.system(size: 11, weight: .bold))
                             .tracking(1)
-                            .foregroundStyle(isValid ? AppTheme.sakuraPink : AppTheme.textMuted)
+                            .foregroundStyle(isValid ? AppTheme.sakuraPink : .secondary)
                     }
                     .disabled(!isValid)
                 }
@@ -113,8 +105,9 @@ struct AddPlaceSheet: View {
 
     private var categoryPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
-                ForEach(PlaceCategory.allCases) { cat in
+            HStack(spacing: 6) {
+                ForEach(Array(PlaceCategory.allCases), id: \.self) { (cat: PlaceCategory) in
+                    let color = AppTheme.categoryColor(for: cat.rawValue)
                     Button {
                         category = cat
                     } label: {
@@ -122,17 +115,19 @@ struct AddPlaceSheet: View {
                             Image(systemName: cat.systemImage)
                                 .font(.system(size: 12, weight: .bold))
                             Text(cat.rawValue.uppercased())
-                                .font(.system(size: 10, weight: .black))
+                                .font(.system(size: 10, weight: .bold))
                                 .tracking(0.5)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
-                        .foregroundStyle(category == cat ? .white : AppTheme.textSecondary)
-                        .background(category == cat ? AppTheme.categoryColor(for: cat.rawValue) : AppTheme.surface)
+                        .foregroundStyle(category == cat ? .white : .secondary)
+                        .background(category == cat ? color : .clear)
+                        .background { if category != cat { Color.clear.background(.ultraThinMaterial) } }
+                        .clipShape(Capsule())
                         .overlay(
-                            Rectangle().stroke(
-                                category == cat ? AppTheme.categoryColor(for: cat.rawValue) : AppTheme.border,
-                                lineWidth: category == cat ? 2 : 1
+                            Capsule().stroke(
+                                category == cat ? color.opacity(0.5) : Color.white.opacity(0.2),
+                                lineWidth: 0.5
                             )
                         )
                     }

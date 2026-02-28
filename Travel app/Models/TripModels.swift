@@ -23,8 +23,6 @@ final class Trip {
     @Relationship(deleteRule: .cascade, inverse: \Expense.trip)
     var expenses: [Expense] = []
 
-    @Relationship(deleteRule: .cascade, inverse: \JournalEntry.trip)
-    var journalEntries: [JournalEntry] = []
 
     init(
         id: UUID = UUID(),
@@ -493,52 +491,6 @@ enum ExpenseCategory: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-// MARK: - Journal Entry
-
-@Model
-final class JournalEntry {
-    @Attribute(.unique) var id: UUID
-    var date: Date
-    var title: String
-    var content: String
-    var mood: Mood
-
-    var trip: Trip?
-
-    init(
-        id: UUID = UUID(),
-        date: Date,
-        title: String,
-        content: String,
-        mood: Mood
-    ) {
-        self.id = id
-        self.date = date
-        self.title = title
-        self.content = content
-        self.mood = mood
-    }
-}
-
-enum Mood: String, CaseIterable, Identifiable, Codable {
-    case amazing = "Восторг"
-    case happy = "Радость"
-    case neutral = "Спокойствие"
-    case tired = "Усталость"
-    case frustrated = "Раздражение"
-
-    var id: String { rawValue }
-
-    var systemImage: String {
-        switch self {
-        case .amazing: return "star.fill"
-        case .happy: return "face.smiling"
-        case .neutral: return "face.dashed"
-        case .tired: return "moon.zzz"
-        case .frustrated: return "cloud.rain"
-        }
-    }
-}
 
 // MARK: - Preview Support
 

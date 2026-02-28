@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreLocation
 
 struct DayDetailView: View {
     let trip: Trip
@@ -12,6 +13,8 @@ struct DayDetailView: View {
     @State private var editingPlace: Place?
     @State private var editingEvent: TripEvent?
 
+    private var locationManager: LocationManager { LocationManager.shared }
+
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "ru_RU")
@@ -23,6 +26,7 @@ struct DayDetailView: View {
         ScrollView {
             VStack(spacing: AppTheme.spacingM) {
                 headerSection
+                gpsTrackingSection
                 if !day.events.isEmpty {
                     eventsSection
                 }
@@ -32,7 +36,7 @@ struct DayDetailView: View {
             .padding(.horizontal, AppTheme.spacingM)
             .padding(.bottom, AppTheme.spacingXL)
         }
-        .background(AppTheme.background)
+        .sakuraGradientBackground()
         .navigationTitle(day.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -88,14 +92,14 @@ struct DayDetailView: View {
                         .tracking(2)
                         .foregroundStyle(.white.opacity(0.8))
                     Text(day.cityName.uppercased())
-                        .font(.system(size: 22, weight: .black))
+                        .font(.system(size: 22, weight: .bold))
                         .tracking(3)
                         .foregroundStyle(.white)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 0) {
                     Text("\(day.visitedCount)/\(day.places.count)")
-                        .font(.system(size: 32, weight: .black, design: .monospaced))
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                     Text("ПОСЕЩЕНО")
                         .font(.system(size: 8, weight: .bold))
@@ -104,12 +108,19 @@ struct DayDetailView: View {
                 }
             }
             .padding(AppTheme.spacingM)
-            .background(AppTheme.oceanBlue)
+            .background(
+                LinearGradient(
+                    colors: [AppTheme.oceanBlue, AppTheme.oceanBlue.opacity(0.8)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
 
+            // Progress bar
             GeometryReader { geo in
                 let progress = day.places.isEmpty ? 0.0 : Double(day.visitedCount) / Double(day.places.count)
                 ZStack(alignment: .leading) {
-                    Rectangle().fill(AppTheme.surface)
+                    Rectangle().fill(.thinMaterial)
                     Rectangle()
                         .fill(progress >= 1.0 ? AppTheme.bambooGreen : AppTheme.sakuraPink)
                         .frame(width: geo.size.width * progress)
@@ -117,21 +128,15 @@ struct DayDetailView: View {
             }
             .frame(height: 4)
         }
-        .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 2))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .shadow(color: AppTheme.oceanBlue.opacity(0.2), radius: 12, x: 0, y: 6)
     }
 
     // MARK: - Events
 
     private var eventsSection: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            BoldSectionHeader(title: "РАСПИСАНИЕ", color: AppTheme.card)
-                .overlay(
-                    Rectangle()
-                        .fill(AppTheme.oceanBlue)
-                        .frame(width: 4),
-                    alignment: .leading
-                )
-                .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 1))
+        VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+            GlassSectionHeader(title: "РАСПИСАНИЕ", color: AppTheme.oceanBlue)
 
             ForEach(day.events.sorted(by: { $0.startTime < $1.startTime })) { event in
                 EventCard(event: event)
@@ -154,15 +159,8 @@ struct DayDetailView: View {
     // MARK: - Places
 
     private var placesSection: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            BoldSectionHeader(title: "МЕСТА", color: AppTheme.card)
-                .overlay(
-                    Rectangle()
-                        .fill(AppTheme.sakuraPink)
-                        .frame(width: 4),
-                    alignment: .leading
-                )
-                .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 1))
+        VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+            GlassSectionHeader(title: "МЕСТА", color: AppTheme.sakuraPink)
 
             ForEach(Array(day.places.enumerated()), id: \.element.id) { index, place in
                 placeRow(place, index: index)
@@ -183,39 +181,36 @@ struct DayDetailView: View {
     }
 
     private func placeRow(_ place: Place, index: Int) -> some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(place.isVisited
-                    ? AppTheme.bambooGreen
-                    : AppTheme.categoryColor(for: place.category.rawValue))
-                .frame(width: 4)
+        let accentColor = place.isVisited
+            ? AppTheme.bambooGreen
+            : AppTheme.categoryColor(for: place.category.rawValue)
 
+        return HStack(spacing: AppTheme.spacingS) {
+            // Index
             Text(String(format: "%02d", index + 1))
-                .font(.system(size: 18, weight: .black, design: .monospaced))
-                .foregroundStyle(place.isVisited
-                    ? AppTheme.bambooGreen.opacity(0.3)
-                    : AppTheme.textMuted.opacity(0.3))
-                .frame(width: 36)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(place.isVisited ? AppTheme.bambooGreen.opacity(0.3) : Color.secondary.opacity(0.5))
+                .frame(width: 30)
 
             VStack(alignment: .leading, spacing: AppTheme.spacingS) {
                 HStack(alignment: .top) {
                     Button {
                         place.isVisited.toggle()
                     } label: {
-                        Image(systemName: place.isVisited ? "checkmark.square.fill" : "square")
+                        Image(systemName: place.isVisited ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 22, weight: .bold))
-                            .foregroundStyle(place.isVisited ? AppTheme.bambooGreen : AppTheme.textMuted)
+                            .foregroundStyle(place.isVisited ? AppTheme.bambooGreen : .secondary)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(place.name)
                             .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(AppTheme.textPrimary)
+                            .foregroundStyle(.primary)
                             .strikethrough(place.isVisited, color: AppTheme.bambooGreen.opacity(0.5))
 
                         Text(place.nameJapanese)
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(AppTheme.textMuted)
+                            .foregroundStyle(.tertiary)
 
                         HStack(spacing: AppTheme.spacingS) {
                             CategoryBadge(category: place.category)
@@ -226,7 +221,7 @@ struct DayDetailView: View {
                                 Text(place.timeToSpend)
                                     .font(.system(size: 10, weight: .bold))
                             }
-                            .foregroundStyle(AppTheme.textMuted)
+                            .foregroundStyle(.tertiary)
                         }
 
                         if let rating = place.rating {
@@ -242,7 +237,7 @@ struct DayDetailView: View {
                         if !place.notes.isEmpty {
                             Text(place.notes)
                                 .font(.caption)
-                                .foregroundStyle(AppTheme.textSecondary)
+                                .foregroundStyle(.secondary)
                                 .padding(.top, 2)
                         }
                     }
@@ -258,14 +253,95 @@ struct DayDetailView: View {
                             .font(.caption2)
                             .fontWeight(.medium)
                     }
-                    .foregroundStyle(AppTheme.textMuted)
+                    .foregroundStyle(.tertiary)
                     .padding(.leading, 34)
                 }
             }
-            .padding(AppTheme.spacingM)
         }
-        .background(index % 2 == 0 ? AppTheme.card : AppTheme.surface)
-        .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 1))
+        .padding(AppTheme.spacingM)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                .stroke(accentColor.opacity(0.15), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
+    }
+
+    // MARK: - GPS Tracking
+
+    private var gpsTrackingSection: some View {
+        let isActiveForDay = locationManager.isTracking && locationManager.activeDay?.id == day.id
+        let trackingColor = isActiveForDay ? AppTheme.toriiRed : AppTheme.bambooGreen
+
+        return HStack(spacing: AppTheme.spacingS) {
+            Image(systemName: isActiveForDay ? "location.fill" : "location")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(trackingColor)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("GPS-ТРЕКИНГ")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(2)
+                    .foregroundStyle(.primary)
+
+                if isActiveForDay {
+                    Text("\(day.routePoints.count) ТОЧЕК ЗАПИСАНО")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .tracking(1)
+                        .foregroundStyle(AppTheme.toriiRed)
+                } else if !day.routePoints.isEmpty {
+                    Text("\(day.routePoints.count) ТОЧЕК")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .tracking(1)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    Text("ЗАПИШИТЕ МАРШРУТ ДНЯ")
+                        .font(.system(size: 9, weight: .medium))
+                        .tracking(1)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                toggleTracking()
+            } label: {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(isActiveForDay ? AppTheme.toriiRed : AppTheme.bambooGreen)
+                        .frame(width: 8, height: 8)
+                    Text(isActiveForDay ? "СТОП" : "СТАРТ")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .foregroundStyle(.white)
+                .background(isActiveForDay ? AppTheme.toriiRed : AppTheme.bambooGreen)
+                .clipShape(Capsule())
+            }
+        }
+        .padding(AppTheme.spacingM)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                .stroke(trackingColor.opacity(0.2), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
+    }
+
+    private func toggleTracking() {
+        if locationManager.isTracking && locationManager.activeDay?.id == day.id {
+            locationManager.stopTracking()
+        } else {
+            if locationManager.authorizationStatus == .notDetermined {
+                locationManager.requestPermission()
+            }
+            locationManager.startTracking(for: day, context: modelContext)
+        }
     }
 
     // MARK: - Notes
@@ -274,17 +350,22 @@ struct DayDetailView: View {
         Group {
             if !day.notes.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
-                    BoldSectionHeader(title: "ЗАМЕТКИ", color: AppTheme.templeGold.opacity(0.9))
+                    GlassSectionHeader(title: "ЗАМЕТКИ", color: AppTheme.templeGold)
 
                     Text(day.notes)
                         .font(.subheadline)
-                        .foregroundStyle(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                         .lineSpacing(4)
                         .padding(AppTheme.spacingM)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppTheme.card)
                 }
-                .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 2))
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
             }
         }
     }
@@ -303,44 +384,32 @@ struct EditDaySheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppTheme.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: AppTheme.spacingM) {
-                        HStack {
-                            Image(systemName: "pencil.line")
-                                .font(.system(size: 16, weight: .bold))
-                            Text("РЕДАКТИРОВАТЬ ДЕНЬ")
-                                .font(.system(size: 12, weight: .black))
-                                .tracking(3)
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(AppTheme.oceanBlue)
+            ScrollView {
+                VStack(spacing: AppTheme.spacingM) {
+                    SheetHeader(icon: "pencil.line", title: "РЕДАКТИРОВАТЬ ДЕНЬ", color: AppTheme.oceanBlue)
 
-                        SakuraFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                            TextField("Название дня", text: $title)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-                        SakuraFormField(label: "ГОРОД", color: AppTheme.oceanBlue) {
-                            TextField("Город", text: $cityName)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-                        SakuraFormField(label: "ДАТА", color: AppTheme.sakuraPink) {
-                            DatePicker("", selection: $date, displayedComponents: .date)
-                                .datePickerStyle(.compact)
-                                .labelsHidden()
-                                .tint(AppTheme.sakuraPink)
-                        }
-                        SakuraFormField(label: "ЗАМЕТКИ", color: AppTheme.textMuted) {
-                            TextField("Заметки", text: $notes)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
+                    GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
+                        TextField("Название дня", text: $title)
+                            .textFieldStyle(GlassTextFieldStyle())
                     }
-                    .padding(AppTheme.spacingM)
+                    GlassFormField(label: "ГОРОД", color: AppTheme.oceanBlue) {
+                        TextField("Город", text: $cityName)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+                    GlassFormField(label: "ДАТА", color: AppTheme.sakuraPink) {
+                        DatePicker("", selection: $date, displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .tint(AppTheme.sakuraPink)
+                    }
+                    GlassFormField(label: "ЗАМЕТКИ", color: .secondary) {
+                        TextField("Заметки", text: $notes)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
                 }
+                .padding(AppTheme.spacingM)
             }
+            .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -348,7 +417,7 @@ struct EditDaySheet: View {
                         Text("ОТМЕНА")
                             .font(.system(size: 11, weight: .bold))
                             .tracking(1)
-                            .foregroundStyle(AppTheme.textSecondary)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -360,7 +429,7 @@ struct EditDaySheet: View {
                         dismiss()
                     } label: {
                         Text("СОХРАНИТЬ")
-                            .font(.system(size: 11, weight: .black))
+                            .font(.system(size: 11, weight: .bold))
                             .tracking(1)
                             .foregroundStyle(AppTheme.sakuraPink)
                     }

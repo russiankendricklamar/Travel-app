@@ -5,70 +5,56 @@ struct MainTabView: View {
     @Query var trips: [Trip]
     @Environment(\.modelContext) private var modelContext
     @State private var selectedTab: Tab = .dashboard
-    @State private var seeded = false
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @State private var showSideMenu = false
+    @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
 
     enum Tab: String {
         case dashboard
         case itinerary
         case map
         case expenses
-        case journal
     }
 
     var body: some View {
         Group {
-            if let trip = trips.first {
-                TabView(selection: $selectedTab) {
-                    DashboardView(trip: trip)
-                        .tabItem {
-                            Label("Главная", systemImage: "airplane")
-                        }
-                        .tag(Tab.dashboard)
+            if !hasCompletedOnboarding || trips.isEmpty {
+                OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
+            } else if let trip = trips.first {
+                ZStack {
+                    TabView(selection: $selectedTab) {
+                        DashboardView(trip: trip, showSideMenu: $showSideMenu)
+                            .tabItem {
+                                Label("Главная", systemImage: "airplane")
+                            }
+                            .tag(Tab.dashboard)
 
-                    ItineraryView(trip: trip)
-                        .tabItem {
-                            Label("Маршрут", systemImage: "calendar")
-                        }
-                        .tag(Tab.itinerary)
+                        ItineraryView(trip: trip)
+                            .tabItem {
+                                Label("Маршрут", systemImage: "calendar")
+                            }
+                            .tag(Tab.itinerary)
 
-                    TripMapView(trip: trip)
-                        .tabItem {
-                            Label("Карта", systemImage: "map")
-                        }
-                        .tag(Tab.map)
+                        TripMapView(trip: trip)
+                            .tabItem {
+                                Label("Карта", systemImage: "map")
+                            }
+                            .tag(Tab.map)
 
-                    ExpensesView(trip: trip)
-                        .tabItem {
-                            Label("Расходы", systemImage: "yensign.circle")
-                        }
-                        .tag(Tab.expenses)
+                        ExpensesView(trip: trip)
+                            .tabItem {
+                                Label("Расходы", systemImage: "yensign.circle")
+                            }
+                            .tag(Tab.expenses)
 
-                    JournalView(trip: trip)
-                        .tabItem {
-                            Label("Дневник", systemImage: "book")
-                        }
-                        .tag(Tab.journal)
-                }
-                .tint(AppTheme.sakuraPink)
-                .onAppear {
-                    trip.autoCompletePastDays()
-                }
-            } else {
-                VStack(spacing: AppTheme.spacingM) {
-                    ProgressView()
-                        .tint(AppTheme.sakuraPink)
-                    Text("ЗАГРУЗКА...")
-                        .font(.system(size: 11, weight: .black))
-                        .tracking(4)
-                        .foregroundStyle(AppTheme.textMuted)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(AppTheme.background)
-                .onAppear {
-                    if !seeded {
-                        seeded = true
-                        SampleData.seed(into: modelContext)
                     }
+                    .tint(AppTheme.sakuraPink)
+                    .id(palette)
+                    .onAppear {
+                        trip.autoCompletePastDays()
+                    }
+
+                    SideMenuView(isOpen: $showSideMenu, trip: trip)
                 }
             }
         }

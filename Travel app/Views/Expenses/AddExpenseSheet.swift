@@ -21,53 +21,40 @@ struct AddExpenseSheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppTheme.background.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: AppTheme.spacingM) {
+                    SheetHeader(icon: "yensign.circle.fill", title: editing != nil ? "РЕДАКТИРОВАТЬ РАСХОД" : "НОВЫЙ РАСХОД", color: AppTheme.sakuraPink)
 
-                ScrollView {
-                    VStack(spacing: AppTheme.spacingM) {
-                        HStack {
-                            Image(systemName: "yensign.circle.fill")
-                                .font(.system(size: 16, weight: .bold))
-                            Text(editing != nil ? "РЕДАКТИРОВАТЬ РАСХОД" : "НОВЫЙ РАСХОД")
-                                .font(.system(size: 12, weight: .black))
-                                .tracking(3)
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(AppTheme.sakuraPink)
-
-                        SakuraFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                            TextField("Рамен Ichiran", text: $title)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-
-                        SakuraFormField(label: "СУММА (JPY)", color: AppTheme.templeGold) {
-                            TextField("1290", text: $amountText)
-                                .keyboardType(.numberPad)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
-
-                        SakuraFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
-                            categoryPicker
-                        }
-
-                        SakuraFormField(label: "ДАТА", color: AppTheme.sakuraPink) {
-                            DatePicker("", selection: $date, displayedComponents: .date)
-                                .datePickerStyle(.compact)
-                                .labelsHidden()
-                                .tint(AppTheme.sakuraPink)
-                        }
-
-                        SakuraFormField(label: "ЗАМЕТКА", color: AppTheme.textMuted) {
-                            TextField("Дополнительные детали...", text: $notes)
-                                .textFieldStyle(SakuraTextFieldStyle())
-                        }
+                    GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
+                        TextField("Рамен Ichiran", text: $title)
+                            .textFieldStyle(GlassTextFieldStyle())
                     }
-                    .padding(AppTheme.spacingM)
+
+                    GlassFormField(label: "СУММА (JPY)", color: AppTheme.templeGold) {
+                        TextField("1290", text: $amountText)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+
+                    GlassFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
+                        categoryPicker
+                    }
+
+                    GlassFormField(label: "ДАТА", color: AppTheme.sakuraPink) {
+                        DatePicker("", selection: $date, displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .tint(AppTheme.sakuraPink)
+                    }
+
+                    GlassFormField(label: "ЗАМЕТКА", color: .secondary) {
+                        TextField("Дополнительные детали...", text: $notes)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
                 }
+                .padding(AppTheme.spacingM)
             }
+            .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -75,15 +62,15 @@ struct AddExpenseSheet: View {
                         Text("ОТМЕНА")
                             .font(.system(size: 11, weight: .bold))
                             .tracking(1)
-                            .foregroundStyle(AppTheme.textSecondary)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { saveExpense() } label: {
                         Text("СОХРАНИТЬ")
-                            .font(.system(size: 11, weight: .black))
+                            .font(.system(size: 11, weight: .bold))
                             .tracking(1)
-                            .foregroundStyle(isValid ? AppTheme.sakuraPink : AppTheme.textMuted)
+                            .foregroundStyle(isValid ? AppTheme.sakuraPink : .secondary)
                     }
                     .disabled(!isValid)
                 }
@@ -102,8 +89,9 @@ struct AddExpenseSheet: View {
 
     private var categoryPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
-                ForEach(ExpenseCategory.allCases) { cat in
+            HStack(spacing: 6) {
+                ForEach(Array(ExpenseCategory.allCases), id: \.self) { (cat: ExpenseCategory) in
+                    let color = AppTheme.expenseColor(for: cat)
                     Button {
                         category = cat
                     } label: {
@@ -111,17 +99,19 @@ struct AddExpenseSheet: View {
                             Image(systemName: cat.systemImage)
                                 .font(.system(size: 12, weight: .bold))
                             Text(cat.rawValue.uppercased())
-                                .font(.system(size: 10, weight: .black))
+                                .font(.system(size: 10, weight: .bold))
                                 .tracking(0.5)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
-                        .foregroundStyle(category == cat ? .white : AppTheme.textSecondary)
-                        .background(category == cat ? AppTheme.expenseColor(for: cat) : AppTheme.surface)
+                        .foregroundStyle(category == cat ? .white : .secondary)
+                        .background(category == cat ? color : .clear)
+                        .background { if category != cat { Color.clear.background(.ultraThinMaterial) } }
+                        .clipShape(Capsule())
                         .overlay(
-                            Rectangle().stroke(
-                                category == cat ? AppTheme.expenseColor(for: cat) : AppTheme.border,
-                                lineWidth: category == cat ? 2 : 1
+                            Capsule().stroke(
+                                category == cat ? color.opacity(0.5) : Color.white.opacity(0.2),
+                                lineWidth: 0.5
                             )
                         )
                     }
@@ -153,50 +143,39 @@ struct AddExpenseSheet: View {
     }
 }
 
-// MARK: - Reusable Form Components
+// MARK: - Reusable Sheet Header
 
-struct SakuraTextFieldStyle: TextFieldStyle {
-    func _body(configuration: TextField<Self._Label>) -> some View {
-        configuration
-            .padding(12)
-            .foregroundStyle(AppTheme.textPrimary)
-            .background(AppTheme.card)
-            .overlay(
-                Rectangle()
-                    .stroke(AppTheme.border, lineWidth: 1)
-            )
-    }
-}
-
-struct SakuraFormField<Content: View>: View {
-    let label: String
+struct SheetHeader: View {
+    let icon: String
+    let title: String
     let color: Color
-    @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(color)
-                    .frame(width: 4)
-                Text(label)
-                    .font(.system(size: 9, weight: .black))
-                    .tracking(2)
-                    .foregroundStyle(color)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                Spacer()
-            }
-            .background(AppTheme.surface)
-
-            content()
-                .padding(.horizontal, AppTheme.spacingS)
-                .padding(.vertical, AppTheme.spacingS)
-                .background(AppTheme.card)
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .bold))
+            Text(title)
+                .font(.system(size: 12, weight: .bold))
+                .tracking(3)
         }
-        .overlay(Rectangle().stroke(AppTheme.border, lineWidth: 1))
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(
+            LinearGradient(
+                colors: [color, color.opacity(0.8)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
     }
 }
+
+// MARK: - Legacy Compat (kept for any remaining references)
+
+typealias SakuraTextFieldStyle = GlassTextFieldStyle
+typealias SakuraFormField = GlassFormField
 
 #if DEBUG
 #Preview {
