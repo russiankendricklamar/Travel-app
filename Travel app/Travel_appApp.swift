@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct Travel_appApp: App {
+    @State private var store = TripStore()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView(store: store)
+                .preferredColorScheme(.light)
         }
     }
 }
