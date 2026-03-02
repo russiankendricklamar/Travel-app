@@ -50,9 +50,7 @@ struct TripsListView: View {
                 }
             }
             .sheet(isPresented: $showCreateSheet) {
-                CreateTripSheet { trip in
-                    onSelectTrip?(trip)
-                }
+                CreateTripSheet()
             }
         }
     }

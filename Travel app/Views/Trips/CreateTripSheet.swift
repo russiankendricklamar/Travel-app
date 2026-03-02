@@ -138,7 +138,11 @@ struct CreateTripSheet: View {
             flightDate: flightDateEnabled ? flightDate : nil
         )
         modelContext.insert(trip)
-        onCreated?(trip)
+        do {
+            try modelContext.save()
+        } catch {
+            print("[CreateTripSheet] Save error: \(error)")
+        }
         dismiss()
     }
 }

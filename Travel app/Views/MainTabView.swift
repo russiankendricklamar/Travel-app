@@ -8,13 +8,18 @@ struct MainTabView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var showSideMenu = false
     @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
-    @State private var selectedTrip: Trip?
+    @State private var selectedTripID: UUID?
 
     enum Tab: String {
         case dashboard
         case itinerary
         case map
         case expenses
+    }
+
+    private var selectedTrip: Trip? {
+        guard let id = selectedTripID else { return nil }
+        return trips.first { $0.id == id }
     }
 
     var body: some View {
@@ -59,7 +64,7 @@ struct MainTabView: View {
                     SideMenuView(isOpen: $showSideMenu, trip: trip, onBack: {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             showSideMenu = false
-                            selectedTrip = nil
+                            selectedTripID = nil
                             selectedTab = .dashboard
                         }
                     })
@@ -67,7 +72,7 @@ struct MainTabView: View {
             } else {
                 TripsListView { trip in
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        selectedTrip = trip
+                        selectedTripID = trip.id
                     }
                 }
             }
