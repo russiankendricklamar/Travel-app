@@ -5,8 +5,10 @@ struct ExpensesView: View {
     let trip: Trip
     @Environment(\.modelContext) private var modelContext
     @State private var showingAddSheet = false
+    @State private var showingBudgetEdit = false
+    @State private var budgetInput = ""
 
-    @AppStorage("preferredCurrency") private var preferredCurrency = "JPY"
+    @AppStorage("preferredCurrency") private var preferredCurrency = "RUB"
 
     private var sortedExpenses: [Expense] {
         trip.expenses.sorted { $0.date > $1.date }
@@ -14,16 +16,16 @@ struct ExpensesView: View {
 
     private var currency: CurrencyService { CurrencyService.shared }
 
-    private func formatAmount(_ jpyAmount: Double) -> String {
-        if preferredCurrency == "JPY" {
-            return currency.format(jpyAmount, currency: "JPY")
+    private func formatAmount(_ rubAmount: Double) -> String {
+        if preferredCurrency == "RUB" {
+            return currency.format(rubAmount, currency: "RUB")
         }
-        let converted = currency.convert(jpyAmount, from: "JPY", to: preferredCurrency)
+        let converted = currency.convert(rubAmount, from: "RUB", to: preferredCurrency)
         return currency.format(converted, currency: preferredCurrency)
     }
 
-    private func formatYen(_ amount: Double) -> String {
-        currency.format(amount, currency: "JPY")
+    private func formatRub(_ amount: Double) -> String {
+        currency.format(amount, currency: "RUB")
     }
 
     var body: some View {
@@ -59,6 +61,18 @@ struct ExpensesView: View {
             .sheet(isPresented: $showingAddSheet) {
                 AddExpenseSheet(trip: trip)
             }
+            .alert("Изменить бюджет", isPresented: $showingBudgetEdit) {
+                TextField("Сумма в RUB", text: $budgetInput)
+                    .keyboardType(.numberPad)
+                Button("Сохранить") {
+                    if let value = Double(budgetInput), value > 0 {
+                        trip.budget = value
+                    }
+                }
+                Button("Отмена", role: .cancel) {}
+            } message: {
+                Text("Введите новый бюджет поездки в рублях")
+            }
         }
     }
 
@@ -66,15 +80,27 @@ struct ExpensesView: View {
 
     private var summarySection: some View {
         VStack(spacing: AppTheme.spacingS) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("ПОТРАЧЕНО")
-                        .font(.system(size: 9, weight: .bold))
-                        .tracking(3)
-                        .foregroundStyle(.tertiary)
-                    Text(formatAmount(trip.totalSpent))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundStyle(AppTheme.toriiRed)
+            HStack(spacing: AppTheme.spacingM) {
+                VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("ПОТРАЧЕНО")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(3)
+                            .foregroundStyle(.tertiary)
+                        Text(formatAmount(trip.totalSpent))
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundStyle(AppTheme.toriiRed)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("ОСТАТОК")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(3)
+                            .foregroundStyle(.tertiary)
+                        Text(formatAmount(trip.remainingBudget))
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundStyle(trip.remainingBudget >= 0 ? AppTheme.bambooGreen : AppTheme.toriiRed)
+                    }
                 }
 
                 Spacer()
@@ -84,47 +110,43 @@ struct ExpensesView: View {
                         progress: trip.budgetUsedPercent,
                         color: trip.budgetUsedPercent > 0.9 ? AppTheme.toriiRed : AppTheme.bambooGreen,
                         lineWidth: 6,
-                        size: 60
+                        size: 70
                     )
                     Text("\(Int(trip.budgetUsedPercent * 100))%")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("ОСТАТОК")
-                        .font(.system(size: 9, weight: .bold))
-                        .tracking(3)
-                        .foregroundStyle(.tertiary)
-                    Text(formatAmount(trip.remainingBudget))
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundStyle(trip.remainingBudget >= 0 ? AppTheme.bambooGreen : AppTheme.toriiRed)
                 }
             }
             .padding(AppTheme.spacingM)
 
-            HStack {
-                Text("БЮДЖЕТ")
-                    .font(.system(size: 8, weight: .bold))
-                    .tracking(2)
-                    .foregroundStyle(.white.opacity(0.8))
-                Spacer()
-                Text(formatAmount(trip.budget))
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-            .padding(.horizontal, AppTheme.spacingM)
-            .padding(.vertical, 8)
-            .background(
-                LinearGradient(
-                    colors: [AppTheme.sakuraPink, AppTheme.sakuraPink.opacity(0.8)],
-                    startPoint: .leading,
-                    endPoint: .trailing
+            Button {
+                budgetInput = "\(Int(trip.budget))"
+                showingBudgetEdit = true
+            } label: {
+                HStack {
+                    Text("БЮДЖЕТ")
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(2)
+                        .foregroundStyle(.white.opacity(0.8))
+                    Spacer()
+                    Text(formatAmount(trip.budget))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Image(systemName: "pencil")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                .padding(.horizontal, AppTheme.spacingM)
+                .padding(.vertical, 8)
+                .background(
+                    LinearGradient(
+                        colors: [AppTheme.sakuraPink, AppTheme.sakuraPink.opacity(0.8)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
                 )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+            }
         }
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
@@ -143,22 +165,30 @@ struct ExpensesView: View {
 
             let maxAmount = trip.expensesByCategory.first?.total ?? 1
 
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 ForEach(trip.expensesByCategory, id: \.category) { item in
                     let color = AppTheme.expenseColor(for: item.category)
-                    HStack(spacing: 8) {
-                        Image(systemName: item.category.systemImage)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 28, height: 28)
-                            .background(color)
-                            .clipShape(RoundedRectangle(cornerRadius: 7))
+                    VStack(spacing: 6) {
+                        HStack(spacing: 8) {
+                            Image(systemName: item.category.systemImage)
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 28, height: 28)
+                                .background(color)
+                                .clipShape(RoundedRectangle(cornerRadius: 7))
 
-                        Text(item.category.rawValue.uppercased())
-                            .font(.system(size: 10, weight: .bold))
-                            .tracking(1)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 70, alignment: .leading)
+                            Text(item.category.rawValue.uppercased())
+                                .font(.system(size: 10, weight: .bold))
+                                .tracking(1)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+
+                            Spacer()
+
+                            Text(formatAmount(item.total))
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .foregroundStyle(.primary)
+                        }
 
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
@@ -169,11 +199,7 @@ struct ExpensesView: View {
                                     .frame(width: geo.size.width * (item.total / maxAmount))
                             }
                         }
-                        .frame(height: 8)
-
-                        Text(formatAmount(item.total))
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
+                        .frame(height: 6)
                     }
                 }
             }
@@ -255,8 +281,8 @@ struct ExpensesView: View {
                 Text(formatAmount(expense.amount))
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
-                if preferredCurrency != "JPY" {
-                    Text(formatYen(expense.amount))
+                if preferredCurrency != "RUB" {
+                    Text(formatRub(expense.amount))
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.tertiary)
                 }

@@ -23,10 +23,10 @@ struct CurrentWeatherResponse: Codable {
 
 struct DailyWeatherResponse: Codable {
     let time: [String]
-    let temperature2mMax: [Double]
-    let temperature2mMin: [Double]
-    let weatherCode: [Int]
-    let precipitationProbabilityMax: [Int]
+    let temperature2mMax: [Double?]
+    let temperature2mMin: [Double?]
+    let weatherCode: [Int?]
+    let precipitationProbabilityMax: [Int?]
 
     enum CodingKeys: String, CodingKey {
         case time

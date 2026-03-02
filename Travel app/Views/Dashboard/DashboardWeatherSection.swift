@@ -177,11 +177,21 @@ struct DashboardWeatherSection: View {
 
     // MARK: - Load Weather
 
+    private var weatherCityName: String? {
+        if let activeDay = trip.activeDay {
+            return activeDay.cityName
+        }
+        return trip.sortedDays.first?.cityName
+    }
+
     private func loadWeather() async {
         let coordinate: CLLocationCoordinate2D
 
         if trip.isActive, let current = location.currentLocation {
             coordinate = current
+        } else if let city = weatherCityName,
+                  let resolved = await weather.resolveCoordinate(forCity: city) {
+            coordinate = resolved
         } else if let firstPlace = trip.sortedDays.first?.places.first {
             coordinate = firstPlace.coordinate
         } else {

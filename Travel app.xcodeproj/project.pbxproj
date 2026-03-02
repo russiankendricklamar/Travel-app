@@ -6,20 +6,69 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		AA11AA072F530EE100928D2C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2F30ED3E2F530ED200928D2C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA11AA092F530EE100928D2C;
+			remoteInfo = TravelWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AA11AA062F530EE100928D2C /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		2F30ED462F530ED200928D2C /* Travel app.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Travel app.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA11AA012F530EE100928D2C /* TravelWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TravelWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AA11AA0D2F530EE100928D2C /* Exceptions for "Travel app" folder in "TravelWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Models/TravelActivityAttributes.swift",
+			);
+			target = AA11AA092F530EE100928D2C /* TravelWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2F30ED482F530ED200928D2C /* Travel app */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA11AA0D2F530EE100928D2C /* Exceptions for "Travel app" folder in "TravelWidgetExtension" target */,
+			);
 			path = "Travel app";
+			sourceTree = "<group>";
+		};
+		AA11AA022F530EE100928D2C /* TravelWidgetExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TravelWidgetExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		2F30ED432F530ED200928D2C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA11AA032F530EE100928D2C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				2F30ED482F530ED200928D2C /* Travel app */,
+				AA11AA022F530EE100928D2C /* TravelWidgetExtension */,
 				2F30ED472F530ED200928D2C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +91,7 @@
 			isa = PBXGroup;
 			children = (
 				2F30ED462F530ED200928D2C /* Travel app.app */,
+				AA11AA012F530EE100928D2C /* TravelWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,10 +106,12 @@
 				2F30ED422F530ED200928D2C /* Sources */,
 				2F30ED432F530ED200928D2C /* Frameworks */,
 				2F30ED442F530ED200928D2C /* Resources */,
+				AA11AA062F530EE100928D2C /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AA11AA082F530EE100928D2C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				2F30ED482F530ED200928D2C /* Travel app */,
@@ -69,6 +122,28 @@
 			productName = "Travel app";
 			productReference = 2F30ED462F530ED200928D2C /* Travel app.app */;
 			productType = "com.apple.product-type.application";
+		};
+		AA11AA092F530EE100928D2C /* TravelWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA11AA0C2F530EE100928D2C /* Build configuration list for PBXNativeTarget "TravelWidgetExtension" */;
+			buildPhases = (
+				AA11AA042F530EE100928D2C /* Sources */,
+				AA11AA032F530EE100928D2C /* Frameworks */,
+				AA11AA052F530EE100928D2C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AA11AA022F530EE100928D2C /* TravelWidgetExtension */,
+			);
+			name = TravelWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = TravelWidgetExtension;
+			productReference = AA11AA012F530EE100928D2C /* TravelWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -81,6 +156,9 @@
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					2F30ED452F530ED200928D2C = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					AA11AA092F530EE100928D2C = {
 						CreatedOnToolsVersion = 26.3;
 					};
 				};
@@ -100,12 +178,20 @@
 			projectRoot = "";
 			targets = (
 				2F30ED452F530ED200928D2C /* Travel app */,
+				AA11AA092F530EE100928D2C /* TravelWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		2F30ED442F530ED200928D2C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA11AA052F530EE100928D2C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +208,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA11AA042F530EE100928D2C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AA11AA082F530EE100928D2C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA11AA092F530EE100928D2C /* TravelWidgetExtension */;
+			targetProxy = AA11AA072F530EE100928D2C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		2F30ED4F2F530ED400928D2C /* Debug */ = {
@@ -253,6 +354,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "GPS-трекинг маршрутов в стиле Strava для записи путешествия";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Отображение вашего местоположения на карте путешествия";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -288,6 +390,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "GPS-трекинг маршрутов в стиле Strava для записи путешествия";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Отображение вашего местоположения на карте путешествия";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -311,6 +414,64 @@
 			};
 			name = Release;
 		};
+		AA11AA0A2F530EE100928D2C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9UCR65VBLX;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = TravelWidgetExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ru.travel.Travel-app.TravelWidgetExtension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AA11AA0B2F530EE100928D2C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9UCR65VBLX;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = TravelWidgetExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ru.travel.Travel-app.TravelWidgetExtension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -328,6 +489,15 @@
 			buildConfigurations = (
 				2F30ED522F530ED400928D2C /* Debug */,
 				2F30ED532F530ED400928D2C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA11AA0C2F530EE100928D2C /* Build configuration list for PBXNativeTarget "TravelWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA11AA0A2F530EE100928D2C /* Debug */,
+				AA11AA0B2F530EE100928D2C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

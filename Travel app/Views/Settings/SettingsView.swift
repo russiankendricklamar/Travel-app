@@ -14,6 +14,7 @@ struct SettingsView: View {
     @AppStorage("notif_event") private var notifEvent = true
     @AppStorage("notif_budget") private var notifBudget = true
     @AppStorage("notif_weather") private var notifWeather = true
+    @AppStorage("liveActivityEnabled") private var liveActivityEnabled = true
 
     // Notification times (stored as hour * 60 + minute)
     @AppStorage("notif_morning_time") private var morningTimeMinutes = 480   // 8:00
@@ -47,11 +48,11 @@ struct SettingsView: View {
     }
 
     // Currency
-    @AppStorage("preferredCurrency") private var currency = "JPY"
+    @AppStorage("preferredCurrency") private var currency = "RUB"
     @AppStorage("useCustomRates") private var useCustomRates = false
-    @AppStorage("customRate_USD") private var customRateUSD: Double = 150.0
-    @AppStorage("customRate_RUB") private var customRateRUB: Double = 1.7
-    @AppStorage("customRate_CNY") private var customRateCNY: Double = 21.0
+    @AppStorage("customRate_JPY") private var customRateJPY: Double = 0.59
+    @AppStorage("customRate_USD") private var customRateUSD: Double = 88.0
+    @AppStorage("customRate_CNY") private var customRateCNY: Double = 12.2
 
     @State private var showResetConfirmation = false
 
@@ -188,7 +189,7 @@ struct SettingsView: View {
             notifToggle(
                 title: "Бюджет",
                 subtitle: "Когда потрачено > 80%",
-                icon: "yensign.circle.fill",
+                icon: "rublesign.circle.fill",
                 color: AppTheme.toriiRed,
                 isOn: $notifBudget
             )
@@ -200,6 +201,7 @@ struct SettingsView: View {
                 morningTime: weatherMorningTime,
                 eveningTime: weatherEveningTime
             )
+            liveActivityToggle
         }
         .padding(AppTheme.spacingM)
         .background(.ultraThinMaterial)
@@ -316,6 +318,46 @@ struct SettingsView: View {
         }
     }
 
+    private var liveActivityToggle: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "island.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(
+                    LinearGradient(
+                        colors: [AppTheme.indigoPurple, AppTheme.indigoPurple.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Live Activity")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("Dynamic Island + Lock Screen")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $liveActivityEnabled)
+                .labelsHidden()
+                .tint(AppTheme.sakuraPink)
+                .onChange(of: liveActivityEnabled) { _, enabled in
+                    if !enabled {
+                        LiveActivityManager.shared.endAllActivities()
+                    }
+                }
+        }
+        .padding(10)
+        .background(.thinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+    }
+
     private func formatTimeMinutes(_ date: Date) -> String {
         let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
         return String(format: "%d:%02d", comps.hour ?? 0, comps.minute ?? 0)
@@ -333,7 +375,7 @@ struct SettingsView: View {
                 }
             }
 
-            Text("Для отображения сумм. Хранение в JPY.")
+            Text("Для отображения сумм. Хранение в RUB.")
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 4)
@@ -396,8 +438,8 @@ struct SettingsView: View {
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
 
             if useCustomRates {
+                customRateRow("JPY", binding: $customRateJPY)
                 customRateRow("USD", binding: $customRateUSD)
-                customRateRow("RUB", binding: $customRateRUB)
                 customRateRow("CNY", binding: $customRateCNY)
             } else {
                 apiRatesView
@@ -425,11 +467,11 @@ struct SettingsView: View {
                 .frame(width: 55, alignment: .leading)
             Text("=")
                 .foregroundStyle(.secondary)
-            TextField("150", value: binding, format: .number)
+            TextField("88", value: binding, format: .number)
                 .keyboardType(.decimalPad)
                 .textFieldStyle(GlassTextFieldStyle())
                 .frame(maxWidth: 100)
-            Text("JPY")
+            Text("RUB")
                 .font(.system(size: 11, weight: .bold))
                 .tracking(1)
                 .foregroundStyle(.secondary)
@@ -443,14 +485,14 @@ struct SettingsView: View {
     private var apiRatesView: some View {
         let svc = CurrencyService.shared
         return VStack(spacing: 6) {
-            ForEach(["USD", "RUB", "CNY"], id: \.self) { code in
-                let jpyPer = svc.jpyPerUnit(of: code)
+            ForEach(["JPY", "USD", "CNY"], id: \.self) { code in
+                let rubPer = svc.rubPerUnit(of: code)
                 HStack {
                     Text("1 \(code)")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
                     Spacer()
-                    Text(jpyPer > 0 ? "\u{00A5}\(String(format: "%.2f", jpyPer))" : "—")
+                    Text(rubPer > 0 ? "\u{20BD}\(String(format: "%.2f", rubPer))" : "—")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(AppTheme.templeGold)
                 }

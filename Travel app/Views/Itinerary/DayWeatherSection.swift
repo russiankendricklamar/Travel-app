@@ -6,12 +6,14 @@ struct DayWeatherSection: View {
 
     private var weather: WeatherService { WeatherService.shared }
 
+    @State private var forecast: WeatherInfo?
+    @State private var isLoading = false
     @State private var appeared = false
 
     var body: some View {
-        if let forecast = weather.forecast(for: day.date) {
+        if let forecast {
             forecastCard(forecast)
-        } else if weather.isLoading {
+        } else if isLoading {
             loadingView
         } else {
             Color.clear
@@ -87,14 +89,20 @@ struct DayWeatherSection: View {
     // MARK: - Load
 
     private func loadWeather() async {
-        let coordinate: CLLocationCoordinate2D
+        isLoading = true
 
-        if let firstPlace = day.places.first {
+        // Resolve coordinate: city name → places → Tokyo fallback
+        let coordinate: CLLocationCoordinate2D
+        if let resolved = await weather.resolveCoordinate(forCity: day.cityName) {
+            coordinate = resolved
+        } else if let firstPlace = day.places.first {
             coordinate = firstPlace.coordinate
         } else {
             coordinate = CLLocationCoordinate2D(latitude: 35.6812, longitude: 139.7671)
         }
 
-        await weather.fetchWeather(for: coordinate)
+        await weather.fetchDailyForecast(for: coordinate)
+        forecast = weather.forecast(for: day.date, at: coordinate)
+        isLoading = false
     }
 }

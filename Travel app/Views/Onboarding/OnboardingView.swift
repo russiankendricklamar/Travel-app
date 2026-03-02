@@ -112,7 +112,7 @@ struct OnboardingView: View {
             Spacer().frame(height: AppTheme.spacingM)
 
             featureRow(icon: "map.fill", text: "Маршруты и карта", color: AppTheme.oceanBlue)
-            featureRow(icon: "yensign.circle.fill", text: "Бюджет и расходы", color: AppTheme.templeGold)
+            featureRow(icon: "rublesign.circle.fill", text: "Бюджет и расходы", color: AppTheme.templeGold)
             featureRow(icon: "location.fill", text: "GPS-треки маршрутов", color: AppTheme.bambooGreen)
 
             Spacer()
@@ -195,7 +195,7 @@ struct OnboardingView: View {
                     }
                 }
 
-                GlassFormField(label: "БЮДЖЕТ (JPY)", color: AppTheme.templeGold) {
+                GlassFormField(label: "БЮДЖЕТ (RUB)", color: AppTheme.templeGold) {
                     TextField("350000", text: $budget)
                         .keyboardType(.numberPad)
                         .textFieldStyle(GlassTextFieldStyle())
@@ -450,7 +450,7 @@ struct OnboardingView: View {
             startDate: startDate,
             endDate: endDate,
             budget: budgetValue,
-            currency: "JPY",
+            currency: "RUB",
             coverSystemImage: "airplane",
             flightDate: flightDateEnabled ? flightDate : nil
         )

@@ -88,6 +88,17 @@ struct EventCard: View {
                     .foregroundStyle(event.category.color)
                 }
 
+                if event.hasLocation {
+                    HStack(spacing: 4) {
+                        Image(systemName: event.isTransportEvent ? "arrow.triangle.swap" : "mappin.circle.fill")
+                            .font(.system(size: 9, weight: .bold))
+                        Text(event.isTransportEvent ? "МАРШРУТ УКАЗАН" : "НА КАРТЕ")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(0.5)
+                    }
+                    .foregroundStyle(event.category.color.opacity(0.7))
+                }
+
                 if !event.notes.isEmpty {
                     Text(event.notes)
                         .font(.system(size: 11))

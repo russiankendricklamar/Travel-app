@@ -43,7 +43,7 @@ struct MainTabView: View {
 
                         ExpensesView(trip: trip)
                             .tabItem {
-                                Label("Расходы", systemImage: "yensign.circle")
+                                Label("Расходы", systemImage: "rublesign.circle")
                             }
                             .tag(Tab.expenses)
 
@@ -52,6 +52,7 @@ struct MainTabView: View {
                     .id(palette)
                     .onAppear {
                         trip.autoCompletePastDays()
+                        LiveActivityManager.shared.refreshActivities(trip: trip)
                     }
 
                     SideMenuView(isOpen: $showSideMenu, trip: trip)

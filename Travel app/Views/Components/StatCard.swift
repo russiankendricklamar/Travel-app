@@ -132,9 +132,9 @@ struct StarRatingView: View {
     VStack(spacing: 16) {
         StatCard(
             title: "Budget",
-            value: "\u{00A5}350,000",
-            subtitle: "\u{00A5}102,140 spent",
-            icon: "yensign.circle",
+            value: "\u{20BD}500 000",
+            subtitle: "\u{20BD}59 145 spent",
+            icon: "rublesign.circle",
             color: AppTheme.templeGold
         )
         CategoryBadge(category: .temple)

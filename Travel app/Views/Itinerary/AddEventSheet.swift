@@ -13,6 +13,19 @@ struct AddEventSheet: View {
     @State private var endTime = Date()
     @State private var notes = ""
 
+    // Regular event location
+    @State private var locationName = ""
+    @State private var latitude: Double?
+    @State private var longitude: Double?
+
+    // Transport event locations
+    @State private var departureLocationName = ""
+    @State private var departureLatitude: Double?
+    @State private var departureLongitude: Double?
+    @State private var arrivalLocationName = ""
+    @State private var arrivalLatitude: Double?
+    @State private var arrivalLongitude: Double?
+
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty && endTime > startTime
     }
@@ -38,6 +51,33 @@ struct AddEventSheet: View {
                     GlassFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
                         categoryPicker
                     }
+
+                    // Location search
+                    if category.isTransport {
+                        EventLocationSearchField(
+                            label: "ОТПРАВЛЕНИЕ",
+                            color: AppTheme.bambooGreen,
+                            locationName: $departureLocationName,
+                            latitude: $departureLatitude,
+                            longitude: $departureLongitude
+                        )
+                        EventLocationSearchField(
+                            label: "ПРИБЫТИЕ",
+                            color: AppTheme.toriiRed,
+                            locationName: $arrivalLocationName,
+                            latitude: $arrivalLatitude,
+                            longitude: $arrivalLongitude
+                        )
+                    } else {
+                        EventLocationSearchField(
+                            label: "МЕСТО",
+                            color: AppTheme.sakuraPink,
+                            locationName: $locationName,
+                            latitude: $latitude,
+                            longitude: $longitude
+                        )
+                    }
+
                     GlassFormField(label: "НАЧАЛО", color: AppTheme.bambooGreen) {
                         DatePicker("", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
                             .datePickerStyle(.compact)
@@ -86,12 +126,38 @@ struct AddEventSheet: View {
                     startTime = e.startTime
                     endTime = e.endTime
                     notes = e.notes
+                    // Load location data
+                    if e.category.isTransport {
+                        departureLatitude = e.startLatitude
+                        departureLongitude = e.startLongitude
+                        arrivalLatitude = e.endLatitude
+                        arrivalLongitude = e.endLongitude
+                    } else {
+                        latitude = e.latitude
+                        longitude = e.longitude
+                    }
                 } else {
                     var comps = Calendar.current.dateComponents([.year, .month, .day], from: day.date)
                     comps.hour = 9
                     startTime = Calendar.current.date(from: comps) ?? Date()
                     comps.hour = 10
                     endTime = Calendar.current.date(from: comps) ?? Date()
+                }
+            }
+            .onChange(of: category) { oldValue, newValue in
+                let wasTransport = oldValue.isTransport
+                let isTransport = newValue.isTransport
+                if wasTransport != isTransport {
+                    // Clear all location data when switching between transport/regular
+                    latitude = nil
+                    longitude = nil
+                    locationName = ""
+                    departureLatitude = nil
+                    departureLongitude = nil
+                    departureLocationName = ""
+                    arrivalLatitude = nil
+                    arrivalLongitude = nil
+                    arrivalLocationName = ""
                 }
             }
         }
@@ -137,6 +203,21 @@ struct AddEventSheet: View {
             e.startTime = startTime
             e.endTime = endTime
             e.notes = notes.trimmingCharacters(in: .whitespaces)
+            if category.isTransport {
+                e.startLatitude = departureLatitude
+                e.startLongitude = departureLongitude
+                e.endLatitude = arrivalLatitude
+                e.endLongitude = arrivalLongitude
+                e.latitude = nil
+                e.longitude = nil
+            } else {
+                e.latitude = latitude
+                e.longitude = longitude
+                e.startLatitude = nil
+                e.startLongitude = nil
+                e.endLatitude = nil
+                e.endLongitude = nil
+            }
         } else {
             let event = TripEvent(
                 title: title.trimmingCharacters(in: .whitespaces),
@@ -144,7 +225,13 @@ struct AddEventSheet: View {
                 category: category,
                 startTime: startTime,
                 endTime: endTime,
-                notes: notes.trimmingCharacters(in: .whitespaces)
+                notes: notes.trimmingCharacters(in: .whitespaces),
+                latitude: category.isTransport ? nil : latitude,
+                longitude: category.isTransport ? nil : longitude,
+                startLatitude: category.isTransport ? departureLatitude : nil,
+                startLongitude: category.isTransport ? departureLongitude : nil,
+                endLatitude: category.isTransport ? arrivalLatitude : nil,
+                endLongitude: category.isTransport ? arrivalLongitude : nil
             )
             day.events.append(event)
         }

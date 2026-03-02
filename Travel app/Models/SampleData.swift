@@ -20,14 +20,15 @@ enum SampleData {
             destination: "Япония",
             startDate: startDate,
             endDate: endDate,
-            budget: 350000,
-            currency: "JPY",
+            budget: 500000,
+            currency: "RUB",
             coverSystemImage: "airplane",
             flightDate: flightDate
         )
 
         buildDays(trip: trip, startDate: startDate, calendar: calendar)
         buildExpenses(trip: trip, startDate: startDate, calendar: calendar)
+        buildTickets(trip: trip, startDate: startDate, calendar: calendar)
 
         context.insert(trip)
     }
@@ -74,16 +75,21 @@ enum SampleData {
                       category: .flight,
                       startTime: makeTime(calendar, base: day1, hour: 14, minute: 30),
                       endTime: makeTime(calendar, base: day1, hour: 15, minute: 0),
-                      notes: "Терминал 1"),
+                      notes: "Терминал 1",
+                      startLatitude: 35.7647, startLongitude: 140.3864,
+                      endLatitude: 35.7647, endLongitude: 140.3864),
             TripEvent(title: "Narita Express → Сибуя", subtitle: "Нарита → Сибуя",
                       category: .train,
                       startTime: makeTime(calendar, base: day1, hour: 15, minute: 30),
                       endTime: makeTime(calendar, base: day1, hour: 17, minute: 0),
-                      notes: "JR Pass"),
+                      notes: "JR Pass",
+                      startLatitude: 35.7647, startLongitude: 140.3864,
+                      endLatitude: 35.6580, endLongitude: 139.7016),
             TripEvent(title: "Заселение в отель", subtitle: "Hotel Shibuya Stream",
                       category: .checkin,
                       startTime: makeTime(calendar, base: day1, hour: 17, minute: 30),
-                      endTime: makeTime(calendar, base: day1, hour: 18, minute: 0))
+                      endTime: makeTime(calendar, base: day1, hour: 18, minute: 0),
+                      latitude: 35.6585, longitude: 139.7013)
         ])
         trip.days.append(tripDay1)
 
@@ -140,11 +146,15 @@ enum SampleData {
                       category: .train,
                       startTime: makeTime(calendar, base: day4, hour: 8, minute: 30),
                       endTime: makeTime(calendar, base: day4, hour: 9, minute: 30),
-                      notes: "JR Pass, платформа 1"),
+                      notes: "JR Pass, платформа 1",
+                      startLatitude: 35.6812, startLongitude: 139.7671,
+                      endLatitude: 35.3190, endLongitude: 139.5467),
             TripEvent(title: "JR Yokosuka Line", subtitle: "Камакура → Токио",
                       category: .train,
                       startTime: makeTime(calendar, base: day4, hour: 17, minute: 0),
-                      endTime: makeTime(calendar, base: day4, hour: 18, minute: 0))
+                      endTime: makeTime(calendar, base: day4, hour: 18, minute: 0),
+                      startLatitude: 35.3190, startLongitude: 139.5467,
+                      endLatitude: 35.6812, endLongitude: 139.7671)
         ])
         trip.days.append(tripDay4)
 
@@ -155,12 +165,15 @@ enum SampleData {
                       category: .train,
                       startTime: makeTime(calendar, base: day5, hour: 9, minute: 0),
                       endTime: makeTime(calendar, base: day5, hour: 11, minute: 15),
-                      notes: "Вагон 7, место 3A. JR Pass"),
+                      notes: "Вагон 7, место 3A. JR Pass",
+                      startLatitude: 35.6812, startLongitude: 139.7671,
+                      endLatitude: 34.9856, endLongitude: 135.7581),
             TripEvent(title: "Заселение в рёкан", subtitle: "Traditional Ryokan Gion",
                       category: .checkin,
                       startTime: makeTime(calendar, base: day5, hour: 15, minute: 0),
                       endTime: makeTime(calendar, base: day5, hour: 16, minute: 0),
-                      notes: "Онсэн доступен с 16:00")
+                      notes: "Онсэн доступен с 16:00",
+                      latitude: 35.0037, longitude: 135.7756)
         ])
         trip.days.append(tripDay5)
 
@@ -217,34 +230,90 @@ enum SampleData {
                       category: .train,
                       startTime: makeTime(calendar, base: day9, hour: 8, minute: 0),
                       endTime: makeTime(calendar, base: day9, hour: 8, minute: 30),
-                      notes: "JR Pass")
+                      notes: "JR Pass",
+                      startLatitude: 34.9856, startLongitude: 135.7581,
+                      endLatitude: 34.7024, endLongitude: 135.4959)
         )
         trip.days.append(tripDay9)
     }
 
     // MARK: - Expenses
 
+    // MARK: - Tickets
+
+    private static func buildTickets(trip: Trip, startDate: Date, calendar: Calendar) {
+        let day5 = calendar.date(byAdding: .day, value: 4, to: startDate)!
+
+        // F1 Suzuka — привязан к trip, не к конкретному дню (день 12, за пределами sample days)
+        let f1Ticket = Ticket(
+            title: "F1 Гран-при Сузука",
+            venue: "Suzuka International Racing Course",
+            category: .f1,
+            barcodeType: .qr,
+            barcodeContent: "F1-SUZUKA-2026-A12-R08-S45",
+            eventDate: calendar.date(byAdding: .day, value: 11, to: startDate)!,
+            seatInfo: "Трибуна A12, Ряд 8, Место 45",
+            notes: "Ворота открываются в 8:00. Гонка в 14:00"
+        )
+        trip.tickets.append(f1Ticket)
+
+        // TeamLab Borderless — привязан к day 2 (Асакуса/Акихабара)
+        let teamlabTicket = Ticket(
+            title: "TeamLab Borderless",
+            venue: "Azabudai Hills, Токио",
+            category: .museum,
+            barcodeType: .qr,
+            barcodeContent: "TEAMLAB-20260316-1400-2ADL",
+            eventDate: makeTime(calendar, base: calendar.date(byAdding: .day, value: 1, to: startDate)!, hour: 14),
+            seatInfo: "Вход 14:00–14:30",
+            notes: "Не забыть удобную обувь"
+        )
+        trip.tickets.append(teamlabTicket)
+        // Привязка к дню 2
+        if let day2 = trip.days.first(where: { calendar.isDate($0.date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: startDate)!) }) {
+            day2.tickets.append(teamlabTicket)
+        }
+
+        // Shinkansen Токио → Киото — привязан к day 5
+        let shinkansenTicket = Ticket(
+            title: "Shinkansen Nozomi 225",
+            venue: "Станция Токио → Станция Киото",
+            category: .transport,
+            barcodeType: .code128,
+            barcodeContent: "JR-NOZOMI225-0900-7-3A",
+            eventDate: makeTime(calendar, base: day5, hour: 9),
+            seatInfo: "Вагон 7, Место 3A",
+            notes: "JR Pass. Платформа 14-19"
+        )
+        trip.tickets.append(shinkansenTicket)
+        if let tripDay5 = trip.days.first(where: { calendar.isDate($0.date, inSameDayAs: day5) }) {
+            tripDay5.tickets.append(shinkansenTicket)
+        }
+    }
+
+    // MARK: - Expenses
+
     private static func buildExpenses(trip: Trip, startDate: Date, calendar: Calendar) {
         trip.expenses.append(contentsOf: [
-            Expense(title: "JR Pass (14 дней)", amount: 50000,
+            Expense(title: "JR Pass (14 дней)", amount: 29000,
                     category: .transport, date: startDate, notes: "Куплен на станции Токио"),
-            Expense(title: "Рамен Ichiran", amount: 1290,
+            Expense(title: "Рамен Ichiran", amount: 750,
                     category: .food, date: startDate, notes: "Сет тонкоцу рамен"),
-            Expense(title: "Отель Сибуя (3 ночи)", amount: 45000,
+            Expense(title: "Отель Сибуя (3 ночи)", amount: 26000,
                     category: .accommodation, date: startDate),
-            Expense(title: "Омамори в Сэнсо-дзи", amount: 800,
+            Expense(title: "Омамори в Сэнсо-дзи", amount: 460,
                     category: .shopping,
                     date: calendar.date(byAdding: .day, value: 1, to: startDate)!, notes: "Талисман на удачу"),
-            Expense(title: "Мелон-пан", amount: 250,
+            Expense(title: "Мелон-пан", amount: 145,
                     category: .food,
                     date: calendar.date(byAdding: .day, value: 1, to: startDate)!, notes: "Из Асакусы"),
-            Expense(title: "Пополнение Suica", amount: 3000,
+            Expense(title: "Пополнение Suica", amount: 1740,
                     category: .transport,
                     date: calendar.date(byAdding: .day, value: 1, to: startDate)!, notes: "Карта метро"),
-            Expense(title: "Такояки в Дотонбори", amount: 600,
+            Expense(title: "Такояки в Дотонбори", amount: 350,
                     category: .food,
                     date: calendar.date(byAdding: .day, value: 8, to: startDate)!),
-            Expense(title: "Набор матча Kit Kat", amount: 1200,
+            Expense(title: "Набор матча Kit Kat", amount: 700,
                     category: .shopping,
                     date: calendar.date(byAdding: .day, value: 2, to: startDate)!, notes: "Сувениры")
         ])

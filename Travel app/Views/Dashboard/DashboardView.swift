@@ -33,6 +33,7 @@ struct DashboardView: View {
                             statsOffset: statsOffset
                         )
                         DashboardWeatherSection(trip: trip)
+                        DashboardTicketsSection(trip: trip)
                     case .active:
                         DashboardActiveSection(
                             trip: trip,
@@ -42,6 +43,7 @@ struct DashboardView: View {
                             budgetWidth: budgetWidth
                         )
                         DashboardWeatherSection(trip: trip)
+                        DashboardTicketsSection(trip: trip)
                     case .postTrip:
                         postTripHero
                         statsBanner
@@ -185,7 +187,7 @@ struct DashboardView: View {
             Divider().frame(height: 40)
             bannerStat("\(uniqueCities.count)", label: "ГОРОДОВ", icon: "building.2")
             Divider().frame(height: 40)
-            bannerStat(formatYen(trip.totalSpent), label: "ПОТРАЧЕНО", icon: "yensign")
+            bannerStat(formatRub(trip.totalSpent), label: "ПОТРАЧЕНО", icon: "rublesign")
         }
         .padding(.vertical, AppTheme.spacingM)
         .background(AppTheme.sakuraPink.opacity(0.12))
@@ -231,12 +233,12 @@ struct DashboardView: View {
         return "\(start) – \(end) // \(trip.totalDays) дн."
     }
 
-    private func formatYen(_ amount: Double) -> String {
+    private func formatRub(_ amount: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.groupingSeparator = " "
         let formatted = formatter.string(from: NSNumber(value: Int(amount))) ?? "0"
-        return "\u{00A5}\(formatted)"
+        return "\u{20BD}\(formatted)"
     }
 }
 

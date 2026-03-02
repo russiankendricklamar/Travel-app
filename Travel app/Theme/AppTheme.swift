@@ -8,6 +8,7 @@ enum AppTheme {
     static let templeGold = Color(hex: "D97706")
     static let bambooGreen = Color(hex: "16A34A")
     static let oceanBlue = Color(hex: "2563EB")
+    static let indigoPurple = Color(hex: "7C3AED")
 
     // MARK: - Soft Accent Variants
     static let softPink = Color(hex: "FDF2F8")
@@ -62,7 +63,7 @@ enum AppTheme {
         case "Природа": return bambooGreen
         case "Культура": return oceanBlue
         case "Транспорт": return info
-        case "Жильё": return textSecondary
+        case "Жильё": return indigoPurple
         case "Развлечения": return sakuraPink
         default: return textMuted
         }
@@ -73,7 +74,7 @@ enum AppTheme {
         switch category {
         case .food: return toriiRed
         case .transport: return oceanBlue
-        case .accommodation: return textSecondary
+        case .accommodation: return indigoPurple
         case .activities: return sakuraPink
         case .shopping: return templeGold
         case .other: return textMuted

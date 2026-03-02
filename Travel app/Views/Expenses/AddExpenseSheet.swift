@@ -12,7 +12,7 @@ struct AddExpenseSheet: View {
     @State private var category: ExpenseCategory = .food
     @State private var date = Date()
     @State private var notes = ""
-    @State private var inputCurrency = "JPY"
+    @State private var inputCurrency = "RUB"
 
     private var currency: CurrencyService { CurrencyService.shared }
 
@@ -22,10 +22,10 @@ struct AddExpenseSheet: View {
             && Double(amountText)! > 0
     }
 
-    private var convertedJPY: Double? {
+    private var convertedRUB: Double? {
         guard let amount = Double(amountText), amount > 0 else { return nil }
-        if inputCurrency == "JPY" { return amount }
-        let result = currency.convert(amount, from: inputCurrency, to: "JPY")
+        if inputCurrency == "RUB" { return amount }
+        let result = currency.convert(amount, from: inputCurrency, to: "RUB")
         return result > 0 ? result : nil
     }
 
@@ -33,7 +33,7 @@ struct AddExpenseSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppTheme.spacingM) {
-                    SheetHeader(icon: "yensign.circle.fill", title: editing != nil ? "РЕДАКТИРОВАТЬ РАСХОД" : "НОВЫЙ РАСХОД", color: AppTheme.sakuraPink)
+                    SheetHeader(icon: "rublesign.circle.fill", title: editing != nil ? "РЕДАКТИРОВАТЬ РАСХОД" : "НОВЫЙ РАСХОД", color: AppTheme.sakuraPink)
 
                     GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
                         TextField("Рамен Ichiran", text: $title)
@@ -43,17 +43,17 @@ struct AddExpenseSheet: View {
                     // Amount + currency selector
                     GlassFormField(label: "СУММА (\(inputCurrency))", color: AppTheme.templeGold) {
                         VStack(spacing: AppTheme.spacingS) {
-                            TextField(inputCurrency == "JPY" ? "1290" : "10.00", text: $amountText)
-                                .keyboardType(inputCurrency == "JPY" ? .numberPad : .decimalPad)
+                            TextField(inputCurrency == "RUB" ? "5000" : "10.00", text: $amountText)
+                                .keyboardType((inputCurrency == "RUB" || inputCurrency == "JPY") ? .numberPad : .decimalPad)
                                 .textFieldStyle(GlassTextFieldStyle())
 
                             currencySelector
 
-                            if inputCurrency != "JPY", let jpy = convertedJPY {
+                            if inputCurrency != "RUB", let rub = convertedRUB {
                                 HStack(spacing: 4) {
                                     Image(systemName: "arrow.right")
                                         .font(.system(size: 10))
-                                    Text("\u{2248} \u{00A5}\(Int(jpy))")
+                                    Text("\u{2248} \u{20BD}\(Int(rub))")
                                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                                 }
                                 .foregroundStyle(AppTheme.templeGold)
@@ -108,7 +108,7 @@ struct AddExpenseSheet: View {
                     category = e.category
                     date = e.date
                     notes = e.notes
-                    inputCurrency = "JPY"
+                    inputCurrency = "RUB"
                 }
             }
             .task {
@@ -192,25 +192,25 @@ struct AddExpenseSheet: View {
     private func saveExpense() {
         guard let amount = Double(amountText), amount > 0 else { return }
 
-        // Convert to JPY if needed
-        let jpyAmount: Double
-        if inputCurrency == "JPY" {
-            jpyAmount = amount
+        // Convert to RUB if needed
+        let rubAmount: Double
+        if inputCurrency == "RUB" {
+            rubAmount = amount
         } else {
-            jpyAmount = currency.convert(amount, from: inputCurrency, to: "JPY")
-            guard jpyAmount > 0 else { return }
+            rubAmount = currency.convert(amount, from: inputCurrency, to: "RUB")
+            guard rubAmount > 0 else { return }
         }
 
         if let e = editing {
             e.title = title.trimmingCharacters(in: .whitespaces)
-            e.amount = jpyAmount
+            e.amount = rubAmount
             e.category = category
             e.date = date
             e.notes = notes.trimmingCharacters(in: .whitespaces)
         } else {
             let expense = Expense(
                 title: title.trimmingCharacters(in: .whitespaces),
-                amount: jpyAmount,
+                amount: rubAmount,
                 category: category,
                 date: date,
                 notes: notes.trimmingCharacters(in: .whitespaces)

@@ -94,7 +94,7 @@ struct DashboardActiveSection: View {
             Divider().frame(height: 40)
             bannerStat("\(uniqueCities.count)", label: "ГОРОДОВ", icon: "building.2")
             Divider().frame(height: 40)
-            bannerStat(formatYen(trip.totalSpent), label: "ПОТРАЧЕНО", icon: "yensign")
+            bannerStat(formatRub(trip.totalSpent), label: "ПОТРАЧЕНО", icon: "rublesign")
         }
         .padding(.vertical, AppTheme.spacingM)
         .background(AppTheme.sakuraPink.opacity(0.12))
@@ -230,7 +230,7 @@ struct DashboardActiveSection: View {
 
             Spacer()
 
-            Text(formatYen(expense.amount))
+            Text(formatRub(expense.amount))
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
         }
@@ -258,11 +258,11 @@ struct DashboardActiveSection: View {
         return "\(start) – \(end) // \(trip.totalDays) дн."
     }
 
-    private func formatYen(_ amount: Double) -> String {
+    private func formatRub(_ amount: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.groupingSeparator = " "
         let formatted = formatter.string(from: NSNumber(value: Int(amount))) ?? "0"
-        return "\u{00A5}\(formatted)"
+        return "\u{20BD}\(formatted)"
     }
 }

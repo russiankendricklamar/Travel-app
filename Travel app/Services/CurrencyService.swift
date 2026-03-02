@@ -4,7 +4,7 @@ import Foundation
 final class CurrencyService {
     static let shared = CurrencyService()
 
-    static let supportedCurrencies = ["JPY", "USD", "RUB", "CNY"]
+    static let supportedCurrencies = ["RUB", "JPY", "USD", "CNY"]
     static let symbols: [String: String] = [
         "JPY": "\u{00A5}",
         "USD": "$",
@@ -12,7 +12,7 @@ final class CurrencyService {
         "CNY": "\u{5143}"
     ]
 
-    // API rates: how much 1 JPY costs in each currency
+    // API rates: how much 1 RUB costs in each currency
     var rates: [String: Double] = [:]
     var isLoading = false
     var errorMessage: String?
@@ -22,11 +22,11 @@ final class CurrencyService {
     private let cacheInterval: TimeInterval = 60 * 60 // 1 hour
     private let session: URLSession
 
-    // Fallback rates (approximate, 1 JPY = X currency)
+    // Fallback rates (approximate, 1 RUB = X currency)
     private let fallbackRates: [String: Double] = [
-        "USD": 0.0067,
-        "RUB": 0.58,
-        "CNY": 0.048
+        "JPY": 1.7,
+        "USD": 0.011,
+        "CNY": 0.082
     ]
 
     private init() {
@@ -43,8 +43,8 @@ final class CurrencyService {
         UserDefaults.standard.bool(forKey: "useCustomRates")
     }
 
-    // Custom rates stored as "1 USD = X JPY"
-    func customRateJPYPer(currency: String) -> Double {
+    // Custom rates stored as "1 USD = X RUB"
+    func customRateRUBPer(currency: String) -> Double {
         UserDefaults.standard.double(forKey: "customRate_\(currency)")
     }
 
@@ -53,10 +53,10 @@ final class CurrencyService {
     private var activeRates: [String: Double] {
         if useCustomRates {
             var custom: [String: Double] = [:]
-            for code in ["USD", "RUB", "CNY"] {
-                let jpyPer = customRateJPYPer(currency: code)
-                if jpyPer > 0 {
-                    custom[code] = 1.0 / jpyPer
+            for code in ["JPY", "USD", "CNY"] {
+                let rubPer = customRateRUBPer(currency: code)
+                if rubPer > 0 {
+                    custom[code] = 1.0 / rubPer
                 }
             }
             return custom.isEmpty ? rates : custom
@@ -72,22 +72,22 @@ final class CurrencyService {
 
         let currentRates = activeRates
 
-        if from == "JPY" {
-            // JPY -> other: multiply by rate
+        if from == "RUB" {
+            // RUB -> other: multiply by rate
             let rate = currentRates[to] ?? 0
             return amount * rate
-        } else if to == "JPY" {
-            // other -> JPY: divide by rate
+        } else if to == "RUB" {
+            // other -> RUB: divide by rate
             let rate = currentRates[from] ?? 0
             guard rate > 0 else { return 0 }
             return amount / rate
         } else {
-            // cross: from -> JPY -> to
+            // cross: from -> RUB -> to
             let rateFrom = currentRates[from] ?? 0
             guard rateFrom > 0 else { return 0 }
-            let jpyAmount = amount / rateFrom
+            let rubAmount = amount / rateFrom
             let rateTo = currentRates[to] ?? 0
-            return jpyAmount * rateTo
+            return rubAmount * rateTo
         }
     }
 
@@ -97,13 +97,13 @@ final class CurrencyService {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.groupingSeparator = " "
-        formatter.maximumFractionDigits = currency == "JPY" ? 0 : 2
+        formatter.maximumFractionDigits = (currency == "JPY" || currency == "RUB") ? 0 : 2
         let formatted = formatter.string(from: NSNumber(value: amount)) ?? "0"
         return "\(symbol)\(formatted)"
     }
 
-    /// Get rate: 1 unit of `currency` = X JPY
-    func jpyPerUnit(of currency: String) -> Double {
+    /// Get rate: 1 unit of `currency` = X RUB
+    func rubPerUnit(of currency: String) -> Double {
         let currentRates = activeRates
         guard let rate = currentRates[currency], rate > 0 else { return 0 }
         return 1.0 / rate
@@ -121,7 +121,7 @@ final class CurrencyService {
         errorMessage = nil
 
         do {
-            let url = URL(string: "https://open.er-api.com/v6/latest/JPY")!
+            let url = URL(string: "https://open.er-api.com/v6/latest/RUB")!
             let (data, response) = try await session.data(from: url)
 
             guard let http = response as? HTTPURLResponse,
@@ -130,8 +130,8 @@ final class CurrencyService {
             }
 
             let decoded = try JSONDecoder().decode(ExchangeRateResponse.self, from: data)
+            if let jpy = decoded.rates["JPY"] { rates["JPY"] = jpy }
             if let usd = decoded.rates["USD"] { rates["USD"] = usd }
-            if let rub = decoded.rates["RUB"] { rates["RUB"] = rub }
             if let cny = decoded.rates["CNY"] { rates["CNY"] = cny }
 
             lastFetchDate = Date()

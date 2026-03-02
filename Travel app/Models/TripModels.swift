@@ -23,6 +23,8 @@ final class Trip {
     @Relationship(deleteRule: .cascade, inverse: \Expense.trip)
     var expenses: [Expense] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \Ticket.trip)
+    var tickets: [Ticket] = []
 
     init(
         id: UUID = UUID(),
@@ -207,6 +209,9 @@ final class TripDay {
     @Relationship(deleteRule: .cascade, inverse: \RoutePoint.day)
     var routePoints: [RoutePoint] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \Ticket.day)
+    var tickets: [Ticket] = []
+
     init(
         id: UUID = UUID(),
         date: Date,
@@ -252,6 +257,16 @@ final class TripEvent {
     var endTime: Date
     var notes: String
 
+    // Location for regular events (museum, checkin, etc.)
+    var latitude: Double?
+    var longitude: Double?
+
+    // Location for transport events (start/end points)
+    var startLatitude: Double?
+    var startLongitude: Double?
+    var endLatitude: Double?
+    var endLongitude: Double?
+
     var day: TripDay?
 
     init(
@@ -261,7 +276,13 @@ final class TripEvent {
         category: EventCategory,
         startTime: Date,
         endTime: Date,
-        notes: String = ""
+        notes: String = "",
+        latitude: Double? = nil,
+        longitude: Double? = nil,
+        startLatitude: Double? = nil,
+        startLongitude: Double? = nil,
+        endLatitude: Double? = nil,
+        endLongitude: Double? = nil
     ) {
         self.id = id
         self.title = title
@@ -270,6 +291,12 @@ final class TripEvent {
         self.startTime = startTime
         self.endTime = endTime
         self.notes = notes
+        self.latitude = latitude
+        self.longitude = longitude
+        self.startLatitude = startLatitude
+        self.startLongitude = startLongitude
+        self.endLatitude = endLatitude
+        self.endLongitude = endLongitude
     }
 
     var duration: TimeInterval {
@@ -323,6 +350,43 @@ final class TripEvent {
         }
         return "\(minutes)мин"
     }
+
+    // MARK: - Location Computed Properties
+
+    var isTransportEvent: Bool {
+        category.isTransport
+    }
+
+    var hasLocation: Bool {
+        if isTransportEvent {
+            return startLatitude != nil && startLongitude != nil
+        }
+        return latitude != nil && longitude != nil
+    }
+
+    /// Primary coordinate: for regular events — the location; for transport — departure point
+    var primaryCoordinate: CLLocationCoordinate2D? {
+        if isTransportEvent {
+            guard let lat = startLatitude, let lon = startLongitude else { return nil }
+            return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        }
+        guard let lat = latitude, let lon = longitude else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+
+    /// Arrival coordinate: only for transport events — the destination
+    var arrivalCoordinate: CLLocationCoordinate2D? {
+        guard isTransportEvent, let lat = endLatitude, let lon = endLongitude else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+
+    /// Effective end coordinate: where the person ends up after this event
+    var effectiveEndCoordinate: CLLocationCoordinate2D? {
+        if isTransportEvent {
+            return arrivalCoordinate ?? primaryCoordinate
+        }
+        return primaryCoordinate
+    }
 }
 
 enum EventCategory: String, CaseIterable, Identifiable, Codable {
@@ -336,6 +400,13 @@ enum EventCategory: String, CaseIterable, Identifiable, Codable {
     case other = "Событие"
 
     var id: String { rawValue }
+
+    var isTransport: Bool {
+        switch self {
+        case .flight, .train, .bus: return true
+        default: return false
+        }
+    }
 
     var systemImage: String {
         switch self {

@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import CoreLocation
+import MapKit
 
 struct DayDetailView: View {
     let trip: Trip
@@ -10,6 +11,7 @@ struct DayDetailView: View {
     @State private var showingEditDay = false
     @State private var showingAddPlace = false
     @State private var showingAddEvent = false
+    @State private var showingAddTicket = false
     @State private var editingPlace: Place?
     @State private var editingEvent: TripEvent?
 
@@ -28,8 +30,12 @@ struct DayDetailView: View {
                 headerSection
                 DayWeatherSection(day: day)
                 gpsTrackingSection
+                DayEventsMapSection(events: day.events)
                 if !day.events.isEmpty {
                     eventsSection
+                }
+                if !day.tickets.isEmpty {
+                    ticketsSection
                 }
                 placesSection
                 notesSection
@@ -58,6 +64,11 @@ struct DayDetailView: View {
                     } label: {
                         Label("Добавить событие", systemImage: "calendar.badge.plus")
                     }
+                    Button {
+                        showingAddTicket = true
+                    } label: {
+                        Label("Добавить билет", systemImage: "ticket")
+                    }
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 20))
@@ -79,6 +90,9 @@ struct DayDetailView: View {
         }
         .sheet(item: $editingEvent) { event in
             AddEventSheet(day: day, editing: event)
+        }
+        .sheet(isPresented: $showingAddTicket) {
+            AddTicketSheet(trip: trip, day: day)
         }
     }
 
@@ -136,10 +150,12 @@ struct DayDetailView: View {
     // MARK: - Events
 
     private var eventsSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+        let sortedEvents = day.events.sorted(by: { $0.startTime < $1.startTime })
+
+        return VStack(alignment: .leading, spacing: AppTheme.spacingS) {
             GlassSectionHeader(title: "РАСПИСАНИЕ", color: AppTheme.oceanBlue)
 
-            ForEach(day.events.sorted(by: { $0.startTime < $1.startTime })) { event in
+            ForEach(Array(sortedEvents.enumerated()), id: \.element.id) { index, event in
                 EventCard(event: event)
                     .contextMenu {
                         Button {
@@ -153,6 +169,14 @@ struct DayDetailView: View {
                             Label("Удалить", systemImage: "trash")
                         }
                     }
+
+                // Route card between consecutive events
+                if index < sortedEvents.count - 1 {
+                    EventRouteCard(
+                        fromEvent: event,
+                        toEvent: sortedEvents[index + 1]
+                    )
+                }
             }
         }
     }
@@ -267,6 +291,53 @@ struct DayDetailView: View {
                 .stroke(accentColor.opacity(0.15), lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
+    }
+
+    // MARK: - Tickets
+
+    private var ticketsSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+            GlassSectionHeader(title: "БИЛЕТЫ", color: AppTheme.sakuraPink)
+
+            ForEach(day.tickets.sorted(by: { $0.eventDate < $1.eventDate })) { ticket in
+                NavigationLink(destination: TicketDetailView(ticket: ticket)) {
+                    HStack(spacing: AppTheme.spacingS) {
+                        Image(systemName: ticket.category.systemImage)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 32)
+                            .background(ticket.category.color)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(ticket.title)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            if !ticket.venue.isEmpty {
+                                Text(ticket.venue)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+
+                        Spacer()
+
+                        Image(systemName: ticket.barcodeType.systemImage)
+                            .font(.system(size: 16))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(AppTheme.spacingM)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                            .stroke(ticket.category.color.opacity(0.15), lineWidth: 0.5)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     // MARK: - GPS Tracking
