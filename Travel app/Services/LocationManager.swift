@@ -49,6 +49,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
             timestamp: location.timestamp
         )
         day.routePoints.append(point)
+        try? context.save()
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

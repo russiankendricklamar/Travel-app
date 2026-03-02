@@ -301,6 +301,7 @@ struct OnboardingView: View {
     private var useSampleDataButton: some View {
         Button {
             SampleData.seed(into: modelContext)
+            try? modelContext.save()
             hasCompletedOnboarding = true
         } label: {
             HStack(spacing: 6) {

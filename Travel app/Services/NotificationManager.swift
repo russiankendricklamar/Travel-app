@@ -10,9 +10,9 @@ final class NotificationManager {
     private init() {}
 
     func requestPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { [weak self] granted, _ in
             DispatchQueue.main.async {
-                self.isAuthorized = granted
+                self?.isAuthorized = granted
             }
         }
     }

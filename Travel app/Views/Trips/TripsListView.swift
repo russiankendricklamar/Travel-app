@@ -141,5 +141,6 @@ struct TripsListView: View {
 
     private func deleteTrip(_ trip: Trip) {
         modelContext.delete(trip)
+        try? modelContext.save()
     }
 }

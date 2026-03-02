@@ -32,6 +32,7 @@ enum SampleData {
         buildTickets(trip: trip, startDate: startDate, calendar: calendar)
 
         context.insert(trip)
+        try? context.save()
     }
 
     // MARK: - Helper

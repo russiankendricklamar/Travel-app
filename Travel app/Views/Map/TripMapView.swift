@@ -318,13 +318,14 @@ struct TripMapView: View {
     // MARK: - Camera Helpers
 
     private func zoomToAll() {
-        guard !allPlaces.isEmpty else { return }
         let lats = allPlaces.map(\.latitude)
         let lons = allPlaces.map(\.longitude)
-        let centerLat = (lats.min()! + lats.max()!) / 2
-        let centerLon = (lons.min()! + lons.max()!) / 2
-        let spanLat = max((lats.max()! - lats.min()!) * 1.5, 0.05)
-        let spanLon = max((lons.max()! - lons.min()!) * 1.5, 0.05)
+        guard let minLat = lats.min(), let maxLat = lats.max(),
+              let minLon = lons.min(), let maxLon = lons.max() else { return }
+        let centerLat = (minLat + maxLat) / 2
+        let centerLon = (minLon + maxLon) / 2
+        let spanLat = max((maxLat - minLat) * 1.5, 0.05)
+        let spanLon = max((maxLon - minLon) * 1.5, 0.05)
         withAnimation {
             cameraPosition = .region(
                 MKCoordinateRegion(

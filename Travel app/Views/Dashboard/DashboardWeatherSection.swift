@@ -18,8 +18,6 @@ struct DashboardWeatherSection: View {
                 errorView(error)
             } else if let current = weather.currentWeather {
                 currentWeatherView(current)
-            } else if weather.isLoading {
-                loadingView
             } else {
                 loadingView
             }

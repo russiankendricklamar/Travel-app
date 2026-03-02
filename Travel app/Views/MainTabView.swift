@@ -71,7 +71,7 @@ struct MainTabView: View {
                             .tag(Tab.expenses)
 
                     }
-                    .tint(AppTheme.sakuraPink)
+                    .tint(ColorPalette.current.accentColor)
                     .id(palette)
                     .onAppear {
                         trip.autoCompletePastDays()

@@ -11,7 +11,7 @@ final class ClaudeService {
     var isLoading = false
 
     private var apiKey: String {
-        UserDefaults.standard.string(forKey: "claudeApiKey")?.trimmingCharacters(in: .whitespaces) ?? ""
+        KeychainHelper.readString(key: "claudeApiKey")?.trimmingCharacters(in: .whitespaces) ?? ""
     }
 
     var hasApiKey: Bool {
@@ -84,7 +84,7 @@ final class ClaudeService {
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (data, response) = try await URLSession.shared.data(for: req)
 
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return nil }
 
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let content = json["content"] as? [[String: Any]],
@@ -92,7 +92,6 @@ final class ClaudeService {
 
             return text
         } catch {
-            print("[ClaudeService] rawRequest error: \(error.localizedDescription)")
             return nil
         }
     }
@@ -125,8 +124,7 @@ final class ClaudeService {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (data, response) = try await URLSession.shared.data(for: request)
 
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                print("[ClaudeService] HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
                 return nil
             }
 
@@ -138,7 +136,6 @@ final class ClaudeService {
 
             return parseResponse(text, source: source)
         } catch {
-            print("[ClaudeService] Error: \(error.localizedDescription)")
             return nil
         }
     }

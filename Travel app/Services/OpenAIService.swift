@@ -11,7 +11,7 @@ final class OpenAIService {
     var isLoading = false
 
     private var apiKey: String {
-        UserDefaults.standard.string(forKey: "openaiApiKey")?.trimmingCharacters(in: .whitespaces) ?? ""
+        KeychainHelper.readString(key: "openaiApiKey")?.trimmingCharacters(in: .whitespaces) ?? ""
     }
 
     var hasApiKey: Bool {
@@ -84,7 +84,7 @@ final class OpenAIService {
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (data, response) = try await URLSession.shared.data(for: req)
 
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return nil }
 
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let choices = json["choices"] as? [[String: Any]],
@@ -93,7 +93,6 @@ final class OpenAIService {
 
             return content
         } catch {
-            print("[OpenAIService] rawRequest error: \(error.localizedDescription)")
             return nil
         }
     }
@@ -126,8 +125,7 @@ final class OpenAIService {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (data, response) = try await URLSession.shared.data(for: request)
 
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                print("[OpenAIService] HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
                 return nil
             }
 
@@ -140,7 +138,6 @@ final class OpenAIService {
 
             return parseResponse(content, source: source)
         } catch {
-            print("[OpenAIService] Error: \(error.localizedDescription)")
             return nil
         }
     }
