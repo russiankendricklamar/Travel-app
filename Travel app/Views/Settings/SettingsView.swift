@@ -54,10 +54,6 @@ struct SettingsView: View {
     @AppStorage("customRate_USD") private var customRateUSD: Double = 88.0
     @AppStorage("customRate_CNY") private var customRateCNY: Double = 12.2
 
-    // AI
-    @AppStorage("groqApiKey") private var groqApiKey = ""
-    @AppStorage("aiAutoFetch") private var aiAutoFetch = true
-
     @State private var showResetConfirmation = false
 
     private var selectedPalette: ColorPalette {
@@ -72,7 +68,6 @@ struct SettingsView: View {
                     notificationSection
                     currencySection
                     exchangeRatesSection
-                    aiSection
                     languageSection
                     dataSection
                     aboutSection
@@ -534,74 +529,6 @@ struct SettingsView: View {
         .padding(.vertical, 8)
         .background(.thinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-    }
-
-    // MARK: - AI Section
-
-    private var aiSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("ИИ-ПОМОЩНИК", icon: "sparkles")
-
-            // API Key
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
-                    Image(systemName: "key.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            LinearGradient(
-                                colors: [AppTheme.indigoPurple, AppTheme.indigoPurple.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Groq API-ключ")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.primary)
-                        Text("Бесплатно на console.groq.com")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    if !groqApiKey.isEmpty {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(AppTheme.bambooGreen)
-                    }
-                }
-
-                SecureField("gsk_...", text: $groqApiKey)
-                    .font(.system(size: 13, design: .monospaced))
-                    .textFieldStyle(GlassTextFieldStyle())
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-            }
-            .padding(10)
-            .background(.thinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-
-            // Info
-            HStack(spacing: 6) {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 10))
-                Text("Wikipedia + Groq (Llama 3.3) для справок о местах")
-                    .font(.system(size: 10))
-            }
-            .foregroundStyle(.tertiary)
-            .padding(.horizontal, 4)
-        }
-        .padding(AppTheme.spacingM)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
     }
 
     // MARK: - Language Section
