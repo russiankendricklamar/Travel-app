@@ -6,9 +6,12 @@ struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var selectedTab: Tab = .dashboard
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("hasSkippedAuth") private var hasSkippedAuth = false
     @State private var showSideMenu = false
     @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
     @State private var selectedTripID: UUID?
+
+    private let authManager = AuthManager.shared
 
     enum Tab: String {
         case dashboard
@@ -24,8 +27,21 @@ struct MainTabView: View {
 
     var body: some View {
         Group {
-            if !hasCompletedOnboarding {
+            if !authManager.isSignedIn && !hasSkippedAuth {
+                AuthView { result in
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        switch result {
+                        case .signedIn:
+                            break
+                        case .skipped:
+                            hasSkippedAuth = true
+                        }
+                    }
+                }
+            } else if !hasCompletedOnboarding {
                 OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
+            } else if authManager.isLocked {
+                BiometricLockView()
             } else if let trip = selectedTrip {
                 ZStack {
                     TabView(selection: $selectedTab) {

@@ -60,6 +60,10 @@ struct SettingsView: View {
     @AppStorage("openaiApiKey") private var openaiApiKey = ""
 
     @State private var showResetConfirmation = false
+    @State private var showSignOutConfirmation = false
+    @State private var showAuthSheet = false
+
+    private let authManager = AuthManager.shared
 
     private var selectedPalette: ColorPalette {
         ColorPalette(rawValue: palette) ?? .sakura
@@ -69,6 +73,7 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppTheme.spacingL) {
+                    accountSection
                     paletteSection
                     notificationSection
                     currencySection
@@ -105,7 +110,193 @@ struct SettingsView: View {
             } message: {
                 Text("Это удалит все поездки, расходы и записи. Действие нельзя отменить.")
             }
+            .confirmationDialog(
+                "Выйти из аккаунта?",
+                isPresented: $showSignOutConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Выйти", role: .destructive) {
+                    authManager.signOut()
+                }
+                Button("Отмена", role: .cancel) {}
+            }
+            .sheet(isPresented: $showAuthSheet) {
+                AuthView { result in
+                    showAuthSheet = false
+                }
+            }
         }
+    }
+
+    // MARK: - Account Section
+
+    private var accountSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("АККАУНТ", icon: "person.fill")
+
+            if authManager.isSignedIn {
+                // Profile info
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [AppTheme.sakuraPink, AppTheme.sakuraPink.opacity(0.6)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 44, height: 44)
+
+                        Text(String((authManager.userName ?? "?").prefix(1)).uppercased())
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(authManager.userName ?? "Пользователь")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.primary)
+
+                        if let email = authManager.userEmail {
+                            Text(email)
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    // Provider badge
+                    if let provider = authManager.authProvider {
+                        Text(provider == "apple" ? "Apple" : "Google")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(0.5)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.thinMaterial)
+                            .clipShape(Capsule())
+                    }
+                }
+                .padding(12)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+
+                // Face ID toggle
+                if authManager.checkBiometricAvailability() {
+                    HStack(spacing: 12) {
+                        Image(systemName: "faceid")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(
+                                LinearGradient(
+                                    colors: [AppTheme.oceanBlue, AppTheme.oceanBlue.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Face ID")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Text("Блокировка при запуске")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Toggle("", isOn: Binding(
+                            get: { authManager.isBiometricEnabled },
+                            set: { authManager.isBiometricEnabled = $0 }
+                        ))
+                        .labelsHidden()
+                        .tint(AppTheme.sakuraPink)
+                    }
+                    .padding(10)
+                    .background(.thinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                }
+
+                // Sign out button
+                Button {
+                    showSignOutConfirmation = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(
+                                LinearGradient(
+                                    colors: [AppTheme.toriiRed, AppTheme.toriiRed.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+                        Text("Выйти")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(AppTheme.toriiRed)
+
+                        Spacer()
+                    }
+                    .padding(10)
+                    .background(.thinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                }
+            } else {
+                // Not signed in
+                Button {
+                    showAuthSheet = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "person.badge.plus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(
+                                LinearGradient(
+                                    colors: [AppTheme.sakuraPink, AppTheme.sakuraPink.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Войти")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Text("Apple ID или Google")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(10)
+                    .background(.thinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                }
+            }
+        }
+        .padding(AppTheme.spacingM)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
     }
 
     // MARK: - Palette Section

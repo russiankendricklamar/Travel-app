@@ -38,7 +38,7 @@
 		AA11AA0D2F530EE100928D2C /* Exceptions for "Travel app" folder in "TravelWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"Models/TravelActivityAttributes.swift",
+				Models/TravelActivityAttributes.swift,
 			);
 			target = AA11AA092F530EE100928D2C /* TravelWidgetExtension */;
 		};
@@ -352,6 +352,7 @@
 				DEVELOPMENT_TEAM = 9UCR65VBLX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Для блокировки приложения при запуске";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "GPS-трекинг маршрутов в стиле Strava для записи путешествия";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Отображение вашего местоположения на карте путешествия";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
@@ -388,6 +389,7 @@
 				DEVELOPMENT_TEAM = 9UCR65VBLX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Для блокировки приложения при запуске";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "GPS-трекинг маршрутов в стиле Strava для записи путешествия";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Отображение вашего местоположения на карте путешествия";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;

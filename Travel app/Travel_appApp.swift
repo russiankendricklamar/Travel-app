@@ -4,6 +4,9 @@ import SwiftData
 @main
 struct Travel_appApp: App {
     @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
+    @Environment(\.scenePhase) private var scenePhase
+
+    private let authManager = AuthManager.shared
 
     private var resolvedScheme: ColorScheme {
         (ColorPalette(rawValue: palette) ?? .sakura).colorScheme
@@ -15,5 +18,10 @@ struct Travel_appApp: App {
                 .preferredColorScheme(resolvedScheme)
         }
         .modelContainer(for: Trip.self)
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if oldPhase == .background && newPhase == .active {
+                authManager.lockIfNeeded()
+            }
+        }
     }
 }
