@@ -23,6 +23,11 @@ struct AddPlaceSheet: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var isSearching = false
 
+    // AI Info
+    @State private var isLoadingAI = false
+    @State private var aiError: String?
+    @State private var selectedCity: String?
+
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
     }
@@ -80,9 +85,23 @@ struct AddPlaceSheet: View {
                         TextField("1,5 ч", text: $timeToSpend)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
+                    // MARK: - AI Info Button
+                    if !name.trimmingCharacters(in: .whitespaces).isEmpty {
+                        aiInfoSection
+                    }
+
                     GlassFormField(label: "ЗАМЕТКИ", color: .secondary) {
-                        TextField("Дополнительные детали...", text: $notes)
-                            .textFieldStyle(GlassTextFieldStyle())
+                        TextEditor(text: $notes)
+                            .font(.system(size: 14))
+                            .frame(minHeight: notes.isEmpty ? 44 : 120)
+                            .scrollContentBackground(.hidden)
+                            .padding(8)
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                                    .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                            )
                     }
                 }
                 .padding(AppTheme.spacingM)
@@ -239,6 +258,72 @@ struct AddPlaceSheet: View {
         .padding(.vertical, 10)
     }
 
+    // MARK: - AI Info Section
+
+    private var aiInfoSection: some View {
+        VStack(spacing: AppTheme.spacingS) {
+            Button {
+                Task { await fetchAIInfo() }
+            } label: {
+                HStack(spacing: 8) {
+                    if isLoadingAI {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    Text(isLoadingAI ? "ЗАГРУЗКА..." : "УЗНАТЬ О МЕСТЕ")
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1.5)
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    LinearGradient(
+                        colors: [AppTheme.indigoPurple, AppTheme.oceanBlue],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                .shadow(color: AppTheme.indigoPurple.opacity(0.3), radius: 8, x: 0, y: 4)
+            }
+            .disabled(isLoadingAI)
+
+            if let error = aiError {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10))
+                    Text(error)
+                        .font(.system(size: 11))
+                }
+                .foregroundStyle(AppTheme.toriiRed)
+            }
+        }
+    }
+
+    private func fetchAIInfo() async {
+        isLoadingAI = true
+        aiError = nil
+
+        let info = await PlaceInfoService.shared.fetchInfo(
+            placeName: name,
+            category: category.rawValue,
+            city: selectedCity ?? day.cityName
+        )
+
+        if let info {
+            notes = info.formatted
+        } else {
+            aiError = PlaceInfoService.shared.lastError ?? "Не удалось получить информацию"
+        }
+
+        isLoadingAI = false
+    }
+
     // MARK: - Search Logic
 
     private func searchPlaces(query: String) async {
@@ -273,6 +358,8 @@ struct AddPlaceSheet: View {
         if let formatted = formatAddress(item) {
             address = formatted
         }
+
+        selectedCity = item.placemark.locality
 
         searchQuery = ""
         searchResults = []
