@@ -67,85 +67,85 @@ struct ItineraryView: View {
         let isToday = day.isToday
         let isPast = day.isPast
 
-        return HStack(spacing: AppTheme.spacingS) {
-            // Day number
-            VStack(spacing: 2) {
+        return VStack(spacing: 0) {
+            // MARK: Header strip
+            HStack(spacing: 8) {
+                // Day number badge
+                Text(String(format: "%02d", index + 1))
+                    .font(.system(size: 20, weight: .heavy, design: .rounded))
+                    .foregroundStyle(isToday ? .white : (isPast ? .secondary : AppTheme.sakuraPink))
+
+                // Divider dot
+                Circle()
+                    .fill(isToday ? Color.white.opacity(0.5) : AppTheme.sakuraPink.opacity(0.3))
+                    .frame(width: 4, height: 4)
+
+                // Date
+                Text(dateFormatter.string(from: day.date).uppercased())
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.5)
+                    .foregroundStyle(isToday ? AnyShapeStyle(.white.opacity(0.8)) : AnyShapeStyle(.tertiary))
+
                 if isToday {
-                    Text("СЕЙЧАС")
+                    Text("СЕГОДНЯ")
                         .font(.system(size: 8, weight: .bold))
                         .tracking(1)
-                        .foregroundStyle(.white)
-                } else {
-                    Text(String(format: "%02d", index + 1))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundStyle(isPast ? Color.secondary.opacity(0.5) : AppTheme.sakuraPink)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .foregroundStyle(AppTheme.sakuraPink)
+                        .background(.white)
+                        .clipShape(Capsule())
                 }
-                if !isToday {
-                    Text("ДЕНЬ")
-                        .font(.system(size: 7, weight: .bold))
-                        .tracking(2)
-                        .foregroundStyle(.tertiary)
+
+                if isPast {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(isToday ? .white : AppTheme.bambooGreen)
                 }
+
+                Spacer()
+
+                // City badge
+                Text(day.cityName.uppercased())
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(1)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(isToday ? .white : .white)
+                    .background(isToday ? Color.white.opacity(0.2) : AppTheme.oceanBlue.opacity(isPast ? 0.5 : 1))
+                    .clipShape(Capsule())
             }
-            .frame(width: 52)
-            .frame(maxHeight: .infinity)
-            .background(isToday ? AppTheme.sakuraPink : AppTheme.sakuraPink.opacity(isPast ? 0.04 : 0.08))
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+            .padding(.horizontal, AppTheme.spacingM)
+            .padding(.vertical, 10)
+            .background(
+                isToday
+                    ? AnyShapeStyle(AppTheme.sakuraPink)
+                    : AnyShapeStyle(AppTheme.sakuraPink.opacity(isPast ? 0.03 : 0.06))
+            )
 
-            // Content
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(spacing: 6) {
-                            Text(dateFormatter.string(from: day.date).uppercased())
-                                .font(.system(size: 9, weight: .bold))
-                                .tracking(1.5)
-                                .foregroundStyle(.tertiary)
-
-                            if isToday {
-                                Text("СЕГОДНЯ")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .tracking(1)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .foregroundStyle(.white)
-                                    .background(AppTheme.sakuraPink)
-                                    .clipShape(Capsule())
-                            }
-
-                            if isPast {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(AppTheme.bambooGreen)
-                            }
-                        }
-
-                        Text(day.title)
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(isPast ? .secondary : .primary)
-                            .multilineTextAlignment(.leading)
-                    }
+            // MARK: Content
+            VStack(alignment: .leading, spacing: 8) {
+                // Title + progress counter
+                HStack(alignment: .top) {
+                    Text(day.title)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(isPast ? .secondary : .primary)
+                        .multilineTextAlignment(.leading)
 
                     Spacer()
 
-                    VStack(alignment: .trailing, spacing: 3) {
-                        Text(day.cityName.uppercased())
-                            .font(.system(size: 9, weight: .bold))
-                            .tracking(1)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .foregroundStyle(.white)
-                            .background(AppTheme.oceanBlue.opacity(isPast ? 0.5 : 1))
-                            .clipShape(Capsule())
-
+                    if !day.places.isEmpty {
                         Text("\(day.visitedCount)/\(day.places.count)")
                             .font(.system(size: 14, weight: .bold, design: .rounded))
-                            .foregroundStyle(day.visitedCount == day.places.count && !day.places.isEmpty
-                                ? AppTheme.bambooGreen
-                                : .secondary)
+                            .foregroundStyle(
+                                day.visitedCount == day.places.count
+                                    ? AppTheme.bambooGreen
+                                    : .secondary
+                            )
                     }
                 }
 
+                // Place icons
                 if !day.places.isEmpty {
                     HStack(spacing: 4) {
                         ForEach(day.places.prefix(5)) { place in
@@ -169,6 +169,7 @@ struct ItineraryView: View {
                     }
                 }
 
+                // Notes
                 if !day.notes.isEmpty {
                     Text(day.notes)
                         .font(.caption)
@@ -191,9 +192,9 @@ struct ItineraryView: View {
                 }
                 .frame(height: 4)
             }
-            .padding(AppTheme.spacingS)
+            .padding(.horizontal, AppTheme.spacingM)
+            .padding(.vertical, 12)
         }
-        .padding(AppTheme.spacingXS)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
         .overlay(
