@@ -11,7 +11,11 @@ final class GroqService {
     var isLoading = false
 
     private var apiKey: String {
-        UserDefaults.standard.string(forKey: "groqApiKey") ?? ""
+        let userKey = UserDefaults.standard.string(forKey: "groqApiKey") ?? ""
+        if !userKey.trimmingCharacters(in: .whitespaces).isEmpty {
+            return userKey
+        }
+        return Secrets.groqApiKey
     }
 
     var hasApiKey: Bool {

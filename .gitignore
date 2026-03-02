@@ -40,5 +40,8 @@ __MACOSX
 .vscode/
 .idea/
 
+# Secrets
+**/Config/Secrets.swift
+
 # Build artifacts
 build/
