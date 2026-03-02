@@ -14,6 +14,7 @@ struct DayDetailView: View {
     @State private var showingAddTicket = false
     @State private var editingPlace: Place?
     @State private var editingEvent: TripEvent?
+    @State private var aiInfoPlace: Place?
 
     private var locationManager: LocationManager { LocationManager.shared }
 
@@ -93,6 +94,9 @@ struct DayDetailView: View {
         }
         .sheet(isPresented: $showingAddTicket) {
             AddTicketSheet(trip: trip, day: day)
+        }
+        .sheet(item: $aiInfoPlace) { place in
+            PlaceAIInfoSheet(place: place, cityName: day.cityName)
         }
     }
 
@@ -190,6 +194,11 @@ struct DayDetailView: View {
             ForEach(Array(day.places.enumerated()), id: \.element.id) { index, place in
                 placeRow(place, index: index)
                     .contextMenu {
+                        Button {
+                            aiInfoPlace = place
+                        } label: {
+                            Label("Узнать от ИИ", systemImage: "sparkles")
+                        }
                         Button {
                             editingPlace = place
                         } label: {

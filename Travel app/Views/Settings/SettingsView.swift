@@ -56,6 +56,7 @@ struct SettingsView: View {
 
     // AI Provider
     @AppStorage("aiProvider") private var aiProvider: String = AIProvider.groq.rawValue
+    @State private var groqApiKey = Secrets.groqApiKey
     @State private var claudeApiKey = Secrets.claudeApiKey
     @State private var openaiApiKey = Secrets.openaiApiKey
     @State private var aviationStackKey = Secrets.aviationStackApiKey
@@ -745,6 +746,15 @@ struct SettingsView: View {
                 }
             }
 
+            if selectedProvider == .groq {
+                aiKeyField(
+                    title: "Groq API-ключ",
+                    hint: "gsk_...",
+                    url: "console.groq.com",
+                    binding: $groqApiKey
+                )
+            }
+
             if selectedProvider == .claude {
                 aiKeyField(
                     title: "Claude API-ключ",
@@ -770,6 +780,9 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
                 .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
         )
+        .onChange(of: groqApiKey) { _, newValue in
+            Secrets.setGroqApiKey(newValue)
+        }
         .onChange(of: claudeApiKey) { _, newValue in
             Secrets.setClaudeApiKey(newValue)
         }
