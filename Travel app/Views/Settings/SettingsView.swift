@@ -56,8 +56,9 @@ struct SettingsView: View {
 
     // AI Provider
     @AppStorage("aiProvider") private var aiProvider: String = AIProvider.groq.rawValue
-    @AppStorage("claudeApiKey") private var claudeApiKey = ""
-    @AppStorage("openaiApiKey") private var openaiApiKey = ""
+    @State private var claudeApiKey = Secrets.claudeApiKey
+    @State private var openaiApiKey = Secrets.openaiApiKey
+    @State private var aviationStackKey = Secrets.aviationStackApiKey
 
     @State private var showResetConfirmation = false
     @State private var showSignOutConfirmation = false
@@ -79,6 +80,7 @@ struct SettingsView: View {
                     currencySection
                     exchangeRatesSection
                     aiProviderSection
+                    flightTrackingSection
                     languageSection
                     dataSection
                 }
@@ -768,6 +770,12 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
                 .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
         )
+        .onChange(of: claudeApiKey) { _, newValue in
+            Secrets.setClaudeApiKey(newValue)
+        }
+        .onChange(of: openaiApiKey) { _, newValue in
+            Secrets.setOpenaiApiKey(newValue)
+        }
     }
 
     private func aiProviderButton(_ provider: AIProvider) -> some View {
@@ -815,6 +823,35 @@ struct SettingsView: View {
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 4)
         }
+    }
+
+    // MARK: - Flight Tracking Section
+
+    private var flightTrackingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("АВИА-ТРЕКИНГ", icon: "airplane")
+
+            VStack(alignment: .leading, spacing: 8) {
+                SecureField("API-ключ AviationStack", text: $aviationStackKey)
+                    .font(.system(size: 13, design: .monospaced))
+                    .textFieldStyle(GlassTextFieldStyle())
+                    .onChange(of: aviationStackKey) { _, newValue in
+                        Secrets.setAviationStackApiKey(newValue)
+                    }
+
+                Text("Бесплатно: 100 запросов/мес. aviationstack.com")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 4)
+            }
+        }
+        .padding(AppTheme.spacingM)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
     }
 
     // MARK: - Language Section

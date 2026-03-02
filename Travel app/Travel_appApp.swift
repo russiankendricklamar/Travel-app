@@ -8,6 +8,10 @@ struct Travel_appApp: App {
 
     private let authManager = AuthManager.shared
 
+    init() {
+        Secrets.migrateFromAppStorage()
+    }
+
     private var resolvedScheme: ColorScheme {
         (ColorPalette(rawValue: palette) ?? .sakura).colorScheme
     }

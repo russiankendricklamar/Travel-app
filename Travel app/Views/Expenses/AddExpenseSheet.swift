@@ -77,6 +77,19 @@ struct AddExpenseSheet: View {
                         TextField("Дополнительные детали...", text: $notes)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
+
+                    if let expense = editing {
+                        PhotoGridView(
+                            photos: expense.photos,
+                            onAdd: { photo in
+                                expense.photos.append(photo)
+                            },
+                            onDelete: { photo in
+                                expense.photos.removeAll { $0.id == photo.id }
+                                modelContext.delete(photo)
+                            }
+                        )
+                    }
                 }
                 .padding(AppTheme.spacingM)
             }

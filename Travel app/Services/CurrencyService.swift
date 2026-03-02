@@ -102,6 +102,11 @@ final class CurrencyService {
         return "\(symbol)\(formatted)"
     }
 
+    /// Convenience: format amount as RUB
+    static func formatRub(_ amount: Double) -> String {
+        shared.format(amount, currency: "RUB")
+    }
+
     /// Get rate: 1 unit of `currency` = X RUB
     func rubPerUnit(of currency: String) -> Double {
         let currentRates = activeRates

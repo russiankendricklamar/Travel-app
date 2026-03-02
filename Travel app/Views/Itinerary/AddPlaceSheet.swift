@@ -7,6 +7,7 @@ struct AddPlaceSheet: View {
     let day: TripDay
     var editing: Place?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @State private var name = ""
     @State private var nameLocal = ""
@@ -102,6 +103,19 @@ struct AddPlaceSheet: View {
                                 RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
                                     .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
                             )
+                    }
+
+                    if let place = editing {
+                        PhotoGridView(
+                            photos: place.photos,
+                            onAdd: { photo in
+                                place.photos.append(photo)
+                            },
+                            onDelete: { photo in
+                                place.photos.removeAll { $0.id == photo.id }
+                                modelContext.delete(photo)
+                            }
+                        )
                     }
                 }
                 .padding(AppTheme.spacingM)

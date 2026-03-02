@@ -215,6 +215,9 @@ final class TripDay {
     @Relationship(deleteRule: .cascade, inverse: \Ticket.day)
     var tickets: [Ticket] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \TripPhoto.day)
+    var photos: [TripPhoto] = []
+
     init(
         id: UUID = UUID(),
         date: Date,
@@ -456,6 +459,9 @@ final class Place {
 
     var day: TripDay?
 
+    @Relationship(deleteRule: .cascade, inverse: \TripPhoto.place)
+    var photos: [TripPhoto] = []
+
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
@@ -525,6 +531,9 @@ final class Expense {
     var notes: String
 
     var trip: Trip?
+
+    @Relationship(deleteRule: .cascade, inverse: \TripPhoto.expense)
+    var photos: [TripPhoto] = []
 
     init(
         id: UUID = UUID(),

@@ -4,14 +4,6 @@ struct DashboardBudgetSection: View {
     let trip: Trip
     let budgetWidth: CGFloat
 
-    private func formatRub(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.groupingSeparator = " "
-        let formatted = formatter.string(from: NSNumber(value: Int(amount))) ?? "0"
-        return "\u{20BD}\(formatted)"
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
@@ -26,7 +18,7 @@ struct DashboardBudgetSection: View {
                         .foregroundStyle(AppTheme.sakuraPink)
                 }
                 Spacer()
-                Text(formatRub(trip.budget))
+                Text(CurrencyService.formatRub(trip.budget))
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(.secondary)
             }
@@ -66,7 +58,7 @@ struct DashboardBudgetSection: View {
                         .font(.system(size: 8, weight: .bold))
                         .tracking(2)
                         .foregroundStyle(.tertiary)
-                    Text(formatRub(trip.totalSpent))
+                    Text(CurrencyService.formatRub(trip.totalSpent))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundStyle(AppTheme.toriiRed)
                 }
@@ -80,7 +72,7 @@ struct DashboardBudgetSection: View {
                         .font(.system(size: 8, weight: .bold))
                         .tracking(2)
                         .foregroundStyle(.tertiary)
-                    Text(formatRub(trip.remainingBudget))
+                    Text(CurrencyService.formatRub(trip.remainingBudget))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundStyle(trip.remainingBudget >= 0 ? AppTheme.bambooGreen : AppTheme.toriiRed)
                 }
@@ -136,7 +128,7 @@ struct DashboardBudgetSection: View {
             }
             .frame(height: 8)
 
-            Text(formatRub(item.total))
+            Text(CurrencyService.formatRub(item.total))
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
         }

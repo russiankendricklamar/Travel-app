@@ -239,7 +239,7 @@ struct DashboardView: View {
             Divider().frame(height: 40)
             bannerStat("\(uniqueCities.count)", label: "ГОРОДОВ", icon: "building.2")
             Divider().frame(height: 40)
-            bannerStat(formatRub(trip.totalSpent), label: "ПОТРАЧЕНО", icon: "rublesign")
+            bannerStat(CurrencyService.formatRub(trip.totalSpent), label: "ПОТРАЧЕНО", icon: "rublesign")
         }
         .padding(.vertical, AppTheme.spacingM)
         .background(AppTheme.sakuraPink.opacity(0.12))
@@ -285,13 +285,6 @@ struct DashboardView: View {
         return "\(start) – \(end) // \(trip.totalDays) дн."
     }
 
-    private func formatRub(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.groupingSeparator = " "
-        let formatted = formatter.string(from: NSNumber(value: Int(amount))) ?? "0"
-        return "\u{20BD}\(formatted)"
-    }
 }
 
 #if DEBUG
