@@ -89,7 +89,7 @@ final class NotificationManager {
         if let firstPlace = trip.sortedDays.first?.places.first {
             coordinate = firstPlace.coordinate
         } else {
-            coordinate = CLLocationCoordinate2D(latitude: 35.6812, longitude: 139.7671)
+            return
         }
 
         await weatherService.fetchWeather(for: coordinate)

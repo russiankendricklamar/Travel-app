@@ -41,11 +41,11 @@ struct AddEventSheet: View {
                     )
 
                     GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                        TextField("Shinkansen Nozomi", text: $title)
+                        TextField("Название", text: $title)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
                     GlassFormField(label: "ОПИСАНИЕ", color: .secondary) {
-                        TextField("Токио → Киото", text: $subtitle)
+                        TextField("Описание", text: $subtitle)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
                     GlassFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {

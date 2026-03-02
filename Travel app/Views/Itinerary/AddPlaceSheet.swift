@@ -9,7 +9,7 @@ struct AddPlaceSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
-    @State private var nameJapanese = ""
+    @State private var nameLocal = ""
     @State private var category: PlaceCategory = .culture
     @State private var address = ""
     @State private var latitude = ""
@@ -55,11 +55,11 @@ struct AddPlaceSheet: View {
 
                     // MARK: - Manual Fields
                     GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                        TextField("Храм Сэнсо-дзи", text: $name)
+                        TextField("Название места", text: $name)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
-                    GlassFormField(label: "ЯПОНСКОЕ НАЗВАНИЕ", color: AppTheme.templeGold) {
-                        TextField("浅草寺", text: $nameJapanese)
+                    GlassFormField(label: "МЕСТНОЕ НАЗВАНИЕ", color: AppTheme.templeGold) {
+                        TextField("Local name", text: $nameLocal)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
                     GlassFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
@@ -130,7 +130,7 @@ struct AddPlaceSheet: View {
             .onAppear {
                 if let p = editing {
                     name = p.name
-                    nameJapanese = p.nameJapanese
+                    nameLocal = p.nameLocal
                     category = p.category
                     address = p.address
                     latitude = String(p.latitude)
@@ -164,7 +164,7 @@ struct AddPlaceSheet: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14))
                     .foregroundStyle(.tertiary)
-                TextField("Senso-ji, Fushimi Inari, Akihabara...", text: $searchQuery)
+                TextField("Поиск места...", text: $searchQuery)
                     .font(.system(size: 14))
                     .autocorrectionDisabled()
                 if !searchQuery.isEmpty {
@@ -331,10 +331,7 @@ struct AddPlaceSheet: View {
 
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
-        request.region = MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 36.2, longitude: 138.0),
-            span: MKCoordinateSpan(latitudeDelta: 12, longitudeDelta: 12)
-        )
+        request.resultTypes = .pointOfInterest
 
         do {
             let search = MKLocalSearch(request: request)
@@ -412,12 +409,12 @@ struct AddPlaceSheet: View {
     // MARK: - Save
 
     private func save() {
-        let lat = Double(latitude.replacingOccurrences(of: ",", with: ".")) ?? 35.6762
-        let lon = Double(longitude.replacingOccurrences(of: ",", with: ".")) ?? 139.6503
+        let lat = Double(latitude.replacingOccurrences(of: ",", with: ".")) ?? 0.0
+        let lon = Double(longitude.replacingOccurrences(of: ",", with: ".")) ?? 0.0
 
         if let p = editing {
             p.name = name.trimmingCharacters(in: .whitespaces)
-            p.nameJapanese = nameJapanese.trimmingCharacters(in: .whitespaces)
+            p.nameLocal = nameLocal.trimmingCharacters(in: .whitespaces)
             p.category = category
             p.address = address.trimmingCharacters(in: .whitespaces)
             p.latitude = lat
@@ -427,7 +424,7 @@ struct AddPlaceSheet: View {
         } else {
             let place = Place(
                 name: name.trimmingCharacters(in: .whitespaces),
-                nameJapanese: nameJapanese.trimmingCharacters(in: .whitespaces),
+                nameLocal: nameLocal.trimmingCharacters(in: .whitespaces),
                 category: category,
                 address: address.trimmingCharacters(in: .whitespaces),
                 latitude: lat,

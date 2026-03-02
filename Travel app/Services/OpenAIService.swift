@@ -2,20 +2,20 @@ import Foundation
 
 @MainActor
 @Observable
-final class GroqService {
-    static let shared = GroqService()
+final class OpenAIService {
+    static let shared = OpenAIService()
 
-    private let endpoint = "https://api.groq.com/openai/v1/chat/completions"
-    private let model = "llama-3.3-70b-versatile"
+    private let endpoint = "https://api.openai.com/v1/chat/completions"
+    private let model = "gpt-4o-mini"
 
     var isLoading = false
 
     private var apiKey: String {
-        Secrets.groqApiKey
+        UserDefaults.standard.string(forKey: "openaiApiKey")?.trimmingCharacters(in: .whitespaces) ?? ""
     }
 
     var hasApiKey: Bool {
-        !apiKey.trimmingCharacters(in: .whitespaces).isEmpty
+        !apiKey.isEmpty
     }
 
     // MARK: - Summarize Wikipedia article
@@ -36,7 +36,7 @@ final class GroqService {
         [2-3 практических совета: лучшее время, что не пропустить, этикет, примерная стоимость]
         """
 
-        return await request(prompt: prompt, source: "Wikipedia + AI")
+        return await request(prompt: prompt, source: "Wikipedia + ChatGPT")
     }
 
     // MARK: - Generate from AI knowledge
@@ -57,7 +57,7 @@ final class GroqService {
         Если ты не уверен в фактах — так и скажи, не выдумывай.
         """
 
-        return await request(prompt: prompt, source: "AI")
+        return await request(prompt: prompt, source: "ChatGPT")
     }
 
     // MARK: - Private
@@ -89,7 +89,7 @@ final class GroqService {
             let (data, response) = try await URLSession.shared.data(for: request)
 
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                print("[GroqService] HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+                print("[OpenAIService] HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
                 return nil
             }
 
@@ -102,13 +102,12 @@ final class GroqService {
 
             return parseResponse(content, source: source)
         } catch {
-            print("[GroqService] Error: \(error.localizedDescription)")
+            print("[OpenAIService] Error: \(error.localizedDescription)")
             return nil
         }
     }
 
     private func parseResponse(_ text: String, source: String) -> PlaceInfo {
-        // Try to split by sections
         let historyMarkers = ["📜 ИСТОРИЯ", "ИСТОРИЯ", "📜"]
         let tipsMarkers = ["💡 СОВЕТЫ", "СОВЕТЫ", "💡"]
 
@@ -135,13 +134,11 @@ final class GroqService {
                 case "tips":
                     tips += (tips.isEmpty ? "" : "\n") + trimmed
                 default:
-                    // Before any marker — treat as history
                     history += (history.isEmpty ? "" : "\n") + trimmed
                 }
             }
         }
 
-        // If parsing failed, use full text as history
         if history.isEmpty && tips.isEmpty {
             history = text
         }

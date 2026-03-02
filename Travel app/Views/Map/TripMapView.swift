@@ -7,12 +7,7 @@ struct TripMapView: View {
 
     @State private var selectedPlace: Place?
     @State private var showRoutes = true
-    @State private var cameraPosition: MapCameraPosition = .region(
-        MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 35.6762, longitude: 139.6503),
-            span: MKCoordinateSpan(latitudeDelta: 5.0, longitudeDelta: 5.0)
-        )
-    )
+    @State private var cameraPosition: MapCameraPosition = .automatic
 
     private var allPlaces: [Place] {
         trip.allPlaces
@@ -247,7 +242,7 @@ struct TripMapView: View {
                         .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(.primary)
 
-                    Text(place.nameJapanese)
+                    Text(place.nameLocal)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.tertiary)
                 }
@@ -323,11 +318,18 @@ struct TripMapView: View {
     // MARK: - Camera Helpers
 
     private func zoomToAll() {
+        guard !allPlaces.isEmpty else { return }
+        let lats = allPlaces.map(\.latitude)
+        let lons = allPlaces.map(\.longitude)
+        let centerLat = (lats.min()! + lats.max()!) / 2
+        let centerLon = (lons.min()! + lons.max()!) / 2
+        let spanLat = max((lats.max()! - lats.min()!) * 1.5, 0.05)
+        let spanLon = max((lons.max()! - lons.min()!) * 1.5, 0.05)
         withAnimation {
             cameraPosition = .region(
                 MKCoordinateRegion(
-                    center: CLLocationCoordinate2D(latitude: 35.0, longitude: 136.0),
-                    span: MKCoordinateSpan(latitudeDelta: 6.0, longitudeDelta: 6.0)
+                    center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
+                    span: MKCoordinateSpan(latitudeDelta: spanLat, longitudeDelta: spanLon)
                 )
             )
         }

@@ -27,77 +27,28 @@ final class WeatherService {
         self.session = URLSession(configuration: config)
     }
 
-    // MARK: - Japanese City Coordinates
-
-    static let japaneseCities: [String: CLLocationCoordinate2D] = [
-        "Токио": CLLocationCoordinate2D(latitude: 35.6812, longitude: 139.7671),
-        "Tokyo": CLLocationCoordinate2D(latitude: 35.6812, longitude: 139.7671),
-        "Киото": CLLocationCoordinate2D(latitude: 35.0116, longitude: 135.7681),
-        "Kyoto": CLLocationCoordinate2D(latitude: 35.0116, longitude: 135.7681),
-        "Осака": CLLocationCoordinate2D(latitude: 34.6937, longitude: 135.5023),
-        "Osaka": CLLocationCoordinate2D(latitude: 34.6937, longitude: 135.5023),
-        "Камакура": CLLocationCoordinate2D(latitude: 35.3192, longitude: 139.5467),
-        "Kamakura": CLLocationCoordinate2D(latitude: 35.3192, longitude: 139.5467),
-        "Нара": CLLocationCoordinate2D(latitude: 34.6851, longitude: 135.8050),
-        "Nara": CLLocationCoordinate2D(latitude: 34.6851, longitude: 135.8050),
-        "Хиросима": CLLocationCoordinate2D(latitude: 34.3853, longitude: 132.4553),
-        "Hiroshima": CLLocationCoordinate2D(latitude: 34.3853, longitude: 132.4553),
-        "Сузука": CLLocationCoordinate2D(latitude: 34.8824, longitude: 136.5843),
-        "Suzuka": CLLocationCoordinate2D(latitude: 34.8824, longitude: 136.5843),
-        "Нагоя": CLLocationCoordinate2D(latitude: 35.1815, longitude: 136.9066),
-        "Nagoya": CLLocationCoordinate2D(latitude: 35.1815, longitude: 136.9066),
-        "Никко": CLLocationCoordinate2D(latitude: 36.7199, longitude: 139.6982),
-        "Nikko": CLLocationCoordinate2D(latitude: 36.7199, longitude: 139.6982),
-        "Кобе": CLLocationCoordinate2D(latitude: 34.6901, longitude: 135.1956),
-        "Kobe": CLLocationCoordinate2D(latitude: 34.6901, longitude: 135.1956),
-        "Йокогама": CLLocationCoordinate2D(latitude: 35.4437, longitude: 139.6380),
-        "Yokohama": CLLocationCoordinate2D(latitude: 35.4437, longitude: 139.6380),
-        "Саппоро": CLLocationCoordinate2D(latitude: 43.0618, longitude: 141.3545),
-        "Sapporo": CLLocationCoordinate2D(latitude: 43.0618, longitude: 141.3545),
-        "Фукуока": CLLocationCoordinate2D(latitude: 33.5904, longitude: 130.4017),
-        "Fukuoka": CLLocationCoordinate2D(latitude: 33.5904, longitude: 130.4017),
-        "Хакодатэ": CLLocationCoordinate2D(latitude: 41.7687, longitude: 140.7290),
-        "Hakodate": CLLocationCoordinate2D(latitude: 41.7687, longitude: 140.7290),
-        "Такаяма": CLLocationCoordinate2D(latitude: 36.1461, longitude: 137.2522),
-        "Takayama": CLLocationCoordinate2D(latitude: 36.1461, longitude: 137.2522),
-        "Канадзава": CLLocationCoordinate2D(latitude: 36.5613, longitude: 136.6562),
-        "Kanazawa": CLLocationCoordinate2D(latitude: 36.5613, longitude: 136.6562),
-    ]
-
     // Geocoded city cache (dynamic, filled at runtime)
     private var geocodedCities: [String: CLLocationCoordinate2D] = [:]
-
-    static func coordinate(forCity cityName: String) -> CLLocationCoordinate2D? {
-        japaneseCities[cityName]
-    }
 
     func resolveCoordinate(forCity cityName: String) async -> CLLocationCoordinate2D? {
         let trimmed = cityName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return nil }
 
-        // 1. Hardcoded table
-        if let coord = Self.japaneseCities[trimmed] {
-            return coord
-        }
-
-        // 2. Already geocoded
+        // 1. Already geocoded
         if let cached = geocodedCities[trimmed] {
             return cached
         }
 
-        // 3. Geocode dynamically
+        // 2. Geocode dynamically
         let geocoder = CLGeocoder()
-        let queries = [trimmed, "\(trimmed), Japan"]
-        for query in queries {
-            do {
-                let placemarks = try await geocoder.geocodeAddressString(query)
-                if let location = placemarks.first?.location {
-                    geocodedCities[trimmed] = location.coordinate
-                    return location.coordinate
-                }
-            } catch {
-                continue
+        do {
+            let placemarks = try await geocoder.geocodeAddressString(trimmed)
+            if let location = placemarks.first?.location {
+                geocodedCities[trimmed] = location.coordinate
+                return location.coordinate
             }
+        } catch {
+            print("Geocoding failed for '\(trimmed)': \(error)")
         }
         return nil
     }

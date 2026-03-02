@@ -68,7 +68,7 @@ struct DashboardView: View {
                     }
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("JAPAN")
+                    Text(trip.destination.uppercased())
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .tracking(4)
                         .foregroundStyle(AppTheme.sakuraPink)

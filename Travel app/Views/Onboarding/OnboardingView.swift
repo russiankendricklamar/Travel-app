@@ -8,24 +8,8 @@ struct OnboardingView: View {
     @State private var step: OnboardingStep = .welcome
     @State private var animateIn = false
 
-    // Trip creation fields
-    @State private var tripName = ""
-    @State private var destination = ""
-    @State private var startDate = Calendar.current.date(
-        from: DateComponents(year: 2026, month: 3, day: 15)
-    ) ?? Date()
-    @State private var endDate = Calendar.current.date(
-        from: DateComponents(year: 2026, month: 3, day: 28)
-    ) ?? Date()
-    @State private var budget = ""
-    @State private var flightDateEnabled = false
-    @State private var flightDate = Calendar.current.date(
-        from: DateComponents(year: 2026, month: 3, day: 13, hour: 10, minute: 0)
-    ) ?? Date()
-
     enum OnboardingStep: Int, CaseIterable {
         case welcome
-        case createTrip
         case permissions
     }
 
@@ -37,8 +21,6 @@ struct OnboardingView: View {
                 switch step {
                 case .welcome:
                     welcomeStep
-                case .createTrip:
-                    createTripStep
                 case .permissions:
                     permissionsStep
                 }
@@ -73,8 +55,8 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            Text("JP")
-                .font(.system(size: 56, weight: .bold, design: .rounded))
+            Image(systemName: "airplane.circle")
+                .font(.system(size: 56, weight: .bold))
                 .foregroundStyle(AppTheme.sakuraPink)
                 .frame(width: 120, height: 120)
                 .background(.ultraThinMaterial)
@@ -96,7 +78,7 @@ struct OnboardingView: View {
 
             Spacer().frame(height: AppTheme.spacingXL)
 
-            Text("JAPAN TRAVEL")
+            Text("TRAVEL PLANNER")
                 .font(.system(size: 22, weight: .bold))
                 .tracking(6)
                 .foregroundStyle(.primary)
@@ -119,7 +101,7 @@ struct OnboardingView: View {
 
             actionButton(title: "НАЧАТЬ", color: AppTheme.sakuraPink) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    step = .createTrip
+                    step = .permissions
                 }
             }
 
@@ -163,114 +145,7 @@ struct OnboardingView: View {
         .padding(.vertical, 2)
     }
 
-    // MARK: - Step 2: Create Trip
-
-    private var createTripStep: some View {
-        ScrollView {
-            VStack(spacing: AppTheme.spacingM) {
-                SheetHeader(icon: "airplane", title: "СОЗДАТЬ ПОЕЗДКУ", color: AppTheme.sakuraPink)
-
-                GlassFormField(label: "НАЗВАНИЕ ПОЕЗДКИ", color: AppTheme.sakuraPink) {
-                    TextField("Путешествие по Японии", text: $tripName)
-                        .textFieldStyle(GlassTextFieldStyle())
-                }
-
-                GlassFormField(label: "НАПРАВЛЕНИЕ", color: AppTheme.oceanBlue) {
-                    TextField("Япония", text: $destination)
-                        .textFieldStyle(GlassTextFieldStyle())
-                }
-
-                HStack(spacing: AppTheme.spacingS) {
-                    GlassFormField(label: "НАЧАЛО", color: AppTheme.bambooGreen) {
-                        DatePicker("", selection: $startDate, displayedComponents: .date)
-                            .datePickerStyle(.compact)
-                            .labelsHidden()
-                            .tint(AppTheme.sakuraPink)
-                    }
-                    GlassFormField(label: "КОНЕЦ", color: AppTheme.toriiRed) {
-                        DatePicker("", selection: $endDate, in: startDate..., displayedComponents: .date)
-                            .datePickerStyle(.compact)
-                            .labelsHidden()
-                            .tint(AppTheme.sakuraPink)
-                    }
-                }
-
-                GlassFormField(label: "БЮДЖЕТ (RUB)", color: AppTheme.templeGold) {
-                    TextField("350000", text: $budget)
-                        .keyboardType(.numberPad)
-                        .textFieldStyle(GlassTextFieldStyle())
-                }
-
-                // Flight toggle
-                VStack(spacing: 0) {
-                    HStack {
-                        HStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(AppTheme.oceanBlue)
-                                .frame(width: 3, height: 12)
-                            Text("РЕЙС")
-                                .font(.system(size: 10, weight: .bold))
-                                .tracking(1.5)
-                                .foregroundStyle(AppTheme.oceanBlue)
-                        }
-                        Spacer()
-                        Toggle("", isOn: $flightDateEnabled)
-                            .tint(AppTheme.sakuraPink)
-                            .labelsHidden()
-                    }
-                    .padding(AppTheme.spacingM)
-
-                    if flightDateEnabled {
-                        DatePicker("", selection: $flightDate, displayedComponents: [.date, .hourAndMinute])
-                            .datePickerStyle(.compact)
-                            .labelsHidden()
-                            .tint(AppTheme.sakuraPink)
-                            .padding(.horizontal, AppTheme.spacingM)
-                            .padding(.bottom, AppTheme.spacingM)
-                    }
-                }
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                        .stroke(AppTheme.oceanBlue.opacity(0.15), lineWidth: 0.5)
-                )
-            }
-            .padding(AppTheme.spacingM)
-        }
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: AppTheme.spacingS) {
-                actionButton(title: "ДАЛЕЕ", color: AppTheme.sakuraPink) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        step = .permissions
-                    }
-                }
-                .disabled(!isTripValid)
-                .opacity(isTripValid ? 1.0 : 0.5)
-
-                Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        step = .welcome
-                    }
-                } label: {
-                    Text("НАЗАД")
-                        .font(.system(size: 11, weight: .bold))
-                        .tracking(2)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .padding(.horizontal, AppTheme.spacingM)
-            .padding(.bottom, AppTheme.spacingM)
-        }
-    }
-
-    private var isTripValid: Bool {
-        !tripName.trimmingCharacters(in: .whitespaces).isEmpty
-            && !destination.trimmingCharacters(in: .whitespaces).isEmpty
-            && endDate > startDate
-    }
-
-    // MARK: - Step 3: Permissions
+    // MARK: - Step 2: Permissions
 
     private var permissionsStep: some View {
         VStack(spacing: 0) {
@@ -329,11 +204,11 @@ struct OnboardingView: View {
 
             VStack(spacing: AppTheme.spacingS) {
                 actionButton(title: "ГОТОВО", color: AppTheme.bambooGreen) {
-                    createTripAndFinish()
+                    hasCompletedOnboarding = true
                 }
 
                 Button {
-                    createTripAndFinish()
+                    hasCompletedOnboarding = true
                 } label: {
                     Text("ПРОПУСТИТЬ")
                         .font(.system(size: 11, weight: .bold))
@@ -431,34 +306,13 @@ struct OnboardingView: View {
             HStack(spacing: 6) {
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 12, weight: .bold))
-                Text("ДЕМО-ДАННЫЕ ЯПОНИИ")
+                Text("ДЕМО-ДАННЫЕ")
                     .font(.system(size: 11, weight: .bold))
                     .tracking(1)
             }
             .foregroundStyle(.tertiary)
             .padding(.top, AppTheme.spacingM)
         }
-    }
-
-    // MARK: - Actions
-
-    private func createTripAndFinish() {
-        let budgetValue = Double(budget) ?? 350000
-        let trip = Trip(
-            name: tripName.trimmingCharacters(in: .whitespaces),
-            destination: destination.trimmingCharacters(in: .whitespaces),
-            startDate: startDate,
-            endDate: endDate,
-            budget: budgetValue,
-            currency: "RUB",
-            coverSystemImage: "airplane",
-            flightDate: flightDateEnabled ? flightDate : nil
-        )
-        modelContext.insert(trip)
-
-        Task { await NotificationManager.shared.scheduleAll(for: trip) }
-
-        hasCompletedOnboarding = true
     }
 }
 

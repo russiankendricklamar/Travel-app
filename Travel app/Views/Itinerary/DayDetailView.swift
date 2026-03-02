@@ -233,7 +233,7 @@ struct DayDetailView: View {
                             .foregroundStyle(.primary)
                             .strikethrough(place.isVisited, color: AppTheme.bambooGreen.opacity(0.5))
 
-                        Text(place.nameJapanese)
+                        Text(place.nameLocal)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(.tertiary)
 

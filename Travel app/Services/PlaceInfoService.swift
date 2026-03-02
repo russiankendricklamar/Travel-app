@@ -32,13 +32,26 @@ final class PlaceInfoService {
 
     private var cache: [String: PlaceInfo] = [:]
 
-    /// Fetch info about a place: Wikipedia → Groq summarize, or Groq generate if no article
+    private var provider: AIProvider {
+        AIProvider.current
+    }
+
+    /// Check if the current provider has an API key configured
+    private var hasApiKey: Bool {
+        switch provider {
+        case .groq: GroqService.shared.hasApiKey
+        case .claude: ClaudeService.shared.hasApiKey
+        case .openai: OpenAIService.shared.hasApiKey
+        }
+    }
+
+    /// Fetch info about a place using the selected AI provider
     func fetchInfo(
         placeName: String,
         category: String,
         city: String? = nil
     ) async -> PlaceInfo? {
-        let cacheKey = placeName.lowercased()
+        let cacheKey = "\(provider.rawValue):\(placeName.lowercased())"
         if let cached = cache[cacheKey] {
             return cached
         }
@@ -47,31 +60,24 @@ final class PlaceInfoService {
         lastError = nil
         defer { isLoading = false }
 
-        let groq = GroqService.shared
-        guard groq.hasApiKey else {
-            lastError = "Добавьте Groq API-ключ в Настройках"
+        guard hasApiKey else {
+            lastError = provider.needsApiKey
+                ? "Добавьте \(provider.label) API-ключ в Настройках"
+                : "API-ключ не настроен"
             return nil
         }
 
         // Step 1: Try Wikipedia
         if let wiki = await WikipediaService.fetchExtract(for: placeName) {
-            // Step 2: Summarize with Groq
-            if let info = await groq.summarize(
-                wikiText: wiki.text,
-                placeName: placeName,
-                category: category
-            ) {
+            // Step 2: Summarize with selected provider
+            if let info = await summarize(wikiText: wiki.text, placeName: placeName, category: category) {
                 cache[cacheKey] = info
                 return info
             }
         }
 
-        // Step 3: No Wikipedia article — generate from Groq knowledge
-        if let info = await groq.generateInfo(
-            placeName: placeName,
-            category: category,
-            city: city
-        ) {
+        // Step 3: No Wikipedia article — generate from AI knowledge
+        if let info = await generateInfo(placeName: placeName, category: category, city: city) {
             cache[cacheKey] = info
             return info
         }
@@ -82,5 +88,29 @@ final class PlaceInfoService {
 
     func clearCache() {
         cache.removeAll()
+    }
+
+    // MARK: - Private routing
+
+    private func summarize(wikiText: String, placeName: String, category: String) async -> PlaceInfo? {
+        switch provider {
+        case .groq:
+            await GroqService.shared.summarize(wikiText: wikiText, placeName: placeName, category: category)
+        case .claude:
+            await ClaudeService.shared.summarize(wikiText: wikiText, placeName: placeName, category: category)
+        case .openai:
+            await OpenAIService.shared.summarize(wikiText: wikiText, placeName: placeName, category: category)
+        }
+    }
+
+    private func generateInfo(placeName: String, category: String, city: String?) async -> PlaceInfo? {
+        switch provider {
+        case .groq:
+            await GroqService.shared.generateInfo(placeName: placeName, category: category, city: city)
+        case .claude:
+            await ClaudeService.shared.generateInfo(placeName: placeName, category: category, city: city)
+        case .openai:
+            await OpenAIService.shared.generateInfo(placeName: placeName, category: category, city: city)
+        }
     }
 }

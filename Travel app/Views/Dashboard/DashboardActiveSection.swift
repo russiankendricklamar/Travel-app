@@ -14,8 +14,6 @@ struct DashboardActiveSection: View {
             statsCards
             DashboardBudgetSection(trip: trip, budgetWidth: budgetWidth)
             recentExpensesSection
-            SuicaWalletButton()
-                .offset(y: statsOffset)
         }
     }
 

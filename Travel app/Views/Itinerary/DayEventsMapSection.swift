@@ -26,7 +26,7 @@ struct DayEventsMapSection: View {
     private var region: MKCoordinateRegion {
         guard !allCoordinates.isEmpty else {
             return MKCoordinateRegion(
-                center: CLLocationCoordinate2D(latitude: 35.6762, longitude: 139.6503),
+                center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
                 span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
             )
         }

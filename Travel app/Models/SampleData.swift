@@ -57,15 +57,15 @@ enum SampleData {
         // Day 1: Прилёт и Сибуя
         let tripDay1 = TripDay(date: day1, title: "Прилёт и Сибуя", cityName: "Токио", notes: "Первый день в Токио!")
         tripDay1.places.append(contentsOf: [
-            Place(name: "Перекрёсток Сибуя", nameJapanese: "渋谷スクランブル交差点",
+            Place(name: "Перекрёсток Сибуя", nameLocal: "渋谷スクランブル交差点",
                   category: .culture, address: "Сибуя, Токио",
                   latitude: 35.6595, longitude: 139.7004,
                   isVisited: true, rating: 5, timeToSpend: "30 мин"),
-            Place(name: "Статуя Хатико", nameJapanese: "忠犬ハチ公像",
+            Place(name: "Статуя Хатико", nameLocal: "忠犬ハチ公像",
                   category: .culture, address: "Станция Сибуя, Токио",
                   latitude: 35.6590, longitude: 139.7006,
                   isVisited: true, rating: 4, timeToSpend: "15 мин"),
-            Place(name: "Ichiran Ramen Сибуя", nameJapanese: "一蘭 渋谷店",
+            Place(name: "Ichiran Ramen Сибуя", nameLocal: "一蘭 渋谷店",
                   category: .food, address: "Сибуя, Токио",
                   latitude: 35.6612, longitude: 139.6983,
                   isVisited: true, rating: 5, notes: "Лучший тонкоцу рамен", timeToSpend: "45 мин")
@@ -96,15 +96,15 @@ enum SampleData {
         // Day 2: Асакуса и Акихабара
         let tripDay2 = TripDay(date: day2, title: "Асакуса и Акихабара", cityName: "Токио", notes: "Утром — храмы, днём — аниме")
         tripDay2.places.append(contentsOf: [
-            Place(name: "Храм Сэнсо-дзи", nameJapanese: "浅草寺",
+            Place(name: "Храм Сэнсо-дзи", nameLocal: "浅草寺",
                   category: .temple, address: "2-3-1 Асакуса, Тайто",
                   latitude: 35.7148, longitude: 139.7967,
                   isVisited: true, rating: 5, notes: "Старейший храм Токио", timeToSpend: "1,5 ч"),
-            Place(name: "Улица Накамисэ", nameJapanese: "仲見世通り",
+            Place(name: "Улица Накамисэ", nameLocal: "仲見世通り",
                   category: .shopping, address: "Асакуса, Тайто",
                   latitude: 35.7128, longitude: 139.7966,
                   isVisited: true, rating: 4, timeToSpend: "1 ч"),
-            Place(name: "Акихабара", nameJapanese: "秋葉原電気街",
+            Place(name: "Акихабара", nameLocal: "秋葉原電気街",
                   category: .shopping, address: "Акихабара, Тиёда",
                   latitude: 35.7023, longitude: 139.7745,
                   timeToSpend: "2 ч")
@@ -114,15 +114,15 @@ enum SampleData {
         // Day 3: Харадзюку и Синдзюку
         let tripDay3 = TripDay(date: day3, title: "Харадзюку и Синдзюку", cityName: "Токио", notes: "Район моды и сады")
         tripDay3.places.append(contentsOf: [
-            Place(name: "Святилище Мэйдзи", nameJapanese: "明治神宮",
+            Place(name: "Святилище Мэйдзи", nameLocal: "明治神宮",
                   category: .shrine, address: "1-1 Ёёги-камидзоно, Сибуя",
                   latitude: 35.6764, longitude: 139.6993,
                   timeToSpend: "1,5 ч"),
-            Place(name: "Улица Такэсита", nameJapanese: "竹下通り",
+            Place(name: "Улица Такэсита", nameLocal: "竹下通り",
                   category: .shopping, address: "Харадзюку, Сибуя",
                   latitude: 35.6716, longitude: 139.7029,
                   timeToSpend: "1 ч"),
-            Place(name: "Парк Синдзюку-гёэн", nameJapanese: "新宿御苑",
+            Place(name: "Парк Синдзюку-гёэн", nameLocal: "新宿御苑",
                   category: .nature, address: "11 Найтомати, Синдзюку",
                   latitude: 35.6852, longitude: 139.7100,
                   notes: "Сезон цветения сакуры!", timeToSpend: "2 ч")
@@ -132,11 +132,11 @@ enum SampleData {
         // Day 4: Поездка в Камакуру
         let tripDay4 = TripDay(date: day4, title: "Поездка в Камакуру", cityName: "Камакура", notes: "Поезд от станции Токио")
         tripDay4.places.append(contentsOf: [
-            Place(name: "Большой Будда", nameJapanese: "鎌倉大仏",
+            Place(name: "Большой Будда", nameLocal: "鎌倉大仏",
                   category: .temple, address: "4-2-28 Хасэ, Камакура",
                   latitude: 35.3167, longitude: 139.5356,
                   timeToSpend: "1 ч"),
-            Place(name: "Цуругаока Хатимангу", nameJapanese: "鶴岡八幡宮",
+            Place(name: "Цуругаока Хатимангу", nameLocal: "鶴岡八幡宮",
                   category: .shrine, address: "2-1-31 Юкиносита, Камакура",
                   latitude: 35.3258, longitude: 139.5564,
                   timeToSpend: "1,5 ч")
@@ -180,15 +180,15 @@ enum SampleData {
         // Day 6: Фусими Инари и Гион
         let tripDay6 = TripDay(date: day6, title: "Фусими Инари и Гион", cityName: "Киото", notes: "Прийти в Фусими Инари пораньше, чтобы избежать толп")
         tripDay6.places.append(contentsOf: [
-            Place(name: "Фусими Инари Тайся", nameJapanese: "伏見稲荷大社",
+            Place(name: "Фусими Инари Тайся", nameLocal: "伏見稲荷大社",
                   category: .shrine, address: "68 Фукакуса Ябуноутитё, Фусими",
                   latitude: 34.9671, longitude: 135.7727,
                   notes: "Тысячи ворот тории!", timeToSpend: "3 ч"),
-            Place(name: "Район Гион", nameJapanese: "祇園",
+            Place(name: "Район Гион", nameLocal: "祇園",
                   category: .culture, address: "Гион, Хигасияма, Киото",
                   latitude: 35.0037, longitude: 135.7756,
                   notes: "Район гейш", timeToSpend: "2 ч"),
-            Place(name: "Рынок Нисики", nameJapanese: "錦市場",
+            Place(name: "Рынок Нисики", nameLocal: "錦市場",
                   category: .food, address: "Нисикикодзи, Накагё, Киото",
                   latitude: 35.0050, longitude: 135.7649,
                   notes: "Рай уличной еды", timeToSpend: "1,5 ч")
@@ -198,11 +198,11 @@ enum SampleData {
         // Day 7: Арасияма и храмы
         let tripDay7 = TripDay(date: day7, title: "Арасияма и храмы", cityName: "Киото", notes: "Утренняя прогулка по бамбуковому лесу")
         tripDay7.places.append(contentsOf: [
-            Place(name: "Бамбуковая роща", nameJapanese: "竹林の小径",
+            Place(name: "Бамбуковая роща", nameLocal: "竹林の小径",
                   category: .nature, address: "Сагатэнрюдзи Сусукинобабатё, Укё",
                   latitude: 35.0170, longitude: 135.6713,
                   timeToSpend: "1 ч"),
-            Place(name: "Кинкаку-дзи", nameJapanese: "金閣寺",
+            Place(name: "Кинкаку-дзи", nameLocal: "金閣寺",
                   category: .temple, address: "1 Кинкакудзитё, Кита, Киото",
                   latitude: 35.0394, longitude: 135.7292,
                   notes: "Золотой павильон", timeToSpend: "1 ч")
@@ -212,15 +212,15 @@ enum SampleData {
         // Day 9: Уличная еда Осаки
         let tripDay9 = TripDay(date: day9, title: "Уличная еда Осаки", cityName: "Осака", notes: "Осака — кухня Японии")
         tripDay9.places.append(contentsOf: [
-            Place(name: "Дотонбори", nameJapanese: "道頓堀",
+            Place(name: "Дотонбори", nameLocal: "道頓堀",
                   category: .food, address: "Дотонбори, Тюо-ку, Осака",
                   latitude: 34.6687, longitude: 135.5013,
                   notes: "Бегущий человек Glico!", timeToSpend: "3 ч"),
-            Place(name: "Замок Осака", nameJapanese: "大阪城",
+            Place(name: "Замок Осака", nameLocal: "大阪城",
                   category: .culture, address: "1-1 Осакадзё, Тюо-ку, Осака",
                   latitude: 34.6873, longitude: 135.5262,
                   timeToSpend: "2 ч"),
-            Place(name: "Рынок Куромон", nameJapanese: "黒門市場",
+            Place(name: "Рынок Куромон", nameLocal: "黒門市場",
                   category: .food, address: "2-4-1 Ниппонбаси, Тюо-ку, Осака",
                   latitude: 34.6627, longitude: 135.5066,
                   notes: "Свежие сасими на завтрак", timeToSpend: "1,5 ч")

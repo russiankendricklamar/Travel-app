@@ -2,20 +2,20 @@ import Foundation
 
 @MainActor
 @Observable
-final class GroqService {
-    static let shared = GroqService()
+final class ClaudeService {
+    static let shared = ClaudeService()
 
-    private let endpoint = "https://api.groq.com/openai/v1/chat/completions"
-    private let model = "llama-3.3-70b-versatile"
+    private let endpoint = "https://api.anthropic.com/v1/messages"
+    private let model = "claude-sonnet-4-20250514"
 
     var isLoading = false
 
     private var apiKey: String {
-        Secrets.groqApiKey
+        UserDefaults.standard.string(forKey: "claudeApiKey")?.trimmingCharacters(in: .whitespaces) ?? ""
     }
 
     var hasApiKey: Bool {
-        !apiKey.trimmingCharacters(in: .whitespaces).isEmpty
+        !apiKey.isEmpty
     }
 
     // MARK: - Summarize Wikipedia article
@@ -36,7 +36,7 @@ final class GroqService {
         [2-3 практических совета: лучшее время, что не пропустить, этикет, примерная стоимость]
         """
 
-        return await request(prompt: prompt, source: "Wikipedia + AI")
+        return await request(prompt: prompt, source: "Wikipedia + Claude")
     }
 
     // MARK: - Generate from AI knowledge
@@ -57,7 +57,7 @@ final class GroqService {
         Если ты не уверен в фактах — так и скажи, не выдумывай.
         """
 
-        return await request(prompt: prompt, source: "AI")
+        return await request(prompt: prompt, source: "Claude")
     }
 
     // MARK: - Private
@@ -71,17 +71,17 @@ final class GroqService {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 30
 
         let body: [String: Any] = [
             "model": model,
+            "max_tokens": 1024,
             "messages": [
                 ["role": "user", "content": prompt]
-            ],
-            "temperature": 0.7,
-            "max_tokens": 1024
+            ]
         ]
 
         do {
@@ -89,26 +89,24 @@ final class GroqService {
             let (data, response) = try await URLSession.shared.data(for: request)
 
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                print("[GroqService] HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+                print("[ClaudeService] HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
                 return nil
             }
 
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let choices = json["choices"] as? [[String: Any]],
-                  let message = choices.first?["message"] as? [String: Any],
-                  let content = message["content"] as? String else {
+                  let content = json["content"] as? [[String: Any]],
+                  let text = content.first?["text"] as? String else {
                 return nil
             }
 
-            return parseResponse(content, source: source)
+            return parseResponse(text, source: source)
         } catch {
-            print("[GroqService] Error: \(error.localizedDescription)")
+            print("[ClaudeService] Error: \(error.localizedDescription)")
             return nil
         }
     }
 
     private func parseResponse(_ text: String, source: String) -> PlaceInfo {
-        // Try to split by sections
         let historyMarkers = ["📜 ИСТОРИЯ", "ИСТОРИЯ", "📜"]
         let tipsMarkers = ["💡 СОВЕТЫ", "СОВЕТЫ", "💡"]
 
@@ -135,13 +133,11 @@ final class GroqService {
                 case "tips":
                     tips += (tips.isEmpty ? "" : "\n") + trimmed
                 default:
-                    // Before any marker — treat as history
                     history += (history.isEmpty ? "" : "\n") + trimmed
                 }
             }
         }
 
-        // If parsing failed, use full text as history
         if history.isEmpty && tips.isEmpty {
             history = text
         }

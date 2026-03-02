@@ -54,6 +54,11 @@ struct SettingsView: View {
     @AppStorage("customRate_USD") private var customRateUSD: Double = 88.0
     @AppStorage("customRate_CNY") private var customRateCNY: Double = 12.2
 
+    // AI Provider
+    @AppStorage("aiProvider") private var aiProvider: String = AIProvider.groq.rawValue
+    @AppStorage("claudeApiKey") private var claudeApiKey = ""
+    @AppStorage("openaiApiKey") private var openaiApiKey = ""
+
     @State private var showResetConfirmation = false
 
     private var selectedPalette: ColorPalette {
@@ -68,6 +73,7 @@ struct SettingsView: View {
                     notificationSection
                     currencySection
                     exchangeRatesSection
+                    aiProviderSection
                     languageSection
                     dataSection
                     aboutSection
@@ -531,6 +537,96 @@ struct SettingsView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
     }
 
+    // MARK: - AI Provider Section
+
+    private var selectedProvider: AIProvider {
+        AIProvider(rawValue: aiProvider) ?? .groq
+    }
+
+    private var aiProviderSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("ИИ-ПОМОЩНИК", icon: "sparkles")
+
+            HStack(spacing: 8) {
+                ForEach(AIProvider.allCases) { provider in
+                    aiProviderButton(provider)
+                }
+            }
+
+            if selectedProvider == .claude {
+                aiKeyField(
+                    title: "Claude API-ключ",
+                    hint: "sk-ant-...",
+                    url: "console.anthropic.com",
+                    binding: $claudeApiKey
+                )
+            }
+
+            if selectedProvider == .openai {
+                aiKeyField(
+                    title: "OpenAI API-ключ",
+                    hint: "sk-...",
+                    url: "platform.openai.com",
+                    binding: $openaiApiKey
+                )
+            }
+        }
+        .padding(AppTheme.spacingM)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+
+    private func aiProviderButton(_ provider: AIProvider) -> some View {
+        let isSelected = selectedProvider == provider
+        return Button {
+            withAnimation(.spring(response: 0.3)) {
+                aiProvider = provider.rawValue
+                PlaceInfoService.shared.clearCache()
+            }
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: provider.icon)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(isSelected ? .white : .primary)
+
+                Text(provider.label)
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(0.5)
+                    .foregroundStyle(isSelected ? .white : .primary)
+
+                Text(provider.subtitle)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.white.opacity(0.7) : Color.secondary.opacity(0.6))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(isSelected ? AppTheme.indigoPurple : Color.clear)
+            .background(.thinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                    .stroke(isSelected ? AppTheme.indigoPurple : Color.white.opacity(0.15), lineWidth: isSelected ? 1.5 : 0.5)
+            )
+        }
+    }
+
+    private func aiKeyField(title: String, hint: String, url: String, binding: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SecureField(hint, text: binding)
+                .font(.system(size: 13, design: .monospaced))
+                .textFieldStyle(GlassTextFieldStyle())
+
+            Text("Получить ключ: \(url)")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 4)
+        }
+    }
+
     // MARK: - Language Section
 
     private var languageSection: some View {
@@ -629,12 +725,12 @@ struct SettingsView: View {
                         )
                     )
                     .frame(width: 64, height: 64)
-                Text("JP")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                Image(systemName: "airplane.circle")
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(AppTheme.sakuraPink)
             }
 
-            Text("Japan Travel")
+            Text("Travel Planner")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.primary)
 
@@ -642,7 +738,7 @@ struct SettingsView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
 
-            Text("Сделано с \u{2764}\u{FE0F} для Японии")
+            Text("Сделано с \u{2764}\u{FE0F} для путешествий")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }

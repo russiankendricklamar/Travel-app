@@ -13,8 +13,6 @@ struct DashboardCountdownSection: View {
         VStack(spacing: AppTheme.spacingM) {
             countdownHero
             flightInfoCard
-            SuicaWalletButton()
-                .offset(y: statsOffset)
         }
     }
 

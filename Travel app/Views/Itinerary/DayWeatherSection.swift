@@ -98,7 +98,7 @@ struct DayWeatherSection: View {
         } else if let firstPlace = day.places.first {
             coordinate = firstPlace.coordinate
         } else {
-            coordinate = CLLocationCoordinate2D(latitude: 35.6812, longitude: 139.7671)
+            return
         }
 
         await weather.fetchDailyForecast(for: coordinate)

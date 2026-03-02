@@ -166,10 +166,7 @@ struct EventLocationSearchField: View {
 
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
-        request.region = MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 36.2, longitude: 138.0),
-            span: MKCoordinateSpan(latitudeDelta: 12, longitudeDelta: 12)
-        )
+        request.resultTypes = .pointOfInterest
 
         do {
             let search = MKLocalSearch(request: request)

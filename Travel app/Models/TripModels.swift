@@ -441,7 +441,7 @@ enum EventCategory: String, CaseIterable, Identifiable, Codable {
 final class Place {
     @Attribute(.unique) var id: UUID
     var name: String
-    var nameJapanese: String
+    var nameLocal: String
     var category: PlaceCategory
     var address: String
     var latitude: Double
@@ -460,7 +460,7 @@ final class Place {
     init(
         id: UUID = UUID(),
         name: String,
-        nameJapanese: String,
+        nameLocal: String,
         category: PlaceCategory,
         address: String,
         latitude: Double,
@@ -472,7 +472,7 @@ final class Place {
     ) {
         self.id = id
         self.name = name
-        self.nameJapanese = nameJapanese
+        self.nameLocal = nameLocal
         self.category = category
         self.address = address
         self.latitude = latitude

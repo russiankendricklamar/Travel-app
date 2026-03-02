@@ -34,13 +34,13 @@ struct AddTicketSheet: View {
 
                     // Title
                     GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                        TextField("F1 Гран-при Сузука", text: $title)
+                        TextField("Название", text: $title)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
 
                     // Venue
                     GlassFormField(label: "МЕСТО ПРОВЕДЕНИЯ", color: AppTheme.oceanBlue) {
-                        TextField("Suzuka Circuit", text: $venue)
+                        TextField("Место", text: $venue)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
 

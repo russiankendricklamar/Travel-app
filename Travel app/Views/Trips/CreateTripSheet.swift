@@ -1,0 +1,144 @@
+import SwiftUI
+import SwiftData
+
+struct CreateTripSheet: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    var onCreated: ((Trip) -> Void)?
+
+    @State private var tripName = ""
+    @State private var destination = ""
+    @State private var startDate = Date()
+    @State private var endDate = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+    @State private var budget = ""
+    @State private var flightDateEnabled = false
+    @State private var flightDate = Date()
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: AppTheme.spacingM) {
+                    SheetHeader(icon: "airplane", title: "НОВАЯ ПОЕЗДКА", color: AppTheme.sakuraPink)
+
+                    GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
+                        TextField("Моя поездка", text: $tripName)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+
+                    GlassFormField(label: "НАПРАВЛЕНИЕ", color: AppTheme.oceanBlue) {
+                        TextField("Направление", text: $destination)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+
+                    HStack(spacing: AppTheme.spacingS) {
+                        GlassFormField(label: "НАЧАЛО", color: AppTheme.bambooGreen) {
+                            DatePicker("", selection: $startDate, displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                                .labelsHidden()
+                                .tint(AppTheme.sakuraPink)
+                        }
+                        GlassFormField(label: "КОНЕЦ", color: AppTheme.toriiRed) {
+                            DatePicker("", selection: $endDate, in: startDate..., displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                                .labelsHidden()
+                                .tint(AppTheme.sakuraPink)
+                        }
+                    }
+
+                    GlassFormField(label: "БЮДЖЕТ (RUB)", color: AppTheme.templeGold) {
+                        TextField("350000", text: $budget)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(GlassTextFieldStyle())
+                    }
+
+                    flightSection
+                }
+                .padding(AppTheme.spacingM)
+            }
+            .sakuraGradientBackground()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("ОТМЕНА") { dismiss() }
+                        .font(.system(size: 12, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(.secondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("СОЗДАТЬ") { createTrip() }
+                        .font(.system(size: 12, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(AppTheme.sakuraPink)
+                        .disabled(!isValid)
+                        .opacity(isValid ? 1.0 : 0.4)
+                }
+            }
+        }
+    }
+
+    // MARK: - Flight Section
+
+    private var flightSection: some View {
+        VStack(spacing: 0) {
+            HStack {
+                HStack(spacing: 6) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(AppTheme.oceanBlue)
+                        .frame(width: 3, height: 12)
+                    Text("РЕЙС")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.5)
+                        .foregroundStyle(AppTheme.oceanBlue)
+                }
+                Spacer()
+                Toggle("", isOn: $flightDateEnabled)
+                    .tint(AppTheme.sakuraPink)
+                    .labelsHidden()
+            }
+            .padding(AppTheme.spacingM)
+
+            if flightDateEnabled {
+                DatePicker("", selection: $flightDate, displayedComponents: [.date, .hourAndMinute])
+                    .datePickerStyle(.compact)
+                    .labelsHidden()
+                    .tint(AppTheme.sakuraPink)
+                    .padding(.horizontal, AppTheme.spacingM)
+                    .padding(.bottom, AppTheme.spacingM)
+            }
+        }
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                .stroke(AppTheme.oceanBlue.opacity(0.15), lineWidth: 0.5)
+        )
+    }
+
+    // MARK: - Validation
+
+    private var isValid: Bool {
+        !tripName.trimmingCharacters(in: .whitespaces).isEmpty
+            && !destination.trimmingCharacters(in: .whitespaces).isEmpty
+            && endDate > startDate
+    }
+
+    // MARK: - Create
+
+    private func createTrip() {
+        let budgetValue = Double(budget) ?? 350000
+        let trip = Trip(
+            name: tripName.trimmingCharacters(in: .whitespaces),
+            destination: destination.trimmingCharacters(in: .whitespaces),
+            startDate: startDate,
+            endDate: endDate,
+            budget: budgetValue,
+            currency: "RUB",
+            coverSystemImage: "airplane",
+            flightDate: flightDateEnabled ? flightDate : nil
+        )
+        modelContext.insert(trip)
+        onCreated?(trip)
+        dismiss()
+    }
+}

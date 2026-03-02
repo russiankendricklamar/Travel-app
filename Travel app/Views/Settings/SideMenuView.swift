@@ -3,6 +3,7 @@ import SwiftUI
 struct SideMenuView: View {
     @Binding var isOpen: Bool
     let trip: Trip
+    var onBack: (() -> Void)?
     @State private var showSettings = false
     @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
 
@@ -25,6 +26,12 @@ struct SideMenuView: View {
 
                     ScrollView {
                         VStack(spacing: 4) {
+                            if onBack != nil {
+                                menuButton(icon: "arrow.uturn.left", title: "Сменить поездку") {
+                                    onBack?()
+                                }
+                            }
+
                             menuButton(icon: "gearshape.fill", title: "Настройки") {
                                 showSettings = true
                             }

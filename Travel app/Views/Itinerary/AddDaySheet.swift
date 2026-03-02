@@ -23,12 +23,12 @@ struct AddDaySheet: View {
                     SheetHeader(icon: "calendar.badge.plus", title: "НОВЫЙ ДЕНЬ", color: AppTheme.sakuraPink)
 
                     GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                        TextField("Прилёт и Сибуя", text: $title)
+                        TextField("Название дня", text: $title)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
 
                     GlassFormField(label: "ГОРОД", color: AppTheme.oceanBlue) {
-                        TextField("Токио", text: $cityName)
+                        TextField("Город", text: $cityName)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
 
