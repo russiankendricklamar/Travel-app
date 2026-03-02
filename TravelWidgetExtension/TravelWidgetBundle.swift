@@ -5,5 +5,6 @@ import WidgetKit
 struct TravelWidgetBundle: WidgetBundle {
     var body: some Widget {
         TravelLiveActivity()
+        CountdownWidget()
     }
 }

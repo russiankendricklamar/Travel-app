@@ -60,6 +60,44 @@ final class GroqService {
         return await request(prompt: prompt, source: "AI")
     }
 
+    // MARK: - Raw Request (for recommendations, etc.)
+
+    func rawRequest(prompt: String) async -> String? {
+        guard hasApiKey else { return nil }
+
+        guard let url = URL(string: endpoint) else { return nil }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 30
+
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [["role": "user", "content": prompt]],
+            "temperature": 0.7,
+            "max_tokens": 2048
+        ]
+
+        do {
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: req)
+
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let choices = json["choices"] as? [[String: Any]],
+                  let message = choices.first?["message"] as? [String: Any],
+                  let content = message["content"] as? String else { return nil }
+
+            return content
+        } catch {
+            print("[GroqService] rawRequest error: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     // MARK: - Private
 
     private func request(prompt: String, source: String) async -> PlaceInfo? {

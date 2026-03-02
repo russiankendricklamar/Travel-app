@@ -10,6 +10,7 @@ struct MainTabView: View {
     @State private var showSideMenu = false
     @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
     @State private var selectedTripID: UUID?
+    @Environment(\.scenePhase) private var scenePhase
 
     private let authManager = AuthManager.shared
 
@@ -75,6 +76,7 @@ struct MainTabView: View {
                     .onAppear {
                         trip.autoCompletePastDays()
                         LiveActivityManager.shared.refreshActivities(trip: trip)
+                        WidgetDataProvider.updateWidgetData(trips: trips)
                     }
 
                     SideMenuView(isOpen: $showSideMenu, trip: trip, onBack: {
@@ -91,6 +93,11 @@ struct MainTabView: View {
                         selectedTripID = trip.id
                     }
                 }
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                WidgetDataProvider.updateWidgetData(trips: trips)
             }
         }
     }

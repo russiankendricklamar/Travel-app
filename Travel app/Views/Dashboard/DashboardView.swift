@@ -32,7 +32,9 @@ struct DashboardView: View {
                             countdownSeconds: countdownSeconds,
                             statsOffset: statsOffset
                         )
+                        DashboardFlightTrackingSection(trip: trip)
                         DashboardWeatherSection(trip: trip)
+                        recommendationsCard
                         DashboardTicketsSection(trip: trip)
                     case .active:
                         DashboardActiveSection(
@@ -42,7 +44,9 @@ struct DashboardView: View {
                             counterValue: counterValue,
                             budgetWidth: budgetWidth
                         )
+                        DashboardFlightTrackingSection(trip: trip)
                         DashboardWeatherSection(trip: trip)
+                        recommendationsCard
                         DashboardTicketsSection(trip: trip)
                     case .postTrip:
                         postTripHero
@@ -136,6 +140,54 @@ struct DashboardView: View {
             } else {
                 counterValue = min(counterValue + step, target)
             }
+        }
+    }
+
+    // MARK: - Recommendations Card
+
+    private var recommendationsCard: some View {
+        NavigationLink {
+            RecommendationsView(trip: trip)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(AppTheme.sakuraPink)
+                    .frame(width: 40, height: 40)
+                    .background(AppTheme.sakuraPink.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("РЕКОМЕНДАЦИИ")
+                        .font(.system(size: 12, weight: .bold))
+                        .tracking(2)
+                        .foregroundStyle(.primary)
+                    Text("ИИ подберёт места для вас")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(AppTheme.spacingM)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [AppTheme.sakuraPink.opacity(0.4), AppTheme.sakuraPink.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: AppTheme.sakuraPink.opacity(0.1), radius: 12, x: 0, y: 6)
         }
     }
 

@@ -60,6 +60,43 @@ final class ClaudeService {
         return await request(prompt: prompt, source: "Claude")
     }
 
+    // MARK: - Raw Request (for recommendations, etc.)
+
+    func rawRequest(prompt: String) async -> String? {
+        guard hasApiKey else { return nil }
+
+        guard let url = URL(string: endpoint) else { return nil }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 30
+
+        let body: [String: Any] = [
+            "model": model,
+            "max_tokens": 2048,
+            "messages": [["role": "user", "content": prompt]]
+        ]
+
+        do {
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: req)
+
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let content = json["content"] as? [[String: Any]],
+                  let text = content.first?["text"] as? String else { return nil }
+
+            return text
+        } catch {
+            print("[ClaudeService] rawRequest error: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     // MARK: - Private
 
     private func request(prompt: String, source: String) async -> PlaceInfo? {

@@ -81,7 +81,6 @@ struct SettingsView: View {
                     aiProviderSection
                     languageSection
                     dataSection
-                    aboutSection
                 }
                 .padding(AppTheme.spacingM)
             }
@@ -894,47 +893,6 @@ struct SettingsView: View {
             }
         }
         .padding(AppTheme.spacingM)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
-    }
-
-    // MARK: - About Section
-
-    private var aboutSection: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [AppTheme.sakuraPink.opacity(0.3), AppTheme.sakuraPink.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 64, height: 64)
-                Image(systemName: "airplane.circle")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(AppTheme.sakuraPink)
-            }
-
-            Text("Travel Planner")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(.primary)
-
-            Text("v1.0.0")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-
-            Text("Сделано с \u{2764}\u{FE0F} для путешествий")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(AppTheme.spacingL)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
         .overlay(

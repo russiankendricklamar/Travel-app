@@ -39,6 +39,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Models/TravelActivityAttributes.swift,
+				Models/WidgetDataModels.swift,
 			);
 			target = AA11AA092F530EE100928D2C /* TravelWidgetExtension */;
 		};

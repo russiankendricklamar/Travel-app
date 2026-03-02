@@ -14,6 +14,7 @@ struct CreateTripSheet: View {
     @State private var budget = ""
     @State private var flightDateEnabled = false
     @State private var flightDate = Date()
+    @State private var flightNumber = ""
 
     var body: some View {
         NavigationStack {
@@ -99,6 +100,11 @@ struct CreateTripSheet: View {
             .padding(AppTheme.spacingM)
 
             if flightDateEnabled {
+                TextField("SU260", text: $flightNumber)
+                    .textFieldStyle(GlassTextFieldStyle())
+                    .textInputAutocapitalization(.characters)
+                    .padding(.horizontal, AppTheme.spacingM)
+
                 DatePicker("", selection: $flightDate, displayedComponents: [.date, .hourAndMinute])
                     .datePickerStyle(.compact)
                     .labelsHidden()
@@ -135,7 +141,8 @@ struct CreateTripSheet: View {
             budget: budgetValue,
             currency: "RUB",
             coverSystemImage: "airplane",
-            flightDate: flightDateEnabled ? flightDate : nil
+            flightDate: flightDateEnabled ? flightDate : nil,
+            flightNumber: flightDateEnabled && !flightNumber.isEmpty ? flightNumber.trimmingCharacters(in: .whitespaces) : nil
         )
         modelContext.insert(trip)
         do {

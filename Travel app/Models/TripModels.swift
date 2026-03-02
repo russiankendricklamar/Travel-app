@@ -16,6 +16,7 @@ final class Trip {
     var currency: String
     var coverSystemImage: String
     var flightDate: Date?
+    var flightNumber: String?
 
     @Relationship(deleteRule: .cascade, inverse: \TripDay.trip)
     var days: [TripDay] = []
@@ -35,7 +36,8 @@ final class Trip {
         budget: Double,
         currency: String,
         coverSystemImage: String,
-        flightDate: Date? = nil
+        flightDate: Date? = nil,
+        flightNumber: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -46,6 +48,7 @@ final class Trip {
         self.currency = currency
         self.coverSystemImage = coverSystemImage
         self.flightDate = flightDate
+        self.flightNumber = flightNumber
     }
 
     var totalDays: Int {

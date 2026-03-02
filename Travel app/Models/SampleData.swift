@@ -23,7 +23,8 @@ enum SampleData {
             budget: 500000,
             currency: "RUB",
             coverSystemImage: "airplane",
-            flightDate: flightDate
+            flightDate: flightDate,
+            flightNumber: "SU260"
         )
 
         buildDays(trip: trip, startDate: startDate, calendar: calendar)
