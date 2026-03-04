@@ -15,6 +15,8 @@ struct SettingsView: View {
     @AppStorage("notif_budget") private var notifBudget = true
     @AppStorage("notif_weather") private var notifWeather = true
     @AppStorage("liveActivityEnabled") private var liveActivityEnabled = true
+    @AppStorage("geofence_enabled") private var geofenceEnabled = false
+    @AppStorage("geofence_automark_visited") private var geofenceAutomark = false
 
     // Notification times (stored as hour * 60 + minute)
     @AppStorage("notif_morning_time") private var morningTimeMinutes = 480   // 8:00
@@ -60,6 +62,9 @@ struct SettingsView: View {
     @State private var claudeApiKey = Secrets.claudeApiKey
     @State private var openaiApiKey = Secrets.openaiApiKey
     @State private var aviationStackKey = Secrets.aviationStackApiKey
+    @State private var googlePlacesKey = Secrets.googlePlacesApiKey
+    @State private var offlineProgress: Double = 0
+    @State private var isPreCaching = false
 
     @State private var showResetConfirmation = false
     @State private var showSignOutConfirmation = false
@@ -82,6 +87,9 @@ struct SettingsView: View {
                     exchangeRatesSection
                     aiProviderSection
                     flightTrackingSection
+                    googlePlacesSection
+                    geofenceSection
+                    offlineSection
                     languageSection
                     dataSection
                 }
@@ -865,6 +873,169 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
                 .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
         )
+    }
+
+    // MARK: - Geofence Section
+
+    private var geofenceSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("ГЕОЗОНЫ", icon: "location.circle.fill")
+
+            notifToggle(
+                title: "Уведомления о местах",
+                subtitle: "Когда вы рядом с запланированным местом",
+                icon: "location.circle.fill",
+                color: AppTheme.bambooGreen,
+                isOn: $geofenceEnabled
+            )
+
+            if geofenceEnabled {
+                notifToggle(
+                    title: "Авто-отметка посещения",
+                    subtitle: "Автоматически отмечать место посещённым",
+                    icon: "checkmark.circle.fill",
+                    color: AppTheme.oceanBlue,
+                    isOn: $geofenceAutomark
+                )
+            }
+        }
+        .padding(AppTheme.spacingM)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+        .onChange(of: geofenceEnabled) { _, enabled in
+            if !enabled {
+                GeofenceManager.shared.deactivate()
+            }
+        }
+    }
+
+    // MARK: - Google Places Section
+
+    private var googlePlacesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("ПОИСК МЕСТ", icon: "location.magnifyingglass")
+
+            VStack(alignment: .leading, spacing: 8) {
+                SecureField("Google Places API-ключ", text: $googlePlacesKey)
+                    .font(.system(size: 13, design: .monospaced))
+                    .textFieldStyle(GlassTextFieldStyle())
+                    .onChange(of: googlePlacesKey) { _, newValue in
+                        Secrets.setGooglePlacesApiKey(newValue)
+                    }
+
+                Text("console.cloud.google.com → Places API (New)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 4)
+            }
+        }
+        .padding(AppTheme.spacingM)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+
+    // MARK: - Offline Section
+
+    private var offlineSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("ОФЛАЙН", icon: "arrow.down.circle.fill")
+
+            HStack(spacing: 12) {
+                Image(systemName: OfflineCacheManager.shared.isOnline ? "wifi" : "wifi.slash")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OfflineCacheManager.shared.isOnline ? AppTheme.bambooGreen : AppTheme.toriiRed)
+
+                Text(OfflineCacheManager.shared.isOnline ? "Онлайн" : "Офлайн")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                Circle()
+                    .fill(OfflineCacheManager.shared.isOnline ? AppTheme.bambooGreen : AppTheme.toriiRed)
+                    .frame(width: 8, height: 8)
+            }
+            .padding(10)
+            .background(.thinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+
+            Button {
+                preCacheTrip()
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            LinearGradient(
+                                colors: [AppTheme.oceanBlue, AppTheme.oceanBlue.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(isPreCaching ? "Загрузка..." : "Подготовить офлайн")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        Text("Карты и погода для всех дней")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    if isPreCaching {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                    }
+                }
+                .padding(10)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+            }
+            .disabled(isPreCaching)
+
+            if isPreCaching && offlineProgress > 0 {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.secondary.opacity(0.15))
+                        Capsule()
+                            .fill(AppTheme.oceanBlue)
+                            .frame(width: geo.size.width * offlineProgress)
+                    }
+                }
+                .frame(height: 4)
+                .clipShape(Capsule())
+            }
+        }
+        .padding(AppTheme.spacingM)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+
+    private func preCacheTrip() {
+        isPreCaching = true
+        Task {
+            await OfflineCacheManager.shared.preCacheTrip(trip, context: modelContext) { progress in
+                offlineProgress = progress
+            }
+            isPreCaching = false
+        }
     }
 
     // MARK: - Language Section

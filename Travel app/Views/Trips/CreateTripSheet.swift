@@ -4,6 +4,7 @@ import SwiftData
 struct CreateTripSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Query var bucketItems: [BucketListItem]
 
     var onCreated: ((Trip) -> Void)?
 
@@ -54,6 +55,7 @@ struct CreateTripSheet: View {
                     }
 
                     flightSection
+                    bucketListSection
                 }
                 .padding(AppTheme.spacingM)
             }
@@ -119,6 +121,65 @@ struct CreateTripSheet: View {
             RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
                 .stroke(AppTheme.oceanBlue.opacity(0.15), lineWidth: 0.5)
         )
+    }
+
+    // MARK: - Bucket List Suggestions
+
+    private var matchingBucketItems: [BucketListItem] {
+        let dest = destination.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !dest.isEmpty else { return [] }
+        return bucketItems.filter { !$0.isConverted && $0.destination.lowercased().contains(dest) }
+    }
+
+    private var bucketListSection: some View {
+        Group {
+            if !matchingBucketItems.isEmpty {
+                VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+                    HStack(spacing: 6) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(AppTheme.sakuraPink)
+                            .frame(width: 3, height: 12)
+                        Text("ИЗ СПИСКА ЖЕЛАНИЙ")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(1.5)
+                            .foregroundStyle(AppTheme.sakuraPink)
+                    }
+
+                    ForEach(matchingBucketItems) { item in
+                        HStack(spacing: 10) {
+                            Image(systemName: "bookmark.fill")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(AppTheme.sakuraPink)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.name)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                Text(item.destination)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.tertiary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppTheme.templeGold.opacity(0.5))
+                        }
+                        .padding(10)
+                        .background(.thinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                    }
+                }
+                .padding(AppTheme.spacingM)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                        .stroke(AppTheme.sakuraPink.opacity(0.15), lineWidth: 0.5)
+                )
+            }
+        }
     }
 
     // MARK: - Validation

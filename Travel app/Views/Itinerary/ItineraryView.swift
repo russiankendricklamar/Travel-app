@@ -13,26 +13,33 @@ struct ItineraryView: View {
         return f
     }()
 
+    @State private var isEditMode = false
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: AppTheme.spacingM) {
-                    ForEach(Array(trip.sortedDays.enumerated()), id: \.element.id) { index, day in
-                        NavigationLink(value: day.id) {
-                            dayCard(day, index: index)
-                        }
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                modelContext.delete(day)
-                            } label: {
-                                Label("Удалить день", systemImage: "trash")
-                            }
+            List {
+                ForEach(Array(trip.sortedDays.enumerated()), id: \.element.id) { index, day in
+                    NavigationLink(value: day.id) {
+                        dayCard(day, index: index)
+                    }
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            modelContext.delete(day)
+                        } label: {
+                            Label("Удалить день", systemImage: "trash")
                         }
                     }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                 }
-                .padding(.horizontal, AppTheme.spacingM)
-                .padding(.bottom, AppTheme.spacingXL)
+                .onMove { from, to in
+                    moveDays(from: from, to: to)
+                }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .environment(\.editMode, isEditMode ? .constant(.active) : .constant(.inactive))
             .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -43,12 +50,23 @@ struct ItineraryView: View {
                         .foregroundStyle(AppTheme.sakuraPink)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAddDaySheet = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(AppTheme.sakuraPink)
+                    HStack(spacing: 12) {
+                        Button {
+                            withAnimation(.spring(response: 0.3)) {
+                                isEditMode.toggle()
+                            }
+                        } label: {
+                            Image(systemName: isEditMode ? "checkmark.circle.fill" : "arrow.up.arrow.down.circle")
+                                .font(.system(size: 20))
+                                .foregroundStyle(isEditMode ? AppTheme.bambooGreen : .secondary)
+                        }
+                        Button {
+                            showingAddDaySheet = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundStyle(AppTheme.sakuraPink)
+                        }
                     }
                 }
             }
@@ -202,6 +220,15 @@ struct ItineraryView: View {
                 )
         )
         .shadow(color: isToday ? AppTheme.sakuraPink.opacity(0.1) : .black.opacity(0.05), radius: 8, x: 0, y: 4)
+    }
+
+    private func moveDays(from source: IndexSet, to destination: Int) {
+        var ordered = trip.sortedDays
+        ordered.move(fromOffsets: source, toOffset: destination)
+        for (i, day) in ordered.enumerated() {
+            day.sortOrder = i
+        }
+        try? modelContext.save()
     }
 
     private func dayAccentColor(_ day: TripDay) -> Color {

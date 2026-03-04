@@ -19,6 +19,7 @@ struct MainTabView: View {
         case itinerary
         case map
         case expenses
+        case journal
     }
 
     private var selectedTrip: Trip? {
@@ -70,6 +71,12 @@ struct MainTabView: View {
                             }
                             .tag(Tab.expenses)
 
+                        JournalView(trip: trip)
+                            .tabItem {
+                                Label("Дневник", systemImage: "book.fill")
+                            }
+                            .tag(Tab.journal)
+
                     }
                     .tint(ColorPalette.current.accentColor)
                     .id(palette)
@@ -77,6 +84,8 @@ struct MainTabView: View {
                         trip.autoCompletePastDays()
                         LiveActivityManager.shared.refreshActivities(trip: trip)
                         WidgetDataProvider.updateWidgetData(trips: trips)
+                        trip.migrateSortOrdersIfNeeded()
+                        GeofenceManager.shared.activate(for: trip, context: modelContext)
                     }
 
                     SideMenuView(isOpen: $showSideMenu, trip: trip, onBack: {

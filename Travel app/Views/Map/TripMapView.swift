@@ -8,6 +8,10 @@ struct TripMapView: View {
     @State private var selectedPlace: Place?
     @State private var showRoutes = true
     @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var showDiscoverNearby = false
+    #if !targetEnvironment(simulator)
+    @State private var arPlace: Place?
+    #endif
 
     private var allPlaces: [Place] {
         trip.allPlaces
@@ -94,11 +98,28 @@ struct TripMapView: View {
                                 )
                             }
                         }
+
+                        Divider()
+                        Button {
+                            showDiscoverNearby = true
+                        } label: {
+                            Label("Обзор", systemImage: "location.magnifyingglass")
+                        }
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle.fill")
                             .font(.system(size: 20))
                             .foregroundStyle(AppTheme.sakuraPink)
                     }
+                }
+            }
+            #if !targetEnvironment(simulator)
+            .fullScreenCover(item: $arPlace) { place in
+                ARNavigationView(place: place)
+            }
+            #endif
+            .sheet(isPresented: $showDiscoverNearby) {
+                if let coord = allPlaces.first?.coordinate {
+                    DiscoverNearbyView(coordinate: coord)
                 }
             }
         }
@@ -293,6 +314,25 @@ struct TripMapView: View {
                 }
                 .foregroundStyle(.secondary)
             }
+
+            #if !targetEnvironment(simulator)
+            Button {
+                arPlace = place
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arkit")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("AR НАВИГАЦИЯ")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(AppTheme.indigoPurple)
+                .clipShape(Capsule())
+            }
+            #endif
 
             if !place.notes.isEmpty {
                 Text(place.notes)

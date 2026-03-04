@@ -27,6 +27,9 @@ final class Trip {
     @Relationship(deleteRule: .cascade, inverse: \Ticket.trip)
     var tickets: [Ticket] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \PackingItem.trip)
+    var packingItems: [PackingItem] = []
+
     init(
         id: UUID = UUID(),
         name: String,
@@ -155,7 +158,37 @@ extension Trip {
     }
 
     var sortedDays: [TripDay] {
-        days.sorted { $0.date < $1.date }
+        days.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    var totalPacked: Int {
+        packingItems.filter(\.isPacked).count
+    }
+
+    var packingProgress: Double {
+        guard !packingItems.isEmpty else { return 0 }
+        return Double(totalPacked) / Double(packingItems.count)
+    }
+
+    var allJournalEntries: [JournalEntry] {
+        days.flatMap(\.journalEntries).sorted { $0.timestamp > $1.timestamp }
+    }
+
+    func migrateSortOrdersIfNeeded() {
+        let key = "sortOrderMigrated_\(id.uuidString)"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+
+        let byDate = days.sorted { $0.date < $1.date }
+        for (i, day) in byDate.enumerated() {
+            day.sortOrder = i
+            for (j, place) in day.places.enumerated() {
+                place.sortOrder = j
+            }
+            for (j, event) in day.events.sorted(by: { $0.startTime < $1.startTime }).enumerated() {
+                event.sortOrder = j
+            }
+        }
+        UserDefaults.standard.set(true, forKey: key)
     }
 
     var activeDay: TripDay? {
@@ -200,6 +233,7 @@ final class TripDay {
     var title: String
     var cityName: String
     var notes: String
+    var sortOrder: Int = 0
 
     var trip: Trip?
 
@@ -218,18 +252,31 @@ final class TripDay {
     @Relationship(deleteRule: .cascade, inverse: \TripPhoto.day)
     var photos: [TripPhoto] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \JournalEntry.day)
+    var journalEntries: [JournalEntry] = []
+
     init(
         id: UUID = UUID(),
         date: Date,
         title: String,
         cityName: String,
-        notes: String = ""
+        notes: String = "",
+        sortOrder: Int = 0
     ) {
         self.id = id
         self.date = date
         self.title = title
         self.cityName = cityName
         self.notes = notes
+        self.sortOrder = sortOrder
+    }
+
+    var sortedPlaces: [Place] {
+        places.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    var sortedEvents: [TripEvent] {
+        events.sorted { $0.sortOrder < $1.sortOrder }
     }
 
     var visitedCount: Int {
@@ -262,6 +309,7 @@ final class TripEvent {
     var startTime: Date
     var endTime: Date
     var notes: String
+    var sortOrder: Int = 0
 
     // Location for regular events (museum, checkin, etc.)
     var latitude: Double?
@@ -456,6 +504,7 @@ final class Place {
     var rating: Int?
     var notes: String
     var timeToSpend: String
+    var sortOrder: Int = 0
 
     var day: TripDay?
 

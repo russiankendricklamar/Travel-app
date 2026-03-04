@@ -15,6 +15,14 @@ struct DayDetailView: View {
     @State private var editingPlace: Place?
     @State private var editingEvent: TripEvent?
     @State private var aiInfoPlace: Place?
+    @State private var journalEntryPlace: Place?
+    @State private var showingAddJournalEntry = false
+    @State private var isReorderingPlaces = false
+    @State private var isReorderingEvents = false
+    @State private var showDiscoverNearby = false
+    #if !targetEnvironment(simulator)
+    @State private var arPlace: Place?
+    #endif
 
     private var locationManager: LocationManager { LocationManager.shared }
 
@@ -39,6 +47,7 @@ struct DayDetailView: View {
                     ticketsSection
                 }
                 placesSection
+                journalSection
                 notesSection
             }
             .padding(.horizontal, AppTheme.spacingM)
@@ -70,6 +79,12 @@ struct DayDetailView: View {
                     } label: {
                         Label("Добавить билет", systemImage: "ticket")
                     }
+                    Divider()
+                    Button {
+                        showDiscoverNearby = true
+                    } label: {
+                        Label("Найти рядом", systemImage: "location.magnifyingglass")
+                    }
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 20))
@@ -97,6 +112,20 @@ struct DayDetailView: View {
         }
         .sheet(item: $aiInfoPlace) { place in
             PlaceAIInfoSheet(place: place, cityName: day.cityName)
+        }
+        .sheet(item: $journalEntryPlace) { place in
+            AddJournalEntrySheet(day: day, linkedPlace: place)
+        }
+        .sheet(isPresented: $showingAddJournalEntry) {
+            AddJournalEntrySheet(day: day)
+        }
+        #if !targetEnvironment(simulator)
+        .fullScreenCover(item: $arPlace) { place in
+            ARNavigationView(place: place)
+        }
+        #endif
+        .sheet(isPresented: $showDiscoverNearby) {
+            DiscoverNearbyView(day: day)
         }
     }
 
@@ -154,32 +183,76 @@ struct DayDetailView: View {
     // MARK: - Events
 
     private var eventsSection: some View {
-        let sortedEvents = day.events.sorted(by: { $0.startTime < $1.startTime })
+        let sortedEvents = day.sortedEvents
 
         return VStack(alignment: .leading, spacing: AppTheme.spacingS) {
-            GlassSectionHeader(title: "РАСПИСАНИЕ", color: AppTheme.oceanBlue)
-
-            ForEach(Array(sortedEvents.enumerated()), id: \.element.id) { index, event in
-                EventCard(event: event)
-                    .contextMenu {
-                        Button {
-                            editingEvent = event
-                        } label: {
-                            Label("Редактировать", systemImage: "pencil")
-                        }
-                        Button(role: .destructive) {
-                            modelContext.delete(event)
-                        } label: {
-                            Label("Удалить", systemImage: "trash")
-                        }
+            HStack {
+                GlassSectionHeader(title: "РАСПИСАНИЕ", color: AppTheme.oceanBlue)
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
+                        isReorderingEvents.toggle()
                     }
+                } label: {
+                    Image(systemName: isReorderingEvents ? "checkmark.circle.fill" : "arrow.up.arrow.down")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(isReorderingEvents ? AppTheme.bambooGreen : .secondary)
+                }
+            }
 
-                // Route card between consecutive events
-                if index < sortedEvents.count - 1 {
-                    EventRouteCard(
-                        fromEvent: event,
-                        toEvent: sortedEvents[index + 1]
-                    )
+            if isReorderingEvents {
+                List {
+                    ForEach(sortedEvents) { event in
+                        HStack(spacing: 10) {
+                            Image(systemName: event.category.systemImage)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 28, height: 28)
+                                .background(event.category.color)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(event.title)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .lineLimit(1)
+                                Text(event.formattedTimeRange)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    }
+                    .onMove { from, to in
+                        moveEvents(from: from, to: to)
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .environment(\.editMode, .constant(.active))
+                .frame(height: CGFloat(day.events.count) * 56)
+            } else {
+                ForEach(Array(sortedEvents.enumerated()), id: \.element.id) { index, event in
+                    EventCard(event: event)
+                        .contextMenu {
+                            Button {
+                                editingEvent = event
+                            } label: {
+                                Label("Редактировать", systemImage: "pencil")
+                            }
+                            Button(role: .destructive) {
+                                modelContext.delete(event)
+                            } label: {
+                                Label("Удалить", systemImage: "trash")
+                            }
+                        }
+
+                    if index < sortedEvents.count - 1 {
+                        EventRouteCard(
+                            fromEvent: event,
+                            toEvent: sortedEvents[index + 1]
+                        )
+                    }
                 }
             }
         }
@@ -189,27 +262,81 @@ struct DayDetailView: View {
 
     private var placesSection: some View {
         VStack(alignment: .leading, spacing: AppTheme.spacingS) {
-            GlassSectionHeader(title: "МЕСТА", color: AppTheme.sakuraPink)
-
-            ForEach(Array(day.places.enumerated()), id: \.element.id) { index, place in
-                placeRow(place, index: index)
-                    .contextMenu {
-                        Button {
-                            aiInfoPlace = place
-                        } label: {
-                            Label("Узнать от ИИ", systemImage: "sparkles")
-                        }
-                        Button {
-                            editingPlace = place
-                        } label: {
-                            Label("Редактировать", systemImage: "pencil")
-                        }
-                        Button(role: .destructive) {
-                            modelContext.delete(place)
-                        } label: {
-                            Label("Удалить", systemImage: "trash")
-                        }
+            HStack {
+                GlassSectionHeader(title: "МЕСТА", color: AppTheme.sakuraPink)
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
+                        isReorderingPlaces.toggle()
                     }
+                } label: {
+                    Image(systemName: isReorderingPlaces ? "checkmark.circle.fill" : "arrow.up.arrow.down")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(isReorderingPlaces ? AppTheme.bambooGreen : .secondary)
+                }
+            }
+
+            if isReorderingPlaces {
+                List {
+                    ForEach(day.sortedPlaces) { place in
+                        HStack(spacing: 10) {
+                            Image(systemName: place.category.systemImage)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 28, height: 28)
+                                .background(AppTheme.categoryColor(for: place.category.rawValue))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            Text(place.name)
+                                .font(.system(size: 14, weight: .semibold))
+                                .lineLimit(1)
+                            Spacer()
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    }
+                    .onMove { from, to in
+                        movePlaces(from: from, to: to)
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .environment(\.editMode, .constant(.active))
+                .frame(height: CGFloat(day.places.count) * 50)
+            } else {
+                ForEach(Array(day.sortedPlaces.enumerated()), id: \.element.id) { index, place in
+                    placeRow(place, index: index)
+                        .contextMenu {
+                            Button {
+                                aiInfoPlace = place
+                            } label: {
+                                Label("Узнать от ИИ", systemImage: "sparkles")
+                            }
+                            #if !targetEnvironment(simulator)
+                            if place.latitude != 0, place.longitude != 0 {
+                                Button {
+                                    arPlace = place
+                                } label: {
+                                    Label("AR навигация", systemImage: "arkit")
+                                }
+                            }
+                            #endif
+                            Button {
+                                saveToBucketList(place)
+                            } label: {
+                                Label("Сохранить в желания", systemImage: "bookmark")
+                            }
+                            Button {
+                                editingPlace = place
+                            } label: {
+                                Label("Редактировать", systemImage: "pencil")
+                            }
+                            Button(role: .destructive) {
+                                modelContext.delete(place)
+                            } label: {
+                                Label("Удалить", systemImage: "trash")
+                            }
+                        }
+                }
             }
         }
     }
@@ -229,7 +356,11 @@ struct DayDetailView: View {
             VStack(alignment: .leading, spacing: AppTheme.spacingS) {
                 HStack(alignment: .top) {
                     Button {
+                        let wasVisited = place.isVisited
                         place.isVisited.toggle()
+                        if !wasVisited && place.isVisited {
+                            journalEntryPlace = place
+                        }
                     } label: {
                         Image(systemName: place.isVisited ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 22, weight: .bold))
@@ -423,6 +554,78 @@ struct DayDetailView: View {
             }
             locationManager.startTracking(for: day, context: modelContext)
         }
+    }
+
+    // MARK: - Journal
+
+    private var journalSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+            HStack {
+                GlassSectionHeader(title: "ДНЕВНИК", color: AppTheme.indigoPurple)
+                Spacer()
+                Button {
+                    showingAddJournalEntry = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(AppTheme.indigoPurple)
+                }
+            }
+
+            if day.journalEntries.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "book.closed")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.tertiary)
+                    Text("Отметьте место посещённым, чтобы добавить запись")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(AppTheme.spacingM)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+            } else {
+                ForEach(day.journalEntries.sorted(by: { $0.timestamp < $1.timestamp })) { entry in
+                    JournalEntryCard(entry: entry)
+                }
+            }
+        }
+    }
+
+    // MARK: - Move Helpers
+
+    private func movePlaces(from source: IndexSet, to destination: Int) {
+        var ordered = day.sortedPlaces
+        ordered.move(fromOffsets: source, toOffset: destination)
+        for (i, place) in ordered.enumerated() {
+            place.sortOrder = i
+        }
+        try? modelContext.save()
+    }
+
+    private func moveEvents(from source: IndexSet, to destination: Int) {
+        var ordered = day.sortedEvents
+        ordered.move(fromOffsets: source, toOffset: destination)
+        for (i, event) in ordered.enumerated() {
+            event.sortOrder = i
+        }
+        try? modelContext.save()
+    }
+
+    // MARK: - Bucket List
+
+    private func saveToBucketList(_ place: Place) {
+        let item = BucketListItem(
+            name: place.name,
+            destination: day.cityName,
+            category: place.category.rawValue,
+            notes: place.notes,
+            latitude: place.latitude,
+            longitude: place.longitude
+        )
+        modelContext.insert(item)
+        try? modelContext.save()
     }
 
     // MARK: - Notes

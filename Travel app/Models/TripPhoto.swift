@@ -13,6 +13,7 @@ final class TripPhoto {
     var place: Place?
     var expense: Expense?
     var day: TripDay?
+    var journalEntry: JournalEntry?
 
     init(
         id: UUID = UUID(),

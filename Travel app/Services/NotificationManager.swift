@@ -17,6 +17,21 @@ final class NotificationManager {
         }
     }
 
+    func registerGeofenceCategory() {
+        let markAction = UNNotificationAction(
+            identifier: "MARK_VISITED",
+            title: "Отметить посещённым",
+            options: [.foreground]
+        )
+        let category = UNNotificationCategory(
+            identifier: "geofence",
+            actions: [markAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+
     // MARK: - Morning Plan (daily at 8:00 during trip)
 
     func scheduleMorningPlans(for trip: Trip) {

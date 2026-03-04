@@ -446,6 +446,7 @@ struct AddPlaceSheet: View {
                 notes: notes.trimmingCharacters(in: .whitespaces),
                 timeToSpend: timeToSpend.trimmingCharacters(in: .whitespaces)
             )
+            place.sortOrder = day.places.count
             day.places.append(place)
         }
         dismiss()

@@ -233,6 +233,7 @@ struct AddEventSheet: View {
                 endLatitude: category.isTransport ? arrivalLatitude : nil,
                 endLongitude: category.isTransport ? arrivalLongitude : nil
             )
+            event.sortOrder = day.events.count
             day.events.append(event)
         }
         dismiss()

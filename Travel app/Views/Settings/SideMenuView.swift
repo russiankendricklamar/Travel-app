@@ -5,6 +5,7 @@ struct SideMenuView: View {
     let trip: Trip
     var onBack: (() -> Void)?
     @State private var showSettings = false
+    @State private var showPackingList = false
     @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
 
     var body: some View {
@@ -30,6 +31,10 @@ struct SideMenuView: View {
                                 menuButton(icon: "arrow.uturn.left", title: "Сменить поездку") {
                                     onBack?()
                                 }
+                            }
+
+                            menuButton(icon: "bag.fill", title: "Список вещей") {
+                                showPackingList = true
                             }
 
                             menuButton(icon: "gearshape.fill", title: "Настройки") {
@@ -62,6 +67,9 @@ struct SideMenuView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isOpen)
         .sheet(isPresented: $showSettings) {
             SettingsView(trip: trip)
+        }
+        .sheet(isPresented: $showPackingList) {
+            PackingListView(trip: trip)
         }
     }
 

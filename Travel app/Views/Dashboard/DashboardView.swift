@@ -9,6 +9,7 @@ struct DashboardView: View {
     @State private var statsOffset: CGFloat = 60
     @State private var budgetWidth: CGFloat = 0
     @State private var counterValue: Int = 0
+    @State private var showPackingList = false
 
     // Countdown timer
     @State private var countdownTimer: Timer?
@@ -21,8 +22,13 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: AppTheme.spacingM) {
+                    if !OfflineCacheManager.shared.isOnline {
+                        OfflineBanner()
+                    }
+
                     switch trip.phase {
                     case .preTrip:
+                        packingMiniCard
                         DashboardCountdownSection(
                             trip: trip,
                             heroScale: heroScale,
@@ -37,6 +43,7 @@ struct DashboardView: View {
                         recommendationsCard
                         DashboardTicketsSection(trip: trip)
                     case .active:
+                        packingMiniCard
                         DashboardActiveSection(
                             trip: trip,
                             heroScale: heroScale,
@@ -52,6 +59,50 @@ struct DashboardView: View {
                         postTripHero
                         statsBanner
                         DashboardBudgetSection(trip: trip, budgetWidth: budgetWidth)
+                        if !trip.allJournalEntries.isEmpty {
+                            NavigationLink {
+                                JournalMemoryBookView(trip: trip)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "book.fill")
+                                        .font(.system(size: 22, weight: .bold))
+                                        .foregroundStyle(AppTheme.indigoPurple)
+                                        .frame(width: 40, height: 40)
+                                        .background(AppTheme.indigoPurple.opacity(0.12))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("КНИГА ВОСПОМИНАНИЙ")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .tracking(2)
+                                            .foregroundStyle(.primary)
+                                        Text("\(trip.allJournalEntries.count) записей")
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .padding(AppTheme.spacingM)
+                                .background(.ultraThinMaterial)
+                                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [AppTheme.indigoPurple.opacity(0.4), AppTheme.indigoPurple.opacity(0.1)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 1
+                                        )
+                                )
+                            }
+                        }
                     }
                     Spacer(minLength: 80)
                 }
@@ -140,6 +191,59 @@ struct DashboardView: View {
             } else {
                 counterValue = min(counterValue + step, target)
             }
+        }
+    }
+
+    // MARK: - Packing Mini Card
+
+    private var packingMiniCard: some View {
+        Button {
+            showPackingList = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "bag.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(trip.packingProgress >= 1.0 ? AppTheme.bambooGreen : AppTheme.oceanBlue)
+                    .frame(width: 36, height: 36)
+                    .background((trip.packingProgress >= 1.0 ? AppTheme.bambooGreen : AppTheme.oceanBlue).opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("СПИСОК ВЕЩЕЙ")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.5)
+                        .foregroundStyle(.secondary)
+                    Text("\(trip.totalPacked)/\(trip.packingItems.count) упаковано")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+
+                Spacer()
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.secondary.opacity(0.15))
+                        Capsule()
+                            .fill(trip.packingProgress >= 1.0 ? AppTheme.bambooGreen : AppTheme.oceanBlue)
+                            .frame(width: geo.size.width * trip.packingProgress)
+                    }
+                }
+                .frame(width: 60, height: 6)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(AppTheme.spacingM)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+            )
+        }
+        .sheet(isPresented: $showPackingList) {
+            PackingListView(trip: trip)
         }
     }
 

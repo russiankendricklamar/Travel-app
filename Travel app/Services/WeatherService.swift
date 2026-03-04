@@ -89,12 +89,19 @@ final class WeatherService {
 
             lastFetchDate = Date()
             lastFetchCoordinate = coordinate
+
+            // Cache for offline
+            if let encoded = try? JSONEncoder().encode(decoded) {
+                OfflineCacheManager.shared.cacheWeather(encoded)
+            }
         } catch let decodingError as DecodingError {
             print("Weather decode error: \(decodingError)")
             errorMessage = "Ошибка данных погоды"
+            restoreFromCache(coordinate: coordinate)
         } catch {
             print("Weather fetch error: \(error)")
             errorMessage = "Не удалось загрузить погоду"
+            restoreFromCache(coordinate: coordinate)
         }
 
         isLoading = false
@@ -156,6 +163,13 @@ final class WeatherService {
             parts.append("Осадки: \(precip)%")
         }
         return parts.joined(separator: ", ")
+    }
+
+    private func restoreFromCache(coordinate: CLLocationCoordinate2D) {
+        guard let data = OfflineCacheManager.shared.cachedWeather(),
+              let decoded = try? JSONDecoder().decode(OpenMeteoResponse.self, from: data) else { return }
+        parseResponse(decoded, coordinate: coordinate)
+        errorMessage = nil
     }
 
     func invalidateCache() {

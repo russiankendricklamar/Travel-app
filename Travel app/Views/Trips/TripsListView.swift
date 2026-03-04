@@ -5,6 +5,7 @@ struct TripsListView: View {
     @Query(sort: \Trip.startDate) var trips: [Trip]
     @Environment(\.modelContext) private var modelContext
     @State private var showCreateSheet = false
+    @State private var showBucketList = false
 
     var onSelectTrip: ((Trip) -> Void)?
 
@@ -33,6 +34,15 @@ struct TripsListView: View {
             .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showBucketList = true
+                    } label: {
+                        Image(systemName: "bookmark.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(AppTheme.sakuraPink)
+                    }
+                }
                 ToolbarItem(placement: .principal) {
                     Text("ПОЕЗДКИ")
                         .font(.system(size: 16, weight: .bold, design: .rounded))
@@ -51,6 +61,9 @@ struct TripsListView: View {
             }
             .sheet(isPresented: $showCreateSheet) {
                 CreateTripSheet()
+            }
+            .sheet(isPresented: $showBucketList) {
+                BucketListView()
             }
         }
     }
