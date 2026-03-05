@@ -20,6 +20,7 @@ final class RecommendationService {
         case .groq: GroqService.shared.hasApiKey
         case .claude: ClaudeService.shared.hasApiKey
         case .openai: OpenAIService.shared.hasApiKey
+        case .gemini: GeminiService.shared.hasApiKey
         }
     }
 
@@ -70,6 +71,8 @@ final class RecommendationService {
             rawContent = await ClaudeService.shared.rawRequest(prompt: prompt)
         case .openai:
             rawContent = await OpenAIService.shared.rawRequest(prompt: prompt)
+        case .gemini:
+            rawContent = await GeminiService.shared.rawRequest(prompt: prompt)
         }
 
         guard let content = rawContent else {

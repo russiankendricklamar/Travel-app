@@ -42,6 +42,7 @@ final class PlaceInfoService {
         case .groq: GroqService.shared.hasApiKey
         case .claude: ClaudeService.shared.hasApiKey
         case .openai: OpenAIService.shared.hasApiKey
+        case .gemini: GeminiService.shared.hasApiKey
         }
     }
 
@@ -100,6 +101,8 @@ final class PlaceInfoService {
             await ClaudeService.shared.summarize(wikiText: wikiText, placeName: placeName, category: category)
         case .openai:
             await OpenAIService.shared.summarize(wikiText: wikiText, placeName: placeName, category: category)
+        case .gemini:
+            await GeminiService.shared.summarize(wikiText: wikiText, placeName: placeName, category: category)
         }
     }
 
@@ -111,6 +114,8 @@ final class PlaceInfoService {
             await ClaudeService.shared.generateInfo(placeName: placeName, category: category, city: city)
         case .openai:
             await OpenAIService.shared.generateInfo(placeName: placeName, category: category, city: city)
+        case .gemini:
+            await GeminiService.shared.generateInfo(placeName: placeName, category: category, city: city)
         }
     }
 }
