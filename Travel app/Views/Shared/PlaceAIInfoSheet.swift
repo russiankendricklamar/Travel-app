@@ -98,21 +98,12 @@ struct PlaceAIInfoSheet: View {
 
     private func infoContent(_ info: PlaceInfo) -> some View {
         VStack(alignment: .leading, spacing: AppTheme.spacingM) {
-            if !info.history.isEmpty {
+            ForEach(Array(info.sections.enumerated()), id: \.offset) { _, section in
                 infoSection(
-                    icon: "scroll",
-                    title: "ИСТОРИЯ",
-                    color: AppTheme.templeGold,
-                    text: info.history
-                )
-            }
-
-            if !info.tips.isEmpty {
-                infoSection(
-                    icon: "lightbulb",
-                    title: "СОВЕТЫ",
-                    color: AppTheme.bambooGreen,
-                    text: info.tips
+                    icon: section.icon,
+                    title: section.title,
+                    color: sectionColor(section.color),
+                    text: section.text
                 )
             }
 
@@ -123,6 +114,17 @@ struct PlaceAIInfoSheet: View {
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.quaternary)
             }
+        }
+    }
+
+    private func sectionColor(_ key: String) -> Color {
+        switch key {
+        case "gold": return AppTheme.templeGold
+        case "green": return AppTheme.bambooGreen
+        case "blue": return AppTheme.oceanBlue
+        case "pink": return AppTheme.sakuraPink
+        case "red": return AppTheme.toriiRed
+        default: return AppTheme.oceanBlue
         }
     }
 
