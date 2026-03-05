@@ -20,7 +20,7 @@ enum JournalService {
     static func exportSummary(for trip: Trip) -> String {
         var lines: [String] = ["# \(trip.name)\n"]
         let df = DateFormatter()
-        df.locale = Locale(identifier: "ru_RU")
+        df.locale = .current
         df.dateFormat = "d MMMM"
         for day in trip.sortedDays {
             lines.append("## \(df.string(from: day.date)) — \(day.cityName)")

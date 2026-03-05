@@ -11,25 +11,38 @@ struct JournalView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                if daysWithEntries.isEmpty {
-                    emptyState
-                } else {
-                    LazyVStack(spacing: AppTheme.spacingM) {
-                        ForEach(daysWithEntries) { day in
-                            VStack(alignment: .leading, spacing: AppTheme.spacingS) {
-                                JournalDaySection(day: day)
-                                ForEach(day.journalEntries.sorted(by: { $0.timestamp < $1.timestamp })) { entry in
-                                    JournalEntryCard(entry: entry)
+            ZStack {
+                ColorPalette.current.backgroundColors.first?.ignoresSafeArea()
+
+                LinearGradient(
+                    colors: ColorPalette.current.backgroundColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        if daysWithEntries.isEmpty {
+                            emptyState
+                        } else {
+                            LazyVStack(spacing: AppTheme.spacingL) {
+                                ForEach(daysWithEntries) { day in
+                                    VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+                                        JournalDaySection(day: day)
+                                        ForEach(day.journalEntries.sorted(by: { $0.timestamp < $1.timestamp })) { entry in
+                                            JournalEntryCard(entry: entry)
+                                        }
+                                    }
                                 }
                             }
+                            .padding(.top, AppTheme.spacingS)
+                            .padding(.bottom, AppTheme.spacingXL)
                         }
                     }
                     .padding(.horizontal, AppTheme.spacingM)
-                    .padding(.bottom, AppTheme.spacingXL)
                 }
             }
-            .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

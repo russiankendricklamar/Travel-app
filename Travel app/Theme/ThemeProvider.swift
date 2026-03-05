@@ -92,12 +92,12 @@ enum ColorPalette: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .sakura:   return "Сакура"
-        case .midnight: return "Полночь"
-        case .imperial: return "Императорский"
-        case .matcha:   return "Матча"
-        case .fuji:     return "Фудзи"
-        case .hanami:   return "Ханами"
+        case .sakura:   return String(localized: "Сакура")
+        case .midnight: return String(localized: "Полночь")
+        case .imperial: return String(localized: "Императорский")
+        case .matcha:   return String(localized: "Матча")
+        case .fuji:     return String(localized: "Фудзи")
+        case .hanami:   return String(localized: "Ханами")
         }
     }
 }

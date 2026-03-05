@@ -1,5 +1,4 @@
 import SwiftUI
-import AuthenticationServices
 
 enum AuthResult {
     case signedIn
@@ -11,13 +10,12 @@ struct AuthView: View {
 
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @Environment(\.colorScheme) private var colorScheme
+    @State private var showEmailAuth = false
 
     private let authManager = AuthManager.shared
 
     var body: some View {
         ZStack {
-            // Background
             LinearGradient(
                 colors: ColorPalette.current.backgroundColors,
                 startPoint: .topLeading,
@@ -28,16 +26,13 @@ struct AuthView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                // Logo + Title
                 headerSection
 
                 Spacer()
                     .frame(height: 48)
 
-                // Sign-in buttons
                 buttonsSection
 
-                // Error message
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.system(size: 12, weight: .medium))
@@ -48,7 +43,6 @@ struct AuthView: View {
 
                 Spacer()
 
-                // Skip button
                 skipButton
 
                 Spacer()
@@ -65,6 +59,11 @@ struct AuthView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: errorMessage)
+        .sheet(isPresented: $showEmailAuth) {
+            EmailAuthSheet {
+                onComplete(.signedIn)
+            }
+        }
     }
 
     // MARK: - Header
@@ -101,18 +100,8 @@ struct AuthView: View {
 
     private var buttonsSection: some View {
         VStack(spacing: 14) {
-            // Sign in with Apple
-            SignInWithAppleButton(.signIn) { request in
-                request.requestedScopes = [.fullName, .email]
-            } onCompletion: { result in
-                handleAppleSignIn(result)
-            }
-            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-            .frame(height: 52)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-
-            // Sign in with Google
             googleSignInButton
+            emailSignInButton
         }
     }
 
@@ -125,6 +114,29 @@ struct AuthView: View {
                     .font(.system(size: 20, weight: .bold))
 
                 Text("Войти через Google")
+                    .font(.system(size: 17, weight: .semibold))
+            }
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                    .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+            )
+        }
+    }
+
+    private var emailSignInButton: some View {
+        Button {
+            showEmailAuth = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "envelope.fill")
+                    .font(.system(size: 18, weight: .bold))
+
+                Text("Войти по Email")
                     .font(.system(size: 17, weight: .semibold))
             }
             .foregroundStyle(.primary)
@@ -155,63 +167,23 @@ struct AuthView: View {
         }
     }
 
-    // MARK: - Apple Sign-In Handler
-
-    private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
-        switch result {
-        case .success(let authorization):
-            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                errorMessage = "Не удалось получить данные Apple ID"
-                return
-            }
-            authManager.signInWithApple(credential: credential)
-            onComplete(.signedIn)
-
-        case .failure(let error):
-            if (error as NSError).code == ASAuthorizationError.canceled.rawValue {
-                return
-            }
-            errorMessage = "Ошибка входа: \(error.localizedDescription)"
-        }
-    }
-
     // MARK: - Google Sign-In Handler
 
     private func handleGoogleSignIn() {
-        #if canImport(GoogleSignIn)
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first?.rootViewController else {
-            errorMessage = "Не удалось открыть окно входа"
-            return
-        }
-
         isLoading = true
-        GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { result, error in
-            isLoading = false
-
-            if let error {
-                if (error as NSError).code == GIDSignInError.canceled.rawValue {
-                    return
+        Task {
+            do {
+                try await authManager.signInWithGoogle()
+                await MainActor.run {
+                    isLoading = false
+                    onComplete(.signedIn)
                 }
-                errorMessage = "Ошибка Google: \(error.localizedDescription)"
-                return
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = "Ошибка Google: \(error.localizedDescription)"
+                }
             }
-
-            guard let user = result?.user,
-                  let userID = user.userID else {
-                errorMessage = "Не удалось получить данные Google"
-                return
-            }
-
-            authManager.signInWithGoogle(
-                userID: userID,
-                name: user.profile?.name,
-                email: user.profile?.email
-            )
-            onComplete(.signedIn)
         }
-        #else
-        errorMessage = "Google Sign-In не настроен. Добавьте GoogleSignIn SPM-пакет."
-        #endif
     }
 }

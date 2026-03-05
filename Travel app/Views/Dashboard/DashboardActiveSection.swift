@@ -105,7 +105,7 @@ struct DashboardActiveSection: View {
         .offset(y: statsOffset)
     }
 
-    private func bannerStat(_ value: String, label: String, icon: String) -> some View {
+    private func bannerStat(_ value: String, label: LocalizedStringKey, icon: String) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .bold))
@@ -143,7 +143,7 @@ struct DashboardActiveSection: View {
         .offset(y: statsOffset)
     }
 
-    private func glassStatCard(value: String, label: String, icon: String, color: Color) -> some View {
+    private func glassStatCard(value: String, label: LocalizedStringKey, icon: String, color: Color) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(value)
@@ -249,7 +249,7 @@ struct DashboardActiveSection: View {
 
     private var tripDateRange: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.locale = .current
         formatter.dateFormat = "d MMM"
         let start = formatter.string(from: trip.startDate)
         let end = formatter.string(from: trip.endDate)

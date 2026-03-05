@@ -114,7 +114,7 @@ struct DashboardCountdownSection: View {
 
     // MARK: - Compact Unit
 
-    private func compactUnit(value: Int, label: String) -> some View {
+    private func compactUnit(value: Int, label: LocalizedStringKey) -> some View {
         VStack(spacing: 2) {
             Text(String(format: "%02d", value))
                 .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -137,10 +137,10 @@ struct DashboardCountdownSection: View {
     private func daysWord(_ count: Int) -> String {
         let mod10 = count % 10
         let mod100 = count % 100
-        if mod100 >= 11 && mod100 <= 19 { return "ДНЕЙ" }
-        if mod10 == 1 { return "ДЕНЬ" }
-        if mod10 >= 2 && mod10 <= 4 { return "ДНЯ" }
-        return "ДНЕЙ"
+        if mod100 >= 11 && mod100 <= 19 { return String(localized: "ДНЕЙ") }
+        if mod10 == 1 { return String(localized: "ДЕНЬ") }
+        if mod10 >= 2 && mod10 <= 4 { return String(localized: "ДНЯ") }
+        return String(localized: "ДНЕЙ")
     }
 
     private var flightDestination: String {
@@ -151,7 +151,7 @@ struct DashboardCountdownSection: View {
 
     private var tripDateRange: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.locale = .current
         formatter.dateFormat = "d MMM"
         let start = formatter.string(from: trip.startDate)
         let end = formatter.string(from: trip.endDate)
@@ -160,7 +160,7 @@ struct DashboardCountdownSection: View {
 
     private func flightDateFormatted(_ date: Date) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = .current
         f.dateFormat = "d MMM, HH:mm"
         return f.string(from: date)
     }

@@ -3,7 +3,7 @@ import SwiftUI
 import SwiftData
 
 @Model
-final class JournalEntry {
+final class JournalEntry: Syncable {
     @Attribute(.unique) var id: UUID
     var text: String
     var mood: String
@@ -11,6 +11,8 @@ final class JournalEntry {
     var isStandalone: Bool
     var latitude: Double?
     var longitude: Double?
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
 
     var place: Place?
     var day: TripDay?
@@ -57,11 +59,11 @@ enum JournalMood: String, CaseIterable, Codable {
 
     var label: String {
         switch self {
-        case .great: return "Отлично"
-        case .good: return "Хорошо"
-        case .neutral: return "Нормально"
-        case .tired: return "Устал"
-        case .bad: return "Плохо"
+        case .great: return String(localized: "Отлично")
+        case .good: return String(localized: "Хорошо")
+        case .neutral: return String(localized: "Нормально")
+        case .tired: return String(localized: "Устал")
+        case .bad: return String(localized: "Плохо")
         }
     }
 

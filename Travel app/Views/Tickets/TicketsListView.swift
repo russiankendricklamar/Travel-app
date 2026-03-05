@@ -119,9 +119,9 @@ enum TicketFilter: CaseIterable {
 
     var label: String {
         switch self {
-        case .upcoming: return "ПРЕДСТОЯЩИЕ"
-        case .past: return "ПРОШЕДШИЕ"
-        case .all: return "ВСЕ"
+        case .upcoming: return String(localized: "ПРЕДСТОЯЩИЕ")
+        case .past: return String(localized: "ПРОШЕДШИЕ")
+        case .all: return String(localized: "ВСЕ")
         }
     }
 }

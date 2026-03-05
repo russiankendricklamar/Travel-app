@@ -5,7 +5,7 @@ struct JournalDaySection: View {
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = .current
         f.dateFormat = "d MMMM"
         return f
     }()
@@ -28,14 +28,15 @@ struct JournalDaySection: View {
 
             Spacer()
 
-            Text("\(day.journalEntries.count)")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(AppTheme.indigoPurple)
-            Image(systemName: "book.closed.fill")
-                .font(.system(size: 11))
-                .foregroundStyle(AppTheme.indigoPurple.opacity(0.6))
+            HStack(spacing: 4) {
+                Text("\(day.journalEntries.count)")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppTheme.indigoPurple)
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.indigoPurple.opacity(0.6))
+            }
         }
-        .padding(.horizontal, 4)
         .padding(.top, AppTheme.spacingS)
     }
 }

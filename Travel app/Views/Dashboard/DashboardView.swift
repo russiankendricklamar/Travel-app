@@ -10,6 +10,7 @@ struct DashboardView: View {
     @State private var budgetWidth: CGFloat = 0
     @State private var counterValue: Int = 0
     @State private var showPackingList = false
+    @State private var showAddFlight = false
 
     // Countdown timer
     @State private var countdownTimer: Timer?
@@ -38,9 +39,8 @@ struct DashboardView: View {
                             countdownSeconds: countdownSeconds,
                             statsOffset: statsOffset
                         )
-                        DashboardFlightTrackingSection(trip: trip)
+                        flightOrAddCard
                         DashboardWeatherSection(trip: trip)
-                        recommendationsCard
                         DashboardTicketsSection(trip: trip)
                     case .active:
                         packingMiniCard
@@ -51,9 +51,8 @@ struct DashboardView: View {
                             counterValue: counterValue,
                             budgetWidth: budgetWidth
                         )
-                        DashboardFlightTrackingSection(trip: trip)
+                        flightOrAddCard
                         DashboardWeatherSection(trip: trip)
-                        recommendationsCard
                         DashboardTicketsSection(trip: trip)
                     case .postTrip:
                         postTripHero
@@ -136,6 +135,55 @@ struct DashboardView: View {
             .onDisappear {
                 countdownTimer?.invalidate()
             }
+            .sheet(isPresented: $showAddFlight) {
+                EditFlightSheet(trip: trip)
+            }
+        }
+    }
+
+    // MARK: - Flight or Add Card
+
+    @ViewBuilder
+    private var flightOrAddCard: some View {
+        if trip.flightNumber != nil {
+            DashboardFlightTrackingSection(trip: trip)
+        } else {
+            Button {
+                showAddFlight = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "airplane")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(AppTheme.oceanBlue)
+                        .frame(width: 36, height: 36)
+                        .background(AppTheme.oceanBlue.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("ДОБАВИТЬ РЕЙС")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(1.5)
+                            .foregroundStyle(.secondary)
+                        Text("Укажите номер рейса для отслеживания")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(AppTheme.oceanBlue.opacity(0.5))
+                }
+                .padding(AppTheme.spacingM)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                        .stroke(AppTheme.oceanBlue.opacity(0.15), lineWidth: 0.5)
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -247,54 +295,6 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Recommendations Card
-
-    private var recommendationsCard: some View {
-        NavigationLink {
-            RecommendationsView(trip: trip)
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(AppTheme.sakuraPink)
-                    .frame(width: 40, height: 40)
-                    .background(AppTheme.sakuraPink.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("РЕКОМЕНДАЦИИ")
-                        .font(.system(size: 12, weight: .bold))
-                        .tracking(2)
-                        .foregroundStyle(.primary)
-                    Text("ИИ подберёт места для вас")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(AppTheme.spacingM)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [AppTheme.sakuraPink.opacity(0.4), AppTheme.sakuraPink.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(color: AppTheme.sakuraPink.opacity(0.1), radius: 12, x: 0, y: 6)
-        }
-    }
-
     // MARK: - Post Trip Hero
 
     private var postTripHero: some View {
@@ -356,7 +356,7 @@ struct DashboardView: View {
         .offset(y: statsOffset)
     }
 
-    private func bannerStat(_ value: String, label: String, icon: String) -> some View {
+    private func bannerStat(_ value: String, label: LocalizedStringKey, icon: String) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .bold))
@@ -382,7 +382,7 @@ struct DashboardView: View {
 
     private var tripDateRange: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.locale = .current
         formatter.dateFormat = "d MMM"
         let start = formatter.string(from: trip.startDate)
         let end = formatter.string(from: trip.endDate)

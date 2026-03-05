@@ -167,7 +167,7 @@ struct PlaceAIInfoSheet: View {
         if let result {
             info = result
         } else {
-            error = PlaceInfoService.shared.lastError ?? "Не удалось получить информацию. Проверьте API-ключ в Настройках."
+            error = PlaceInfoService.shared.lastError ?? String(localized: "Не удалось получить информацию. Проверьте API-ключ в Настройках.")
         }
     }
 }

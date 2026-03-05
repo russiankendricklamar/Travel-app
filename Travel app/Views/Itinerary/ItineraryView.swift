@@ -8,7 +8,7 @@ struct ItineraryView: View {
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = .current
         f.dateFormat = "EEE, d MMM"
         return f
     }()

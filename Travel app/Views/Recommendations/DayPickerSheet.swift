@@ -114,7 +114,7 @@ struct DayPickerSheet: View {
 
     private func monthAbbrev(_ day: TripDay) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = .current
         f.dateFormat = "MMM"
         return f.string(from: day.date)
     }

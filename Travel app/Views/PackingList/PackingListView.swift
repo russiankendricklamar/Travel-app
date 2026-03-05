@@ -5,6 +5,7 @@ struct PackingListView: View {
     let trip: Trip
     @Environment(\.modelContext) private var modelContext
 
+    @Environment(\.dismiss) private var dismiss
     @State private var showAddSheet = false
     @State private var isGenerating = false
 
@@ -75,7 +76,7 @@ struct PackingListView: View {
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        // Handled by parent dismiss
+                        dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 22))
@@ -162,11 +163,11 @@ struct PackingListView: View {
 
     private var packingStatusText: String {
         let progress = trip.packingProgress
-        if trip.packingItems.isEmpty { return "Список пуст" }
-        if progress >= 1.0 { return "Все собрано!" }
-        if progress >= 0.7 { return "Почти готово" }
-        if progress >= 0.3 { return "Собираем вещи..." }
-        return "Начните собираться"
+        if trip.packingItems.isEmpty { return String(localized: "Список пуст") }
+        if progress >= 1.0 { return String(localized: "Все собрано!") }
+        if progress >= 0.7 { return String(localized: "Почти готово") }
+        if progress >= 0.3 { return String(localized: "Собираем вещи...") }
+        return String(localized: "Начните собираться")
     }
 
     // MARK: - Empty State

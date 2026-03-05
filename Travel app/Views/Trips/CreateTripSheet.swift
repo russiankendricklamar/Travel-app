@@ -7,6 +7,7 @@ struct CreateTripSheet: View {
     @Query var bucketItems: [BucketListItem]
 
     var onCreated: ((Trip) -> Void)?
+    var prefilledDestination: String = ""
 
     @State private var tripName = ""
     @State private var destination = ""
@@ -16,6 +17,7 @@ struct CreateTripSheet: View {
     @State private var flightDateEnabled = false
     @State private var flightDate = Date()
     @State private var flightNumber = ""
+    @State private var selectedBucketIDs: Set<UUID> = []
 
     var body: some View {
         NavigationStack {
@@ -77,6 +79,11 @@ struct CreateTripSheet: View {
                         .opacity(isValid ? 1.0 : 0.4)
                 }
             }
+            .onAppear {
+                if !prefilledDestination.isEmpty && destination.isEmpty {
+                    destination = prefilledDestination
+                }
+            }
         }
     }
 
@@ -131,55 +138,91 @@ struct CreateTripSheet: View {
         return bucketItems.filter { !$0.isConverted && $0.destination.lowercased().contains(dest) }
     }
 
+    @ViewBuilder
     private var bucketListSection: some View {
-        Group {
-            if !matchingBucketItems.isEmpty {
-                VStack(alignment: .leading, spacing: AppTheme.spacingS) {
-                    HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(AppTheme.sakuraPink)
-                            .frame(width: 3, height: 12)
-                        Text("ИЗ СПИСКА ЖЕЛАНИЙ")
-                            .font(.system(size: 10, weight: .bold))
-                            .tracking(1.5)
-                            .foregroundStyle(AppTheme.sakuraPink)
-                    }
-
-                    ForEach(matchingBucketItems) { item in
-                        HStack(spacing: 10) {
-                            Image(systemName: "bookmark.fill")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(AppTheme.sakuraPink)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.name)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                                Text(item.destination)
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.tertiary)
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(AppTheme.templeGold.opacity(0.5))
-                        }
-                        .padding(10)
-                        .background(.thinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-                    }
+        if !matchingBucketItems.isEmpty {
+            VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+                bucketListHeader
+                ForEach(matchingBucketItems) { item in
+                    bucketItemRow(item)
                 }
-                .padding(AppTheme.spacingM)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                        .stroke(AppTheme.sakuraPink.opacity(0.15), lineWidth: 0.5)
-                )
             }
+            .padding(AppTheme.spacingM)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                    .stroke(AppTheme.sakuraPink.opacity(0.15), lineWidth: 0.5)
+            )
         }
+    }
+
+    private var bucketListHeader: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(AppTheme.sakuraPink)
+                    .frame(width: 3, height: 12)
+                Text("ИЗ СПИСКА ЖЕЛАНИЙ")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.5)
+                    .foregroundStyle(AppTheme.sakuraPink)
+                Spacer()
+                if !selectedBucketIDs.isEmpty {
+                    Text("\(selectedBucketIDs.count) выбрано")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(AppTheme.bambooGreen)
+                }
+            }
+            Text("Нажмите чтобы добавить в поездку")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private func bucketItemRow(_ item: BucketListItem) -> some View {
+        let isSelected = selectedBucketIDs.contains(item.id)
+        return Button {
+            withAnimation(.spring(response: 0.25)) {
+                if isSelected {
+                    selectedBucketIDs.remove(item.id)
+                } else {
+                    selectedBucketIDs.insert(item.id)
+                }
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(isSelected ? AppTheme.bambooGreen : Color.gray.opacity(0.4))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.name)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(item.destination)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                }
+
+                Spacer()
+
+                if !item.notes.isEmpty {
+                    Image(systemName: "note.text")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.quaternary)
+                }
+            }
+            .padding(10)
+            .background(isSelected ? AppTheme.bambooGreen.opacity(0.08) : Color.clear)
+            .background(.thinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                    .stroke(isSelected ? AppTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Validation
@@ -206,10 +249,40 @@ struct CreateTripSheet: View {
             flightNumber: flightDateEnabled && !flightNumber.isEmpty ? flightNumber.trimmingCharacters(in: .whitespaces) : nil
         )
         modelContext.insert(trip)
+
+        // Convert selected bucket items into places
+        if !selectedBucketIDs.isEmpty {
+            let firstDay = TripDay(
+                date: startDate,
+                title: "День 1",
+                cityName: destination.trimmingCharacters(in: .whitespaces),
+                sortOrder: 0
+            )
+            firstDay.trip = trip
+            modelContext.insert(firstDay)
+
+            let selectedItems = matchingBucketItems.filter { selectedBucketIDs.contains($0.id) }
+            for (index, item) in selectedItems.enumerated() {
+                let place = Place(
+                    name: item.name,
+                    nameLocal: "",
+                    category: PlaceCategory(rawValue: item.category) ?? .culture,
+                    address: item.destination,
+                    latitude: item.latitude ?? 0,
+                    longitude: item.longitude ?? 0,
+                    notes: item.notes
+                )
+                place.sortOrder = index
+                place.day = firstDay
+                modelContext.insert(place)
+                item.isConverted = true
+            }
+        }
+
         do {
             try modelContext.save()
         } catch {
-            print("[CreateTripSheet] Save error: \(error)")
+            // Save failed silently
         }
         dismiss()
     }

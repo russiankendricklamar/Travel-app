@@ -7,6 +7,8 @@ struct BucketListView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showAddSheet = false
+    @State private var showCreateTrip = false
+    @State private var prefilledDestination = ""
 
     private var unconvertedItems: [BucketListItem] {
         items.filter { !$0.isConverted }
@@ -29,6 +31,12 @@ struct BucketListView: View {
                                 ForEach(unconvertedItems) { item in
                                     BucketItemCard(item: item)
                                         .contextMenu {
+                                            Button {
+                                                prefilledDestination = item.destination
+                                                showCreateTrip = true
+                                            } label: {
+                                                Label("Создать поездку", systemImage: "airplane.departure")
+                                            }
                                             Button {
                                                 item.isConverted = true
                                                 try? modelContext.save()
@@ -103,6 +111,9 @@ struct BucketListView: View {
             }
             .sheet(isPresented: $showAddSheet) {
                 AddBucketItemSheet()
+            }
+            .sheet(isPresented: $showCreateTrip) {
+                CreateTripSheet(prefilledDestination: prefilledDestination)
             }
         }
     }

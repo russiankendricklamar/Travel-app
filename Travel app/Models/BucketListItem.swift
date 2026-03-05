@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class BucketListItem {
+final class BucketListItem: Syncable {
     @Attribute(.unique) var id: UUID
     var name: String
     var destination: String
@@ -13,6 +13,9 @@ final class BucketListItem {
     var dateAdded: Date
     var isConverted: Bool
     @Attribute(.externalStorage) var photoData: Data?
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
+    var photoStoragePath: String?
 
     init(
         id: UUID = UUID(),

@@ -332,7 +332,7 @@ struct AddPlaceSheet: View {
         if let info {
             notes = info.formatted
         } else {
-            aiError = PlaceInfoService.shared.lastError ?? "Не удалось получить информацию"
+            aiError = PlaceInfoService.shared.lastError ?? String(localized: "Не удалось получить информацию")
         }
 
         isLoadingAI = false

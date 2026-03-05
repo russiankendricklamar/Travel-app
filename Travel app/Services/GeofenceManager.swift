@@ -17,7 +17,9 @@ final class GeofenceManager: NSObject, CLLocationManagerDelegate {
     private override init() {
         super.init()
         locationManager.delegate = self
-        locationManager.allowsBackgroundLocationUpdates = true
+        if Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] != nil {
+            locationManager.allowsBackgroundLocationUpdates = true
+        }
     }
 
     func activate(for trip: Trip, context: ModelContext) {

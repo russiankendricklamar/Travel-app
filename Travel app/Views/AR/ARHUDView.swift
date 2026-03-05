@@ -44,7 +44,7 @@ struct ARHUDView: View {
                         Image(systemName: "figure.walk")
                             .font(.system(size: 14))
                             .foregroundStyle(AppTheme.bambooGreen)
-                        Text("~\(manager.walkingTimeMinutes) мин")
+                        Text("~\(manager.walkingTimeMinutes) \(String(localized: "мин"))")
                             .font(.system(size: 20, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
                     }
@@ -95,23 +95,23 @@ struct ARHUDView: View {
     private var formattedDistance: String {
         let distance = manager.currentDistance
         if distance < 1000 {
-            return "\(Int(distance)) м"
+            return "\(Int(distance)) \(String(localized: "м"))"
         }
-        return String(format: "%.1f км", distance / 1000)
+        return String(format: "%.1f \(String(localized: "км"))", distance / 1000)
     }
 
     private var cardinalDirection: String {
         let bearing = manager.bearing
         switch bearing {
-        case 0..<22.5, 337.5..<360: return "С"
-        case 22.5..<67.5: return "СВ"
-        case 67.5..<112.5: return "В"
-        case 112.5..<157.5: return "ЮВ"
-        case 157.5..<202.5: return "Ю"
-        case 202.5..<247.5: return "ЮЗ"
-        case 247.5..<292.5: return "З"
-        case 292.5..<337.5: return "СЗ"
-        default: return "С"
+        case 0..<22.5, 337.5..<360: return String(localized: "С")
+        case 22.5..<67.5: return String(localized: "СВ")
+        case 67.5..<112.5: return String(localized: "В")
+        case 112.5..<157.5: return String(localized: "ЮВ")
+        case 157.5..<202.5: return String(localized: "Ю")
+        case 202.5..<247.5: return String(localized: "ЮЗ")
+        case 247.5..<292.5: return String(localized: "З")
+        case 292.5..<337.5: return String(localized: "СЗ")
+        default: return String(localized: "С")
         }
     }
 }

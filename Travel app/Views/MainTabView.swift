@@ -107,6 +107,7 @@ struct MainTabView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 WidgetDataProvider.updateWidgetData(trips: trips)
+                Task { await SyncManager.shared.syncIfNeeded() }
             }
         }
     }

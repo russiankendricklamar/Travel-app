@@ -2,10 +2,13 @@ import SwiftUI
 
 struct POIResultCard: View {
     let result: POIResult
+    var category: GooglePOICategory?
     var onAdd: (() -> Void)?
 
     var body: some View {
         HStack(spacing: AppTheme.spacingS) {
+            thumbnail
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(result.name)
                     .font(.system(size: 15, weight: .bold))
@@ -40,7 +43,7 @@ struct POIResultCard: View {
                         HStack(spacing: 3) {
                             Image(systemName: "location")
                                 .font(.system(size: 9, weight: .bold))
-                            Text(distance >= 1000 ? String(format: "%.1f км", distance / 1000) : "\(Int(distance)) м")
+                            Text(distance >= 1000 ? String(format: "%.1f \(String(localized: "км"))", distance / 1000) : "\(Int(distance)) \(String(localized: "м"))")
                                 .font(.system(size: 11, weight: .semibold))
                         }
                         .foregroundStyle(.secondary)
@@ -75,5 +78,43 @@ struct POIResultCard: View {
             RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
                 .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
         )
+    }
+
+    // MARK: - Thumbnail
+
+    @ViewBuilder
+    private var thumbnail: some View {
+        let photoURL = result.photoReference.flatMap {
+            GooglePlacesService.shared.photoURL(for: $0)
+        }
+
+        if let photoURL {
+            AsyncImage(url: photoURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                case .failure:
+                    categoryIcon
+                default:
+                    ProgressView()
+                        .frame(width: 48, height: 48)
+                }
+            }
+            .frame(width: 48, height: 48)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+        } else {
+            categoryIcon
+        }
+    }
+
+    private var categoryIcon: some View {
+        Image(systemName: category?.systemImage ?? "mappin.circle.fill")
+            .font(.system(size: 18, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 48, height: 48)
+            .background(AppTheme.sakuraPink.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
     }
 }

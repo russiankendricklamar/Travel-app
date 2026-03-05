@@ -25,11 +25,11 @@ enum GooglePOICategory: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .restaurant: return "Рестораны"
-        case .attraction: return "Достопримечательности"
-        case .museum: return "Музеи"
-        case .shopping: return "Шопинг"
-        case .cafe: return "Кафе"
+        case .restaurant: return String(localized: "Рестораны")
+        case .attraction: return String(localized: "Достопримечательности")
+        case .museum: return String(localized: "Музеи")
+        case .shopping: return String(localized: "Шопинг")
+        case .cafe: return String(localized: "Кафе")
         }
     }
 
@@ -66,6 +66,11 @@ final class GooglePlacesService {
 
     private var apiKey: String { Secrets.googlePlacesApiKey }
     var hasApiKey: Bool { !apiKey.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    func photoURL(for reference: String, maxWidth: Int = 200) -> URL? {
+        guard hasApiKey else { return nil }
+        return URL(string: "https://places.googleapis.com/v1/\(reference)/media?key=\(apiKey)&maxWidthPx=\(maxWidth)")
+    }
 
     func searchNearby(coordinate: CLLocationCoordinate2D, category: GooglePOICategory, radiusMeters: Double = 1500) async -> [POIResult] {
         let cacheKey = "\(Int(coordinate.latitude * 100)),\(Int(coordinate.longitude * 100))_\(category.rawValue)"

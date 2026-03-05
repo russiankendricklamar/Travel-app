@@ -93,9 +93,9 @@ struct TripCardView: View {
 
     private var phaseLabel: String {
         switch trip.phase {
-        case .preTrip: return "СКОРО"
-        case .active: return "СЕЙЧАС"
-        case .postTrip: return "АРХИВ"
+        case .preTrip: return String(localized: "СКОРО")
+        case .active: return String(localized: "СЕЙЧАС")
+        case .postTrip: return String(localized: "АРХИВ")
         }
     }
 
@@ -109,7 +109,7 @@ struct TripCardView: View {
 
     private var dateRange: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.locale = .current
         formatter.dateFormat = "d MMM yyyy"
         return "\(formatter.string(from: trip.startDate)) - \(formatter.string(from: trip.endDate))"
     }

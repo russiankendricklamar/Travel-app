@@ -65,7 +65,7 @@ struct BiometricLockView: View {
 
                 // Sign out fallback
                 Button {
-                    authManager.signOut()
+                    Task { await authManager.signOut() }
                 } label: {
                     Text("Выйти из аккаунта")
                         .font(.system(size: 14, weight: .medium))

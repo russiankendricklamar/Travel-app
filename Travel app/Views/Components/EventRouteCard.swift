@@ -93,8 +93,8 @@ struct EventRouteCard: View {
 
     private func formatDistance(_ meters: Double) -> String {
         if meters >= 1000 {
-            return String(format: "%.1f км", meters / 1000)
+            return String(format: "%.1f \(String(localized: "км"))", meters / 1000)
         }
-        return "\(Int(meters)) м"
+        return "\(Int(meters)) \(String(localized: "м"))"
     }
 }

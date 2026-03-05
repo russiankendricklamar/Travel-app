@@ -61,11 +61,8 @@ struct SettingsView: View {
     @State private var groqApiKey = Secrets.groqApiKey
     @State private var claudeApiKey = Secrets.claudeApiKey
     @State private var openaiApiKey = Secrets.openaiApiKey
-    @State private var aviationStackKey = Secrets.aviationStackApiKey
     @State private var googlePlacesKey = Secrets.googlePlacesApiKey
-    @State private var offlineProgress: Double = 0
-    @State private var isPreCaching = false
-
+    @AppStorage("appLanguage") private var appLanguage: String = "system"
     @State private var showResetConfirmation = false
     @State private var showSignOutConfirmation = false
     @State private var showAuthSheet = false
@@ -86,10 +83,7 @@ struct SettingsView: View {
                     currencySection
                     exchangeRatesSection
                     aiProviderSection
-                    flightTrackingSection
                     googlePlacesSection
-                    geofenceSection
-                    offlineSection
                     languageSection
                     dataSection
                 }
@@ -126,7 +120,7 @@ struct SettingsView: View {
                 titleVisibility: .visible
             ) {
                 Button("Выйти", role: .destructive) {
-                    authManager.signOut()
+                    Task { await authManager.signOut() }
                 }
                 Button("Отмена", role: .cancel) {}
             }
@@ -164,7 +158,7 @@ struct SettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(authManager.userName ?? "Пользователь")
+                        Text(authManager.userName ?? String(localized: "Пользователь"))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(.primary)
 
@@ -409,6 +403,24 @@ struct SettingsView: View {
                 eveningTime: weatherEveningTime
             )
             liveActivityToggle
+
+            notifToggle(
+                title: "Уведомления о местах",
+                subtitle: "Когда вы рядом с запланированным местом",
+                icon: "location.circle.fill",
+                color: AppTheme.bambooGreen,
+                isOn: $geofenceEnabled
+            )
+
+            if geofenceEnabled {
+                notifToggle(
+                    title: "Авто-отметка посещения",
+                    subtitle: "Автоматически отмечать место посещённым",
+                    icon: "checkmark.circle.fill",
+                    color: AppTheme.oceanBlue,
+                    isOn: $geofenceAutomark
+                )
+            }
         }
         .padding(AppTheme.spacingM)
         .background(.ultraThinMaterial)
@@ -417,9 +429,14 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
                 .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
         )
+        .onChange(of: geofenceEnabled) { _, enabled in
+            if !enabled {
+                GeofenceManager.shared.deactivate()
+            }
+        }
     }
 
-    private func notifToggle(title: String, subtitle: String, icon: String, color: Color, isOn: Binding<Bool>) -> some View {
+    private func notifToggle(title: LocalizedStringKey, subtitle: LocalizedStringKey, icon: String, color: Color, isOn: Binding<Bool>) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .semibold))
@@ -454,9 +471,9 @@ struct SettingsView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
     }
 
-    private func notifToggleWithTime(title: String, icon: String, color: Color, isOn: Binding<Bool>, time: Binding<Date>) -> some View {
+    private func notifToggleWithTime(title: LocalizedStringKey, icon: String, color: Color, isOn: Binding<Bool>, time: Binding<Date>) -> some View {
         VStack(spacing: 0) {
-            notifToggle(title: title, subtitle: formatTimeMinutes(time.wrappedValue), icon: icon, color: color, isOn: isOn)
+            notifToggle(title: title, subtitle: "\(formatTimeMinutes(time.wrappedValue))", icon: icon, color: color, isOn: isOn)
             if isOn.wrappedValue {
                 DatePicker("", selection: time, displayedComponents: .hourAndMinute)
                     .datePickerStyle(.wheel)
@@ -468,7 +485,7 @@ struct SettingsView: View {
         }
     }
 
-    private func notifToggleWithPicker(title: String, icon: String, color: Color, isOn: Binding<Bool>, leadMinutes: Binding<Int>) -> some View {
+    private func notifToggleWithPicker(title: LocalizedStringKey, icon: String, color: Color, isOn: Binding<Bool>, leadMinutes: Binding<Int>) -> some View {
         VStack(spacing: 0) {
             notifToggle(title: title, subtitle: "За \(leadMinutes.wrappedValue) мин до начала", icon: icon, color: color, isOn: isOn)
             if isOn.wrappedValue {
@@ -496,7 +513,7 @@ struct SettingsView: View {
         }
     }
 
-    private func notifToggleWithTwoTimes(title: String, icon: String, color: Color, isOn: Binding<Bool>, morningTime: Binding<Date>, eveningTime: Binding<Date>) -> some View {
+    private func notifToggleWithTwoTimes(title: LocalizedStringKey, icon: String, color: Color, isOn: Binding<Bool>, morningTime: Binding<Date>, eveningTime: Binding<Date>) -> some View {
         VStack(spacing: 0) {
             notifToggle(title: title, subtitle: "\(formatTimeMinutes(morningTime.wrappedValue)) и \(formatTimeMinutes(eveningTime.wrappedValue))", icon: icon, color: color, isOn: isOn)
             if isOn.wrappedValue {
@@ -527,7 +544,7 @@ struct SettingsView: View {
 
     private var liveActivityToggle: some View {
         HStack(spacing: 12) {
-            Image(systemName: "island.fill")
+            Image(systemName: "bell.badge.fill")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 34, height: 34)
@@ -846,73 +863,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Flight Tracking Section
-
-    private var flightTrackingSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("АВИА-ТРЕКИНГ", icon: "airplane")
-
-            VStack(alignment: .leading, spacing: 8) {
-                SecureField("API-ключ AviationStack", text: $aviationStackKey)
-                    .font(.system(size: 13, design: .monospaced))
-                    .textFieldStyle(GlassTextFieldStyle())
-                    .onChange(of: aviationStackKey) { _, newValue in
-                        Secrets.setAviationStackApiKey(newValue)
-                    }
-
-                Text("Бесплатно: 100 запросов/мес. aviationstack.com")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 4)
-            }
-        }
-        .padding(AppTheme.spacingM)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
-    }
-
-    // MARK: - Geofence Section
-
-    private var geofenceSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("ГЕОЗОНЫ", icon: "location.circle.fill")
-
-            notifToggle(
-                title: "Уведомления о местах",
-                subtitle: "Когда вы рядом с запланированным местом",
-                icon: "location.circle.fill",
-                color: AppTheme.bambooGreen,
-                isOn: $geofenceEnabled
-            )
-
-            if geofenceEnabled {
-                notifToggle(
-                    title: "Авто-отметка посещения",
-                    subtitle: "Автоматически отмечать место посещённым",
-                    icon: "checkmark.circle.fill",
-                    color: AppTheme.oceanBlue,
-                    isOn: $geofenceAutomark
-                )
-            }
-        }
-        .padding(AppTheme.spacingM)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
-        .onChange(of: geofenceEnabled) { _, enabled in
-            if !enabled {
-                GeofenceManager.shared.deactivate()
-            }
-        }
-    }
-
     // MARK: - Google Places Section
 
     private var googlePlacesSection: some View {
@@ -942,128 +892,29 @@ struct SettingsView: View {
         )
     }
 
-    // MARK: - Offline Section
-
-    private var offlineSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("ОФЛАЙН", icon: "arrow.down.circle.fill")
-
-            HStack(spacing: 12) {
-                Image(systemName: OfflineCacheManager.shared.isOnline ? "wifi" : "wifi.slash")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(OfflineCacheManager.shared.isOnline ? AppTheme.bambooGreen : AppTheme.toriiRed)
-
-                Text(OfflineCacheManager.shared.isOnline ? "Онлайн" : "Офлайн")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
-
-                Spacer()
-
-                Circle()
-                    .fill(OfflineCacheManager.shared.isOnline ? AppTheme.bambooGreen : AppTheme.toriiRed)
-                    .frame(width: 8, height: 8)
-            }
-            .padding(10)
-            .background(.thinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-
-            Button {
-                preCacheTrip()
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            LinearGradient(
-                                colors: [AppTheme.oceanBlue, AppTheme.oceanBlue.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(isPreCaching ? "Загрузка..." : "Подготовить офлайн")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.primary)
-                        Text("Карты и погода для всех дней")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    if isPreCaching {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                    }
-                }
-                .padding(10)
-                .background(.thinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-            }
-            .disabled(isPreCaching)
-
-            if isPreCaching && offlineProgress > 0 {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.secondary.opacity(0.15))
-                        Capsule()
-                            .fill(AppTheme.oceanBlue)
-                            .frame(width: geo.size.width * offlineProgress)
-                    }
-                }
-                .frame(height: 4)
-                .clipShape(Capsule())
-            }
-        }
-        .padding(AppTheme.spacingM)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
-    }
-
-    private func preCacheTrip() {
-        isPreCaching = true
-        Task {
-            await OfflineCacheManager.shared.preCacheTrip(trip, context: modelContext) { progress in
-                offlineProgress = progress
-            }
-            isPreCaching = false
-        }
-    }
-
     // MARK: - Language Section
 
     private var languageSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("ЯЗЫК", icon: "globe")
 
-            HStack(spacing: 12) {
-                Image(systemName: "textformat")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(AppTheme.sakuraPink)
-                    .frame(width: 34, height: 34)
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
-
-                Text("Русский")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
-
-                Spacer()
-
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(AppTheme.sakuraPink)
+            Picker("", selection: $appLanguage) {
+                Text("Системный").tag("system")
+                Text("Русский").tag("ru")
+                Text("English").tag("en")
             }
-            .padding(10)
-            .background(.thinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+            .pickerStyle(.segmented)
+            .onChange(of: appLanguage) { _, newValue in
+                if newValue == "system" {
+                    UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+                } else {
+                    UserDefaults.standard.set([newValue], forKey: "AppleLanguages")
+                }
+            }
+
+            Text("Перезапустите приложение для смены языка")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.tertiary)
         }
         .padding(AppTheme.spacingM)
         .background(.ultraThinMaterial)
@@ -1124,7 +975,7 @@ struct SettingsView: View {
 
     // MARK: - Helpers
 
-    private func sectionLabel(_ text: String, icon: String) -> some View {
+    private func sectionLabel(_ text: LocalizedStringKey, icon: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .bold))

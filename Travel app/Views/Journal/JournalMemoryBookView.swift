@@ -7,7 +7,7 @@ struct JournalMemoryBookView: View {
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = .current
         f.dateFormat = "d MMMM"
         return f
     }()
@@ -155,7 +155,7 @@ struct JournalMemoryBookView: View {
 
     private var tripDateRange: String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = .current
         f.dateFormat = "d MMM"
         return "\(f.string(from: trip.startDate)) – \(f.string(from: trip.endDate))"
     }

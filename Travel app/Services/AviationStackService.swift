@@ -103,11 +103,11 @@ struct FlightData {
 
     var statusLocalized: String {
         switch status {
-        case "scheduled": return "По расписанию"
-        case "active": return "В воздухе"
-        case "landed": return "Прилетел"
-        case "cancelled": return "Отменён"
-        case "diverted": return "Перенаправлен"
+        case "scheduled": return String(localized: "По расписанию")
+        case "active": return String(localized: "В воздухе")
+        case "landed": return String(localized: "Прилетел")
+        case "cancelled": return String(localized: "Отменён")
+        case "diverted": return String(localized: "Перенаправлен")
         default: return status.capitalized
         }
     }

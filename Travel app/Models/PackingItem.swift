@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class PackingItem {
+final class PackingItem: Syncable {
     @Attribute(.unique) var id: UUID
     var name: String
     var category: String
@@ -10,6 +10,8 @@ final class PackingItem {
     var quantity: Int
     var isAISuggested: Bool
     var sortOrder: Int
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
     var trip: Trip?
 
     init(
@@ -43,12 +45,12 @@ enum PackingCategory: String, CaseIterable, Codable, Identifiable {
 
     var label: String {
         switch self {
-        case .documents: return "Документы"
-        case .clothing: return "Одежда"
-        case .electronics: return "Электроника"
-        case .toiletries: return "Гигиена"
-        case .medicine: return "Лекарства"
-        case .other: return "Прочее"
+        case .documents: return String(localized: "Документы")
+        case .clothing: return String(localized: "Одежда")
+        case .electronics: return String(localized: "Электроника")
+        case .toiletries: return String(localized: "Гигиена")
+        case .medicine: return String(localized: "Лекарства")
+        case .other: return String(localized: "Прочее")
         }
     }
 

@@ -5,7 +5,7 @@ import SwiftData
 // MARK: - Ticket
 
 @Model
-final class Ticket {
+final class Ticket: Syncable {
     @Attribute(.unique) var id: UUID
     var title: String
     var venue: String
@@ -16,6 +16,8 @@ final class Ticket {
     var expirationDate: Date?
     var seatInfo: String
     var notes: String
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
 
     var trip: Trip?
     var day: TripDay?
@@ -69,7 +71,7 @@ final class Ticket {
 
     var formattedDate: String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = .current
         f.dateFormat = "d MMMM, EEEE"
         return f.string(from: eventDate)
     }

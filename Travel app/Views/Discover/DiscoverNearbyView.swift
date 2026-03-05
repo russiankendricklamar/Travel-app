@@ -55,7 +55,7 @@ struct DiscoverNearbyView: View {
                     } else {
                         LazyVStack(spacing: AppTheme.spacingS) {
                             ForEach(results) { result in
-                                POIResultCard(result: result) {
+                                POIResultCard(result: result, category: selectedCategory) {
                                     addToItinerary(result)
                                 }
                             }
@@ -126,11 +126,11 @@ struct DiscoverNearbyView: View {
 
     private func search() async {
         guard let coord = searchCoordinate else {
-            errorMessage = "Нет координат для поиска"
+            errorMessage = String(localized: "Нет координат для поиска")
             return
         }
         guard GooglePlacesService.shared.hasApiKey else {
-            errorMessage = "Добавьте Google Places API-ключ в настройках"
+            errorMessage = String(localized: "Добавьте Google Places API-ключ в настройках")
             return
         }
         isLoading = true

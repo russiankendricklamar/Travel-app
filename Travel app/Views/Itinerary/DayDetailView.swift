@@ -28,7 +28,7 @@ struct DayDetailView: View {
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = .current
         f.dateFormat = "EEEE, d MMMM"
         return f
     }()

@@ -60,13 +60,17 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
 // MARK: - Route Point Model
 
 @Model
-final class RoutePoint {
+final class RoutePoint: Syncable {
+    @Attribute(.unique) var id: UUID = UUID()
     var latitude: Double
     var longitude: Double
     var timestamp: Date
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
     var day: TripDay?
 
     init(latitude: Double, longitude: Double, timestamp: Date) {
+        self.id = UUID()
         self.latitude = latitude
         self.longitude = longitude
         self.timestamp = timestamp

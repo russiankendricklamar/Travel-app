@@ -9,12 +9,15 @@ struct DashboardFlightTrackingSection: View {
 
     var body: some View {
         if trip.flightNumber != nil {
-            flightCard
-                .task {
-                    if let num = trip.flightNumber {
-                        flightData = await flightService.fetchFlight(number: num)
-                    }
+            NavigationLink(destination: FlightDetailView(trip: trip, flightData: flightData)) {
+                flightCard
+            }
+            .buttonStyle(.plain)
+            .task {
+                if let num = trip.flightNumber {
+                    flightData = await flightService.fetchFlight(number: num)
                 }
+            }
         }
     }
 
@@ -37,6 +40,10 @@ struct DashboardFlightTrackingSection: View {
                     ProgressView()
                         .scaleEffect(0.7)
                 }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, AppTheme.spacingM)
             .padding(.top, 14)
@@ -202,7 +209,7 @@ struct DashboardFlightTrackingSection: View {
 
     // MARK: - Info Chip
 
-    private func infoChip(label: String, value: String) -> some View {
+    private func infoChip(label: LocalizedStringKey, value: String) -> some View {
         VStack(spacing: 2) {
             Text(label)
                 .font(.system(size: 8, weight: .semibold))
@@ -310,9 +317,9 @@ struct DashboardFlightTrackingSection: View {
 
         var label: String {
             switch self {
-            case .scheduled: return "По расписанию"
-            case .inFlight: return "В воздухе"
-            case .landed: return "Прилетел"
+            case .scheduled: return String(localized: "По расписанию")
+            case .inFlight: return String(localized: "В воздухе")
+            case .landed: return String(localized: "Прилетел")
             }
         }
 
@@ -391,12 +398,12 @@ struct DashboardFlightTrackingSection: View {
     private var originCity: String {
         trip.days
             .sorted { $0.date < $1.date }
-            .first?.cityName ?? "Город"
+            .first?.cityName ?? String(localized: "Город")
     }
 
     private func flightTimeFormatted(_ date: Date) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = .current
         f.dateFormat = "HH:mm, d MMM"
         return f.string(from: date)
     }

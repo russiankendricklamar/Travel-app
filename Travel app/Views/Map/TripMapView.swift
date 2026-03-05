@@ -5,6 +5,7 @@ import MapKit
 struct TripMapView: View {
     let trip: Trip
 
+    @Query var offlineCaches: [OfflineMapCache]
     @State private var selectedPlace: Place?
     @State private var showRoutes = true
     @State private var cameraPosition: MapCameraPosition = .automatic
@@ -12,6 +13,14 @@ struct TripMapView: View {
     #if !targetEnvironment(simulator)
     @State private var arPlace: Place?
     #endif
+
+    // Search
+    @State private var searchQuery = ""
+    @State private var searchResults: [MKMapItem] = []
+    @State private var searchTask: Task<Void, Never>?
+    @State private var isSearching = false
+    @State private var searchedItem: MKMapItem?
+    @State private var showSearchBar = false
 
     private var allPlaces: [Place] {
         trip.allPlaces
@@ -21,9 +30,27 @@ struct TripMapView: View {
         trip.sortedDays.filter { !$0.routePoints.isEmpty }
     }
 
+    private var cachedSnapshotsForTrip: [(day: TripDay, data: Data)] {
+        let dayIDs = Set(trip.days.map(\.id))
+        return offlineCaches
+            .filter { dayIDs.contains($0.tripDayID) }
+            .compactMap { cache in
+                guard let day = trip.days.first(where: { $0.id == cache.tripDayID }) else { return nil }
+                return (day: day, data: cache.snapshotData)
+            }
+            .sorted { $0.day.sortOrder < $1.day.sortOrder }
+    }
+
+    private var isOfflineWithCache: Bool {
+        !OfflineCacheManager.shared.isOnline && !cachedSnapshotsForTrip.isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
+                if isOfflineWithCache {
+                    offlineSnapshotGallery
+                } else {
                 Map(position: $cameraPosition, selection: $selectedPlace) {
                     ForEach(allPlaces) { place in
                         Annotation(
@@ -46,8 +73,27 @@ struct TripMapView: View {
                             }
                         }
                     }
+
+                    UserAnnotation()
+
+                    if let item = searchedItem,
+                       let coord = item.placemark.location?.coordinate {
+                        Annotation(
+                            item.name ?? "",
+                            coordinate: coord,
+                            anchor: .bottom
+                        ) {
+                            searchResultPin
+                        }
+                    }
                 }
                 .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .including([.museum, .nationalPark, .park, .restaurant])))
+                } // end else (online map)
+
+                // Search overlay
+                if showSearchBar {
+                    mapSearchOverlay
+                }
 
                 VStack(spacing: 0) {
                     if !daysWithRoutes.isEmpty {
@@ -68,6 +114,20 @@ struct TripMapView: View {
                         .font(.system(size: 14, weight: .bold))
                         .tracking(4)
                         .foregroundStyle(AppTheme.sakuraPink)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation(.spring(response: 0.3)) {
+                            showSearchBar.toggle()
+                            if !showSearchBar {
+                                dismissSearch()
+                            }
+                        }
+                    } label: {
+                        Image(systemName: showSearchBar ? "xmark.circle.fill" : "magnifyingglass")
+                            .font(.system(size: 20))
+                            .foregroundStyle(showSearchBar ? .secondary : AppTheme.oceanBlue)
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -117,11 +177,83 @@ struct TripMapView: View {
                 ARNavigationView(place: place)
             }
             #endif
+            .onAppear {
+                LocationManager.shared.requestPermission()
+            }
+            .onChange(of: searchQuery) { _, newValue in
+                searchTask?.cancel()
+                let trimmed = newValue.trimmingCharacters(in: .whitespaces)
+                guard trimmed.count >= 2 else {
+                    searchResults = []
+                    return
+                }
+                searchTask = Task {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    guard !Task.isCancelled else { return }
+                    await performMapSearch(query: trimmed)
+                }
+            }
             .sheet(isPresented: $showDiscoverNearby) {
                 if let coord = allPlaces.first?.coordinate {
                     DiscoverNearbyView(coordinate: coord)
                 }
             }
+        }
+    }
+
+    // MARK: - Offline Snapshot Gallery
+
+    private var offlineSnapshotGallery: some View {
+        ZStack(alignment: .top) {
+            ScrollView {
+                VStack(spacing: AppTheme.spacingM) {
+                    ForEach(cachedSnapshotsForTrip, id: \.day.id) { item in
+                        VStack(alignment: .leading, spacing: AppTheme.spacingXS) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "map")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(AppTheme.sakuraPink)
+                                Text(item.day.cityName.uppercased())
+                                    .font(.system(size: 11, weight: .bold))
+                                    .tracking(1.5)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Text("ДЕНЬ \(item.day.sortOrder + 1)")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .tracking(1)
+                                    .foregroundStyle(.tertiary)
+                            }
+
+                            if let uiImage = UIImage(data: item.data) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                                            .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                                    )
+                            }
+                        }
+                        .padding(AppTheme.spacingM)
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                    }
+                }
+                .padding(.horizontal, AppTheme.spacingM)
+                .padding(.top, 50)
+                .padding(.bottom, AppTheme.spacingM)
+            }
+
+            Text("ОФЛАЙН")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(2)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(AppTheme.toriiRed.opacity(0.85))
+                .clipShape(Capsule())
+                .padding(.top, 8)
         }
     }
 
@@ -202,10 +334,10 @@ struct TripMapView: View {
     private func routeDaysWord(_ count: Int) -> String {
         let mod10 = count % 10
         let mod100 = count % 100
-        if mod100 >= 11 && mod100 <= 19 { return "ТРЕКОВ" }
-        if mod10 == 1 { return "ТРЕК" }
-        if mod10 >= 2 && mod10 <= 4 { return "ТРЕКА" }
-        return "ТРЕКОВ"
+        if mod100 >= 11 && mod100 <= 19 { return String(localized: "ТРЕКОВ") }
+        if mod10 == 1 { return String(localized: "ТРЕК") }
+        if mod10 >= 2 && mod10 <= 4 { return String(localized: "ТРЕКА") }
+        return String(localized: "ТРЕКОВ")
     }
 
     private func routeColor(for day: TripDay) -> Color {
@@ -220,6 +352,227 @@ struct TripMapView: View {
             return AppTheme.sakuraPink
         }
         return dayColors[index % dayColors.count]
+    }
+
+    // MARK: - Search Overlay
+
+    private var mapSearchOverlay: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: AppTheme.spacingS) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.tertiary)
+                    TextField("Поиск на карте...", text: $searchQuery)
+                        .font(.system(size: 14))
+                        .autocorrectionDisabled()
+                        .onSubmit { submitSearch() }
+                    if isSearching {
+                        ProgressView().scaleEffect(0.6)
+                    }
+                    if !searchQuery.isEmpty {
+                        Button {
+                            searchQuery = ""
+                            searchResults = []
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+                .padding(12)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                        .stroke(AppTheme.oceanBlue.opacity(0.2), lineWidth: 0.5)
+                )
+
+                if !searchResults.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(searchResults.prefix(5).enumerated()), id: \.offset) { _, item in
+                            Button {
+                                selectSearchResult(item)
+                            } label: {
+                                mapSearchResultRow(item)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                    )
+                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+                }
+
+                if let item = searchedItem {
+                    searchedItemCard(item)
+                }
+            }
+            .padding(.horizontal, AppTheme.spacingM)
+            .padding(.top, AppTheme.spacingS)
+
+            Spacer()
+        }
+    }
+
+    private func mapSearchResultRow(_ item: MKMapItem) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "mappin.circle.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(AppTheme.oceanBlue)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.name ?? "")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                if let subtitle = formatSearchAddress(item) {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "arrow.right.circle.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(AppTheme.oceanBlue.opacity(0.6))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    private func searchedItemCard(_ item: MKMapItem) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "mappin.and.ellipse")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(AppTheme.oceanBlue)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.name ?? "")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if let subtitle = formatSearchAddress(item) {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                searchedItem = nil
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(AppTheme.spacingS)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                .stroke(AppTheme.oceanBlue.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+
+    private var searchResultPin: some View {
+        VStack(spacing: 2) {
+            Image(systemName: "mappin.circle.fill")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundStyle(AppTheme.oceanBlue)
+                .background(
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 22, height: 22)
+                )
+                .shadow(color: AppTheme.oceanBlue.opacity(0.4), radius: 4, y: 2)
+
+            Circle()
+                .fill(AppTheme.oceanBlue)
+                .frame(width: 6, height: 6)
+        }
+    }
+
+    // MARK: - Search Logic
+
+    private func submitSearch() {
+        searchTask?.cancel()
+        let trimmed = searchQuery.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count >= 2 else { return }
+        searchTask = Task {
+            await performMapSearch(query: trimmed)
+        }
+    }
+
+    private func performMapSearch(query: String) async {
+        isSearching = true
+
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        request.resultTypes = [.pointOfInterest, .address]
+
+        // Scope to trip area for better results
+        if let first = allPlaces.first {
+            request.region = MKCoordinateRegion(
+                center: first.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
+            )
+        }
+
+        do {
+            let search = MKLocalSearch(request: request)
+            let response = try await search.start()
+            searchResults = response.mapItems
+        } catch {
+            searchResults = []
+        }
+
+        isSearching = false
+    }
+
+    private func selectSearchResult(_ item: MKMapItem) {
+        searchedItem = item
+        searchResults = []
+        searchQuery = ""
+
+        if let coord = item.placemark.location?.coordinate {
+            withAnimation {
+                cameraPosition = .region(
+                    MKCoordinateRegion(
+                        center: coord,
+                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                    )
+                )
+            }
+        }
+    }
+
+    private func dismissSearch() {
+        searchQuery = ""
+        searchResults = []
+        searchedItem = nil
+    }
+
+    private func formatSearchAddress(_ item: MKMapItem) -> String? {
+        let pm = item.placemark
+        var parts: [String] = []
+        if let subLocality = pm.subLocality { parts.append(subLocality) }
+        if let locality = pm.locality { parts.append(locality) }
+        if let admin = pm.administrativeArea, !parts.contains(admin) { parts.append(admin) }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 
     // MARK: - Pin

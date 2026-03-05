@@ -6,34 +6,25 @@ import AuthenticationServices
 final class AuthManager {
     static let shared = AuthManager()
 
-    // MARK: - Keychain Keys
-
-    private enum Keys {
-        static let userID = "auth_userID"
-        static let provider = "auth_provider"
-    }
-
-    // MARK: - Published State
+    // MARK: - State
 
     var isLocked: Bool = false
+    private(set) var isSignedIn: Bool = false
 
-    var isSignedIn: Bool {
-        KeychainHelper.readString(key: Keys.userID) != nil
+    var supabaseUserID: UUID? {
+        SupabaseManager.shared.currentUserID
     }
 
     var userName: String? {
-        get { UserDefaults.standard.string(forKey: "auth_userName") }
-        set { UserDefaults.standard.set(newValue, forKey: "auth_userName") }
+        SupabaseAuthService.shared.userName
     }
 
     var userEmail: String? {
-        get { UserDefaults.standard.string(forKey: "auth_userEmail") }
-        set { UserDefaults.standard.set(newValue, forKey: "auth_userEmail") }
+        SupabaseAuthService.shared.userEmail
     }
 
     var authProvider: String? {
-        get { UserDefaults.standard.string(forKey: "auth_provider") }
-        set { UserDefaults.standard.set(newValue, forKey: "auth_provider") }
+        SupabaseAuthService.shared.authProvider
     }
 
     var isBiometricEnabled: Bool {
@@ -44,49 +35,47 @@ final class AuthManager {
     // MARK: - Init
 
     private init() {
+        isSignedIn = SupabaseManager.shared.currentUserID != nil
         if isBiometricEnabled && isSignedIn {
             isLocked = true
         }
     }
 
+    func refreshAuthState() {
+        isSignedIn = SupabaseManager.shared.currentUserID != nil
+    }
+
     // MARK: - Sign in with Apple
 
-    func signInWithApple(credential: ASAuthorizationAppleIDCredential) {
-        let userID = credential.user
-
-        _ = KeychainHelper.save(key: Keys.userID, string: userID)
-        authProvider = "apple"
-
-        if let fullName = credential.fullName {
-            let name = [fullName.givenName, fullName.familyName]
-                .compactMap { $0 }
-                .joined(separator: " ")
-            if !name.isEmpty {
-                userName = name
-            }
-        }
-
-        if let email = credential.email {
-            userEmail = email
-        }
+    func signInWithApple(credential: ASAuthorizationAppleIDCredential, nonce: String? = nil) async throws {
+        try await SupabaseAuthService.shared.signInWithApple(credential: credential, nonce: nonce)
+        isSignedIn = true
     }
 
     // MARK: - Sign in with Google
 
-    func signInWithGoogle(userID: String, name: String?, email: String?) {
-        _ = KeychainHelper.save(key: Keys.userID, string: userID)
-        authProvider = "google"
-        userName = name
-        userEmail = email
+    func signInWithGoogle() async throws {
+        try await SupabaseAuthService.shared.signInWithGoogle()
+        isSignedIn = true
+    }
+
+    // MARK: - Sign in with Email
+
+    func signInWithEmail(email: String, password: String) async throws {
+        try await SupabaseAuthService.shared.signInWithEmail(email: email, password: password)
+        isSignedIn = true
+    }
+
+    func signUpWithEmail(email: String, password: String, name: String) async throws {
+        try await SupabaseAuthService.shared.signUpWithEmail(email: email, password: password, name: name)
+        isSignedIn = true
     }
 
     // MARK: - Sign Out
 
-    func signOut() {
-        KeychainHelper.delete(key: Keys.userID)
-        userName = nil
-        userEmail = nil
-        authProvider = nil
+    func signOut() async {
+        try? await SupabaseAuthService.shared.signOut()
+        isSignedIn = false
         isBiometricEnabled = false
         isLocked = false
     }

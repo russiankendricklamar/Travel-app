@@ -249,7 +249,7 @@ struct CountdownWidgetView: View {
 
     private func formatDateRange(start: Date, end: Date) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = .current
         f.dateFormat = "d MMM"
         return "\(f.string(from: start)) – \(f.string(from: end))"
     }

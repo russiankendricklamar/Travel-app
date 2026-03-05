@@ -19,7 +19,12 @@ final class ARCoordinator: NSObject, ARSessionDelegate {
 
     func createArrowEntity() -> ModelEntity {
         // Cone shape as directional arrow
-        let coneMesh = MeshResource.generateCone(height: 0.3, radius: 0.08)
+        let coneMesh: MeshResource
+        if #available(iOS 18.0, *) {
+            coneMesh = MeshResource.generateCone(height: 0.3, radius: 0.08)
+        } else {
+            coneMesh = MeshResource.generateBox(width: 0.08, height: 0.3, depth: 0.08)
+        }
         var material = SimpleMaterial()
         material.color = .init(
             tint: UIColor(red: 0.9, green: 0.3, blue: 0.5, alpha: 0.9),
@@ -41,9 +46,11 @@ final class ARCoordinator: NSObject, ARSessionDelegate {
         let manager = ARNavigationManager.shared
         let bearingRadians = Float(manager.bearing * .pi / 180)
 
-        // Rotate arrow to point toward target bearing
-        let rotation = simd_quatf(angle: -bearingRadians, axis: SIMD3<Float>(0, 1, 0))
-        arrow.transform.rotation = rotation
+        // Tilt cone from vertical (tip +Y) to horizontal (tip -Z = North)
+        let tilt = simd_quatf(angle: Float.pi / 2, axis: SIMD3<Float>(1, 0, 0))
+        // Then rotate around Y to match target bearing
+        let bearingRotation = simd_quatf(angle: -bearingRadians, axis: SIMD3<Float>(0, 1, 0))
+        arrow.transform.rotation = bearingRotation * tilt
 
         // Position arrow 3m ahead at eye level
         let cameraTransform = frame.camera.transform

@@ -152,8 +152,8 @@ struct EventCard: View {
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
         if hours > 0 {
-            return "\(hours)ч \(minutes)мин"
+            return "\(hours)\(String(localized: "ч")) \(minutes)\(String(localized: "мин"))"
         }
-        return "\(minutes)мин"
+        return "\(minutes)\(String(localized: "мин"))"
     }
 }

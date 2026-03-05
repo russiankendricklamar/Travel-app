@@ -6,7 +6,7 @@ import SwiftData
 // MARK: - Trip
 
 @Model
-final class Trip {
+final class Trip: Syncable {
     @Attribute(.unique) var id: UUID
     var name: String
     var destination: String
@@ -17,6 +17,8 @@ final class Trip {
     var coverSystemImage: String
     var flightDate: Date?
     var flightNumber: String?
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \TripDay.trip)
     var days: [TripDay] = []
@@ -217,9 +219,9 @@ enum TripPhase: String, Codable {
 
     var label: String {
         switch self {
-        case .preTrip: return "До поездки"
-        case .active: return "В путешествии"
-        case .postTrip: return "Поездка завершена"
+        case .preTrip: return String(localized: "До поездки")
+        case .active: return String(localized: "В путешествии")
+        case .postTrip: return String(localized: "Поездка завершена")
         }
     }
 }
@@ -227,13 +229,15 @@ enum TripPhase: String, Codable {
 // MARK: - Trip Day
 
 @Model
-final class TripDay {
+final class TripDay: Syncable {
     @Attribute(.unique) var id: UUID
     var date: Date
     var title: String
     var cityName: String
     var notes: String
     var sortOrder: Int = 0
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
 
     var trip: Trip?
 
@@ -301,7 +305,7 @@ final class TripDay {
 // MARK: - Trip Event
 
 @Model
-final class TripEvent {
+final class TripEvent: Syncable {
     @Attribute(.unique) var id: UUID
     var title: String
     var subtitle: String
@@ -310,6 +314,8 @@ final class TripEvent {
     var endTime: Date
     var notes: String
     var sortOrder: Int = 0
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
 
     // Location for regular events (museum, checkin, etc.)
     var latitude: Double?
@@ -492,7 +498,7 @@ enum EventCategory: String, CaseIterable, Identifiable, Codable {
 // MARK: - Place
 
 @Model
-final class Place {
+final class Place: Syncable {
     @Attribute(.unique) var id: UUID
     var name: String
     var nameLocal: String
@@ -505,6 +511,8 @@ final class Place {
     var notes: String
     var timeToSpend: String
     var sortOrder: Int = 0
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
 
     var day: TripDay?
 
@@ -571,13 +579,15 @@ enum PlaceCategory: String, CaseIterable, Identifiable, Codable {
 // MARK: - Expense
 
 @Model
-final class Expense {
+final class Expense: Syncable {
     @Attribute(.unique) var id: UUID
     var title: String
     var amount: Double
     var category: ExpenseCategory
     var date: Date
     var notes: String
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
 
     var trip: Trip?
 
