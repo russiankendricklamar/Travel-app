@@ -9,6 +9,10 @@ struct PlaceRecommendation: Identifiable, Codable {
     let latitude: Double
     let longitude: Double
 
+    private enum CodingKeys: String, CodingKey {
+        case name, description, category, estimatedTime, latitude, longitude
+    }
+
     init(
         id: UUID = UUID(),
         name: String,
@@ -25,6 +29,17 @@ struct PlaceRecommendation: Identifiable, Codable {
         self.estimatedTime = estimatedTime
         self.latitude = latitude
         self.longitude = longitude
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = UUID()
+        self.name = try container.decode(String.self, forKey: .name)
+        self.description = try container.decode(String.self, forKey: .description)
+        self.category = try container.decode(String.self, forKey: .category)
+        self.estimatedTime = try container.decodeIfPresent(String.self, forKey: .estimatedTime) ?? ""
+        self.latitude = try container.decodeIfPresent(Double.self, forKey: .latitude) ?? 0
+        self.longitude = try container.decodeIfPresent(Double.self, forKey: .longitude) ?? 0
     }
 
     var categoryIcon: String {
