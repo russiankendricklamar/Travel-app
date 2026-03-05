@@ -13,6 +13,11 @@ struct PlaceInfo {
         let color: String // "gold", "green", "blue", "pink", "red"
     }
 
+    init(sections: [Section], source: String) {
+        self.sections = sections
+        self.source = source
+    }
+
     /// Legacy init for backward compatibility with individual AI services
     init(history: String, tips: String, source: String) {
         var sections: [Section] = []
