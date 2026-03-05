@@ -13,6 +13,19 @@ struct PlaceInfo {
         let color: String // "gold", "green", "blue", "pink", "red"
     }
 
+    /// Legacy init for backward compatibility with individual AI services
+    init(history: String, tips: String, source: String) {
+        var sections: [Section] = []
+        if !history.isEmpty {
+            sections.append(Section(icon: "scroll", title: "ИСТОРИЯ", text: history, color: "gold"))
+        }
+        if !tips.isEmpty {
+            sections.append(Section(icon: "lightbulb", title: "СОВЕТЫ", text: tips, color: "green"))
+        }
+        self.sections = sections
+        self.source = source
+    }
+
     // Legacy accessors for backward compatibility
     var history: String {
         sections.first { $0.title == "ИСТОРИЯ" || $0.title == "О МЕСТЕ" || $0.title == "КУХНЯ" || $0.title == "О РАЙОНЕ" }?.text ?? ""
