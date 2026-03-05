@@ -41,6 +41,8 @@ final class PackingListAIService {
             response = await ClaudeService.shared.rawRequest(prompt: prompt)
         case .openai:
             response = await OpenAIService.shared.rawRequest(prompt: prompt)
+        case .gemini:
+            response = await GeminiService.shared.rawRequest(prompt: prompt)
         }
 
         guard let text = response else { return defaultSuggestions(duration: duration) }
