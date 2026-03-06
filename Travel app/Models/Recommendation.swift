@@ -6,11 +6,14 @@ struct PlaceRecommendation: Identifiable, Codable {
     let description: String
     let category: String
     let estimatedTime: String
-    let latitude: Double
-    let longitude: Double
+    let address: String
+    var latitude: Double
+    var longitude: Double
+    var localName: String
 
     private enum CodingKeys: String, CodingKey {
-        case name, description, category, estimatedTime, latitude, longitude
+        case name, description, category, estimatedTime, address, latitude, longitude
+        case localName = "local_name"
     }
 
     init(
@@ -19,16 +22,20 @@ struct PlaceRecommendation: Identifiable, Codable {
         description: String,
         category: String,
         estimatedTime: String,
-        latitude: Double,
-        longitude: Double
+        address: String = "",
+        latitude: Double = 0,
+        longitude: Double = 0,
+        localName: String = ""
     ) {
         self.id = id
         self.name = name
         self.description = description
         self.category = category
         self.estimatedTime = estimatedTime
+        self.address = address
         self.latitude = latitude
         self.longitude = longitude
+        self.localName = localName
     }
 
     init(from decoder: Decoder) throws {
@@ -38,18 +45,34 @@ struct PlaceRecommendation: Identifiable, Codable {
         self.description = try container.decode(String.self, forKey: .description)
         self.category = try container.decode(String.self, forKey: .category)
         self.estimatedTime = try container.decodeIfPresent(String.self, forKey: .estimatedTime) ?? ""
+        self.address = try container.decodeIfPresent(String.self, forKey: .address) ?? ""
         self.latitude = try container.decodeIfPresent(Double.self, forKey: .latitude) ?? 0
         self.longitude = try container.decodeIfPresent(Double.self, forKey: .longitude) ?? 0
+        self.localName = try container.decodeIfPresent(String.self, forKey: .localName) ?? ""
     }
+
+    var isLocationResolved: Bool { latitude != 0 || longitude != 0 }
 
     var categoryIcon: String {
         switch category.lowercased() {
         case "еда", "ресторан", "кафе":
             return "fork.knife"
-        case "культура", "музей", "галерея":
+        case "культура":
             return "theatermasks"
-        case "природа", "парк", "сад":
+        case "музей":
+            return "building.columns.fill"
+        case "галерея":
+            return "photo.artframe"
+        case "природа":
             return "leaf"
+        case "парк":
+            return "tree.fill"
+        case "сад":
+            return "camera.macro"
+        case "озеро":
+            return "water.waves"
+        case "горы":
+            return "mountain.2.fill"
         case "шопинг", "магазин", "рынок":
             return "bag"
         case "храм", "церковь", "мечеть":
@@ -58,8 +81,26 @@ struct PlaceRecommendation: Identifiable, Codable {
             return "sparkles"
         case "развлечения", "бар", "клуб":
             return "music.note"
-        case "архитектура", "памятник":
+        case "дворец":
+            return "crown.fill"
+        case "архитектура", "памятник", "достопримечательность":
             return "building.2"
+        case "мост", "смотровая":
+            return "binoculars.fill"
+        case "жильё", "отель":
+            return "bed.double"
+        case "аэропорт":
+            return "airplane"
+        case "вокзал":
+            return "train.side.front.car"
+        case "метро":
+            return "tram.fill.tunnel"
+        case "транспорт":
+            return "tram"
+        case "спорт":
+            return "figure.run"
+        case "стадион":
+            return "sportscourt.fill"
         default:
             return "mappin"
         }
@@ -69,16 +110,48 @@ struct PlaceRecommendation: Identifiable, Codable {
         switch category.lowercased() {
         case "еда", "ресторан", "кафе":
             return .food
-        case "культура", "музей", "галерея":
+        case "культура":
             return .culture
-        case "природа", "парк", "сад":
+        case "музей":
+            return .museum
+        case "галерея":
+            return .gallery
+        case "природа":
             return .nature
+        case "парк":
+            return .park
+        case "сад":
+            return .garden
+        case "озеро":
+            return .lake
+        case "горы":
+            return .mountains
         case "шопинг", "магазин", "рынок":
             return .shopping
         case "храм", "церковь", "мечеть":
             return .temple
         case "святилище":
             return .shrine
+        case "жильё", "отель":
+            return .accommodation
+        case "аэропорт":
+            return .airport
+        case "вокзал":
+            return .station
+        case "метро":
+            return .metro
+        case "транспорт":
+            return .transport
+        case "дворец":
+            return .palace
+        case "достопримечательность", "мост", "смотровая":
+            return .viewpoint
+        case "спорт":
+            return .sport
+        case "стадион":
+            return .stadium
+        case "архитектура", "памятник":
+            return .culture
         default:
             return .culture
         }

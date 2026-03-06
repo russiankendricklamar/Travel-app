@@ -219,6 +219,54 @@ final class PlaceInfoService {
             [2-3 совета: лучшие места, что взять в дорогу, пересадки, багаж]
             """
 
+        case .museum, .gallery, .palace, .viewpoint, .stadium:
+            format = """
+            📜 ИСТОРИЯ
+            [2-3 предложения: когда основано, кем, почему важно, основные коллекции/экспозиции]
+
+            🎭 ЧТО ПОСМОТРЕТЬ
+            [3-4 главных экспоната или зоны которые нельзя пропустить]
+
+            💡 СОВЕТЫ
+            [2-3 совета: лучшее время, стоимость, аудиогид, фотографирование, время на осмотр]
+            """
+
+        case .park, .garden, .lake, .mountains:
+            format = """
+            🌿 О МЕСТЕ
+            [2-3 предложения: что за место, чем известно, площадь/протяжённость]
+
+            🥾 МАРШРУТЫ
+            [2-3 рекомендуемых маршрута или точки интереса внутри]
+
+            💡 СОВЕТЫ
+            [2-3 совета: лучший сезон, что взять с собой, стоимость, время на осмотр]
+            """
+
+        case .airport, .station, .metro:
+            format = """
+            🚆 О МАРШРУТЕ
+            [2-3 предложения: тип транспорта, маршрут, длительность поездки]
+
+            🎫 БИЛЕТЫ
+            [стоимость, где купить, нужна ли бронь, классы обслуживания]
+
+            💡 СОВЕТЫ
+            [2-3 совета: лучшие места, что взять в дорогу, пересадки, багаж]
+            """
+
+        case .sport:
+            format = """
+            🏟 О МЕСТЕ
+            [2-3 предложения: что за место, какой вид спорта, вместимость, история]
+
+            🎫 БИЛЕТЫ И СОБЫТИЯ
+            [как купить билеты, сезон, главные события/матчи]
+
+            💡 СОВЕТЫ
+            [2-3 совета: как добраться, что рядом, фан-зоны, время прибытия]
+            """
+
         case nil:
             format = """
             📜 ИСТОРИЯ
@@ -323,10 +371,28 @@ final class PlaceInfoService {
                 SectionDef(marker: "УДОБСТВА", icon: "key", title: "УДОБСТВА", color: "gold"),
                 SectionDef(marker: "СОВЕТЫ", icon: "lightbulb", title: "СОВЕТЫ", color: "green"),
             ]
-        case .transport:
+        case .transport, .airport, .station, .metro:
             return [
                 SectionDef(marker: "О МАРШРУТЕ", icon: "tram", title: "О МАРШРУТЕ", color: "blue"),
                 SectionDef(marker: "БИЛЕТЫ", icon: "ticket", title: "БИЛЕТЫ", color: "gold"),
+                SectionDef(marker: "СОВЕТЫ", icon: "lightbulb", title: "СОВЕТЫ", color: "green"),
+            ]
+        case .museum, .gallery, .palace, .viewpoint, .stadium:
+            return [
+                SectionDef(marker: "ИСТОРИЯ", icon: "scroll", title: "ИСТОРИЯ", color: "gold"),
+                SectionDef(marker: "ЧТО ПОСМОТРЕТЬ", icon: "theatermasks", title: "ЧТО ПОСМОТРЕТЬ", color: "pink"),
+                SectionDef(marker: "СОВЕТЫ", icon: "lightbulb", title: "СОВЕТЫ", color: "green"),
+            ]
+        case .park, .garden, .lake, .mountains:
+            return [
+                SectionDef(marker: "О МЕСТЕ", icon: "leaf", title: "О МЕСТЕ", color: "green"),
+                SectionDef(marker: "МАРШРУТЫ", icon: "figure.walk", title: "МАРШРУТЫ", color: "blue"),
+                SectionDef(marker: "СОВЕТЫ", icon: "lightbulb", title: "СОВЕТЫ", color: "gold"),
+            ]
+        case .sport:
+            return [
+                SectionDef(marker: "О МЕСТЕ", icon: "sportscourt", title: "О МЕСТЕ", color: "blue"),
+                SectionDef(marker: "БИЛЕТЫ И СОБЫТИЯ", icon: "ticket", title: "БИЛЕТЫ И СОБЫТИЯ", color: "gold"),
                 SectionDef(marker: "СОВЕТЫ", icon: "lightbulb", title: "СОВЕТЫ", color: "green"),
             ]
         case nil:

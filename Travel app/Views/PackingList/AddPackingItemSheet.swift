@@ -3,6 +3,8 @@ import SwiftData
 
 struct AddPackingItemSheet: View {
     let trip: Trip
+    var editingItem: PackingItem?
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -10,11 +12,17 @@ struct AddPackingItemSheet: View {
     @State private var category: PackingCategory = .other
     @State private var quantity: Int = 1
 
+    private var isEditing: Bool { editingItem != nil }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppTheme.spacingM) {
-                    SheetHeader(icon: "bag.fill", title: "ДОБАВИТЬ ВЕЩЬ", color: AppTheme.oceanBlue)
+                    SheetHeader(
+                        icon: isEditing ? "pencil" : "bag.fill",
+                        title: isEditing ? "РЕДАКТИРОВАТЬ" : "ДОБАВИТЬ ВЕЩЬ",
+                        color: isEditing ? AppTheme.templeGold : AppTheme.oceanBlue
+                    )
 
                     GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
                         TextField("Зарядка", text: $name)
@@ -62,6 +70,26 @@ struct AddPackingItemSheet: View {
                         .background(.thinMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
                     }
+
+                    if isEditing {
+                        Button(role: .destructive) {
+                            deleteItem()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 13, weight: .bold))
+                                Text("УДАЛИТЬ")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .tracking(2)
+                            }
+                            .foregroundStyle(AppTheme.toriiRed)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(AppTheme.toriiRed.opacity(0.1))
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                        }
+                    }
                 }
                 .padding(AppTheme.spacingM)
             }
@@ -75,7 +103,7 @@ struct AddPackingItemSheet: View {
                         .foregroundStyle(.secondary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("ДОБАВИТЬ") { save() }
+                    Button(isEditing ? "СОХРАНИТЬ" : "ДОБАВИТЬ") { save() }
                         .font(.system(size: 12, weight: .bold))
                         .tracking(1)
                         .foregroundStyle(AppTheme.sakuraPink)
@@ -83,19 +111,42 @@ struct AddPackingItemSheet: View {
                         .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1.0)
                 }
             }
+            .onAppear {
+                if let item = editingItem {
+                    name = item.name
+                    category = PackingCategory(rawValue: item.category) ?? .other
+                    quantity = item.quantity
+                }
+            }
         }
     }
 
     private func save() {
-        let item = PackingItem(
-            name: name.trimmingCharacters(in: .whitespaces),
-            category: category.rawValue,
-            quantity: quantity,
-            sortOrder: trip.packingItems.count
-        )
-        item.trip = trip
-        modelContext.insert(item)
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        if let item = editingItem {
+            item.name = trimmedName
+            item.category = category.rawValue
+            item.quantity = quantity
+            item.updatedAt = Date()
+        } else {
+            let item = PackingItem(
+                name: trimmedName,
+                category: category.rawValue,
+                quantity: quantity,
+                sortOrder: trip.packingItems.count
+            )
+            item.trip = trip
+            modelContext.insert(item)
+        }
         try? modelContext.save()
+        dismiss()
+    }
+
+    private func deleteItem() {
+        if let item = editingItem {
+            modelContext.delete(item)
+            try? modelContext.save()
+        }
         dismiss()
     }
 }

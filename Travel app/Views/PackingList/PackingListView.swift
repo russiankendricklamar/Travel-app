@@ -7,6 +7,7 @@ struct PackingListView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showAddSheet = false
+    @State private var editingItem: PackingItem?
     @State private var isGenerating = false
 
     private var sortedItems: [PackingItem] {
@@ -49,6 +50,9 @@ struct PackingListView: View {
                                         onToggle: {
                                             item.isPacked.toggle()
                                             try? modelContext.save()
+                                        },
+                                        onEdit: {
+                                            editingItem = item
                                         },
                                         onDelete: {
                                             modelContext.delete(item)
@@ -112,6 +116,9 @@ struct PackingListView: View {
             }
             .sheet(isPresented: $showAddSheet) {
                 AddPackingItemSheet(trip: trip)
+            }
+            .sheet(item: $editingItem) { item in
+                AddPackingItemSheet(trip: trip, editingItem: item)
             }
         }
     }

@@ -10,7 +10,9 @@ struct DashboardWeatherSection: View {
     @State private var appeared = false
     @State private var cityWeathers: [(String, WeatherInfo)] = []
     @State private var showCitiesPanel = false
+    @State private var showWeatherDetail = false
     @State private var selectedCityName: String?
+    @State private var fetchedCoordinate: CLLocationCoordinate2D?
 
     private var displayedCityName: String? {
         selectedCityName ?? weatherCityName
@@ -42,6 +44,20 @@ struct DashboardWeatherSection: View {
                 .stroke(AppTheme.oceanBlue.opacity(0.15), lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if weather.currentWeather != nil, fetchedCoordinate != nil {
+                showWeatherDetail = true
+            }
+        }
+        .sheet(isPresented: $showWeatherDetail) {
+            if let coord = fetchedCoordinate {
+                WeatherDetailView(
+                    cityName: displayedCityName ?? "",
+                    coordinate: coord
+                )
+            }
+        }
         .task {
             guard !appeared else { return }
             appeared = true
@@ -132,7 +148,7 @@ struct DashboardWeatherSection: View {
             detailsRow(current)
 
             // 7-day forecast strip
-            if let coord = weather.currentWeather != nil ? resolvedCoordinate : nil {
+            if let coord = resolvedCoordinate {
                 let upcoming = weather.upcomingForecasts(at: coord)
                 if !upcoming.isEmpty {
                     Divider().opacity(0.1)
@@ -152,24 +168,38 @@ struct DashboardWeatherSection: View {
 
     // MARK: - Today Min/Max + UV
 
+    private var todayForecast: WeatherInfo? {
+        if let coord = fetchedCoordinate {
+            return weather.forecast(for: Date(), at: coord)
+        }
+        return weather.forecast(for: Date())
+    }
+
     private var todayForecastRow: some View {
         Group {
-            if let today = weather.forecast(for: Date()),
-               let max = today.temperatureMax,
-               let min = today.temperatureMin {
+            let today = todayForecast
+            let hasMinMax = today?.temperatureMin != nil && today?.temperatureMax != nil
+            let hasUV = today?.uvIndexMax != nil
+            let hasPrecip = (today?.precipitationProbability ?? 0) > 0
+
+            if hasMinMax || hasUV || hasPrecip {
                 HStack(spacing: AppTheme.spacingM) {
-                    Label("\(Int(min))°", systemImage: "arrow.down")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    Label("\(Int(max))°", systemImage: "arrow.up")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    if let precip = today.precipitationProbability, precip > 0 {
+                    if let min = today?.temperatureMin {
+                        Label("\(Int(min))°", systemImage: "arrow.down")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    if let max = today?.temperatureMax {
+                        Label("\(Int(max))°", systemImage: "arrow.up")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    if let precip = today?.precipitationProbability, precip > 0 {
                         Label("\(precip)%", systemImage: "drop.fill")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(AppTheme.oceanBlue)
                     }
-                    if let uv = today.uvIndexMax {
+                    if let uv = today?.uvIndexMax {
                         uvBadge(uv)
                     }
                     Spacer()
@@ -195,12 +225,14 @@ struct DashboardWeatherSection: View {
 
     private var recommendationsSection: some View {
         Group {
-            let today = weather.forecast(for: Date())
+            let today = todayForecast
+            let current = weather.currentWeather
             let recs = WeatherRecommendation.recommendations(
                 precip: today?.precipitationProbability,
                 uv: today?.uvIndexMax,
-                temp: today?.temperatureMax,
-                code: today?.weatherCode
+                temp: today?.temperatureMax ?? current?.temperature,
+                code: today?.weatherCode ?? current?.weatherCode,
+                windSpeed: current?.windSpeed
             )
             if !recs.isEmpty {
                 Divider().opacity(0.1)
@@ -277,6 +309,7 @@ struct DashboardWeatherSection: View {
         }
         Task {
             if let coord = await weather.resolveCoordinate(forCity: city) {
+                fetchedCoordinate = coord
                 await weather.fetchWeather(for: coord)
             }
         }
@@ -348,7 +381,7 @@ struct DashboardWeatherSection: View {
         if trip.isActive, let current = location.currentLocation {
             return current
         }
-        return nil
+        return fetchedCoordinate
     }
 
     // MARK: - Load Weather
@@ -374,6 +407,7 @@ struct DashboardWeatherSection: View {
             return
         }
 
+        fetchedCoordinate = coordinate
         await weather.fetchWeather(for: coordinate)
 
         // Multi-city: fetch weather for each unique city
@@ -385,6 +419,10 @@ struct DashboardWeatherSection: View {
                     await weather.fetchDailyForecast(for: cityCoord)
                     if let info = weather.forecast(for: Date(), at: cityCoord) {
                         results.append((city, info))
+                    } else if let current = weather.currentWeather,
+                              city == weatherCityName {
+                        // Fallback: use current weather for the main city
+                        results.append((city, current))
                     }
                 }
             }

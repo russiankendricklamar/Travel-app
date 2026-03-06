@@ -3,6 +3,14 @@ import CoreLocation
 import SwiftUI
 import SwiftData
 
+// MARK: - Trip Flight
+
+struct TripFlight: Codable, Identifiable, Equatable {
+    var id: UUID = UUID()
+    var number: String
+    var date: Date?
+}
+
 // MARK: - Trip
 
 @Model
@@ -17,6 +25,7 @@ final class Trip: Syncable {
     var coverSystemImage: String
     var flightDate: Date?
     var flightNumber: String?
+    var flightsJSON: String?
     var updatedAt: Date = Date()
     var isDeleted: Bool = false
 
@@ -42,7 +51,8 @@ final class Trip: Syncable {
         currency: String,
         coverSystemImage: String,
         flightDate: Date? = nil,
-        flightNumber: String? = nil
+        flightNumber: String? = nil,
+        flightsJSON: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -54,6 +64,51 @@ final class Trip: Syncable {
         self.coverSystemImage = coverSystemImage
         self.flightDate = flightDate
         self.flightNumber = flightNumber
+        self.flightsJSON = flightsJSON
+    }
+
+    // MARK: - Flights (multi-flight support)
+
+    var flights: [TripFlight] {
+        get {
+            let raw: [TripFlight]
+            if let json = flightsJSON, let data = json.data(using: .utf8) {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                raw = (try? decoder.decode([TripFlight].self, from: data)) ?? []
+            } else if let num = flightNumber {
+                raw = [TripFlight(number: num, date: flightDate)]
+            } else {
+                raw = []
+            }
+            return raw.sorted { a, b in
+                switch (a.date, b.date) {
+                case let (ad?, bd?): return ad < bd
+                case (_?, nil): return true
+                case (nil, _?): return false
+                case (nil, nil): return false
+                }
+            }
+        }
+        set {
+            let sorted = newValue.sorted { a, b in
+                switch (a.date, b.date) {
+                case let (ad?, bd?): return ad < bd
+                case (_?, nil): return true
+                case (nil, _?): return false
+                case (nil, nil): return false
+                }
+            }
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            if sorted.isEmpty {
+                flightsJSON = nil
+            } else if let data = try? encoder.encode(sorted) {
+                flightsJSON = String(data: data, encoding: .utf8)
+            }
+            flightNumber = sorted.first?.number
+            flightDate = sorted.first?.date
+        }
     }
 
     var totalDays: Int {
@@ -88,10 +143,15 @@ final class Trip: Syncable {
     // MARK: - Countdown
 
     var countdownToFlight: DateComponents? {
-        guard let flight = flightDate, Date() < flight else { return nil }
+        let now = Date()
+        let nextFlightDate = flights
+            .compactMap(\.date)
+            .filter { $0 > now }
+            .min()
+        guard let flight = nextFlightDate else { return nil }
         return Calendar.current.dateComponents(
             [.day, .hour, .minute, .second],
-            from: Date(),
+            from: now,
             to: flight
         )
     }
@@ -559,6 +619,19 @@ enum PlaceCategory: String, CaseIterable, Identifiable, Codable {
     case culture = "Культура"
     case accommodation = "Жильё"
     case transport = "Транспорт"
+    case museum = "Музей"
+    case gallery = "Галерея"
+    case palace = "Дворец"
+    case park = "Парк"
+    case garden = "Сад"
+    case lake = "Озеро"
+    case mountains = "Горы"
+    case airport = "Аэропорт"
+    case station = "Вокзал"
+    case metro = "Метро"
+    case sport = "Спорт"
+    case stadium = "Стадион"
+    case viewpoint = "Смотровая"
 
     var id: String { rawValue }
 
@@ -572,6 +645,19 @@ enum PlaceCategory: String, CaseIterable, Identifiable, Codable {
         case .culture: return "theatermasks"
         case .accommodation: return "bed.double"
         case .transport: return "tram"
+        case .museum: return "building.columns.fill"
+        case .gallery: return "photo.artframe"
+        case .palace: return "crown.fill"
+        case .park: return "tree.fill"
+        case .garden: return "camera.macro"
+        case .lake: return "water.waves"
+        case .mountains: return "mountain.2.fill"
+        case .airport: return "airplane"
+        case .station: return "train.side.front.car"
+        case .metro: return "tram.fill.tunnel"
+        case .sport: return "figure.run"
+        case .stadium: return "sportscourt.fill"
+        case .viewpoint: return "binoculars.fill"
         }
     }
 }

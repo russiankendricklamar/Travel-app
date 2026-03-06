@@ -3,6 +3,7 @@ import SwiftUI
 struct PackingItemRow: View {
     let item: PackingItem
     let onToggle: () -> Void
+    let onEdit: () -> Void
     let onDelete: () -> Void
 
     private var categoryEnum: PackingCategory {
@@ -58,10 +59,18 @@ struct PackingItemRow: View {
                     lineWidth: 0.5
                 )
         )
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onEdit)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive, action: onDelete) {
                 Label("Удалить", systemImage: "trash")
             }
+        }
+        .swipeActions(edge: .trailing) {
+            Button(action: onEdit) {
+                Label("Изменить", systemImage: "pencil")
+            }
+            .tint(AppTheme.templeGold)
         }
     }
 }

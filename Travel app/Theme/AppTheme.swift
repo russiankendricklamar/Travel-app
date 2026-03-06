@@ -54,6 +54,21 @@ enum AppTheme {
     static let borderWidthThick: CGFloat = 1.0
     static let borderWidthBold: CGFloat = 1.5
 
+    // MARK: - New Category Colors
+    static let cyanPool = Color(hex: "0891B2")
+    static let pinkGallery = Color(hex: "EC4899")
+    static let amberPalace = Color(hex: "B45309")
+    static let greenDark = Color(hex: "15803D")
+    static let limeGarden = Color(hex: "65A30D")
+    static let skyLake = Color(hex: "0284C7")
+    static let slateMountain = Color(hex: "475569")
+    static let indigoAirport = Color(hex: "6366F1")
+    static let indigoDarkStation = Color(hex: "4F46E5")
+    static let purpleMetro = Color(hex: "9333EA")
+    static let redSport = Color(hex: "DC2626")
+    static let orangeStadium = Color(hex: "EA580C")
+    static let tealViewpoint = Color(hex: "0D9488")
+
     // MARK: - Category Colors
     static func categoryColor(for category: String) -> Color {
         switch category {
@@ -65,6 +80,19 @@ enum AppTheme {
         case "Транспорт": return info
         case "Жильё": return indigoPurple
         case "Развлечения": return sakuraPink
+        case "Музей": return cyanPool
+        case "Галерея": return pinkGallery
+        case "Дворец": return amberPalace
+        case "Парк": return greenDark
+        case "Сад": return limeGarden
+        case "Озеро": return skyLake
+        case "Горы": return slateMountain
+        case "Аэропорт": return indigoAirport
+        case "Вокзал": return indigoDarkStation
+        case "Метро": return purpleMetro
+        case "Спорт": return redSport
+        case "Стадион": return orangeStadium
+        case "Смотровая": return tealViewpoint
         default: return textMuted
         }
     }

@@ -8,7 +8,11 @@ struct RecommendationsView: View {
     @State private var selectedRecommendation: PlaceRecommendation?
     @State private var showDayPicker = false
 
-    private let allCategories = ["Еда", "Культура", "Природа", "Шопинг", "Храм", "Святилище"]
+    private let allCategories = [
+        "Еда", "Культура", "Природа", "Шопинг", "Храм", "Святилище",
+        "Музей", "Галерея", "Дворец", "Парк", "Сад", "Озеро", "Горы",
+        "Аэропорт", "Вокзал", "Метро", "Спорт", "Стадион", "Смотровая"
+    ]
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -169,6 +173,19 @@ struct RecommendationsView: View {
         case "Шопинг": return "bag"
         case "Храм": return "building.columns"
         case "Святилище": return "sparkles"
+        case "Музей": return "building.columns.fill"
+        case "Галерея": return "photo.artframe"
+        case "Дворец": return "crown.fill"
+        case "Парк": return "tree.fill"
+        case "Сад": return "camera.macro"
+        case "Озеро": return "water.waves"
+        case "Горы": return "mountain.2.fill"
+        case "Аэропорт": return "airplane"
+        case "Вокзал": return "train.side.front.car"
+        case "Метро": return "tram.fill.tunnel"
+        case "Спорт": return "figure.run"
+        case "Стадион": return "sportscourt.fill"
+        case "Смотровая": return "binoculars.fill"
         default: return "mappin"
         }
     }
