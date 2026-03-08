@@ -5,6 +5,8 @@ import CoreLocation
 struct StatsRouteMapView: View {
     let trips: [Trip]
     @State private var showFullMap = false
+    @State private var resolvedTrainRoutes: [ResolvedTransportRoute] = []
+    @State private var resolvedBusRoutes: [ResolvedTransportRoute] = []
 
     var body: some View {
         Map {
@@ -20,12 +22,12 @@ struct StatsRouteMapView: View {
                         .overlay(Circle().stroke(.white, lineWidth: 1))
                 }
             }
-            ForEach(trainRoutes) { route in
-                MapPolyline(coordinates: [route.start, route.end])
+            ForEach(resolvedTrainRoutes) { route in
+                MapPolyline(coordinates: route.polyline)
                     .stroke(AppTheme.sakuraPink.opacity(0.8), lineWidth: 2)
             }
-            ForEach(busRoutes) { route in
-                MapPolyline(coordinates: [route.start, route.end])
+            ForEach(resolvedBusRoutes) { route in
+                MapPolyline(coordinates: route.polyline)
                     .stroke(AppTheme.templeGold.opacity(0.8), lineWidth: 2)
             }
         }
@@ -53,11 +55,48 @@ struct StatsRouteMapView: View {
             StatsFullMapView(
                 trips: trips,
                 flightRoutes: flightRoutes,
-                trainRoutes: trainRoutes,
-                busRoutes: busRoutes,
+                trainRoutes: resolvedTrainRoutes,
+                busRoutes: resolvedBusRoutes,
                 airportAnnotations: airportAnnotations
             )
         }
+        .task { await loadTransportRoutes() }
+    }
+
+    // MARK: - Async Route Loading
+
+    private func loadTransportRoutes() async {
+        let trainEndpoints = transportEndpoints(for: .train)
+        let busEndpoints = transportEndpoints(for: .bus)
+
+        async let trains = resolveRoutes(trainEndpoints)
+        async let buses = resolveRoutes(busEndpoints)
+
+        resolvedTrainRoutes = await trains
+        resolvedBusRoutes = await buses
+    }
+
+    private func transportEndpoints(for category: EventCategory) -> [(CLLocationCoordinate2D, CLLocationCoordinate2D)] {
+        var endpoints: [(CLLocationCoordinate2D, CLLocationCoordinate2D)] = []
+        for trip in trips {
+            for day in trip.days {
+                for event in day.events where event.category == category {
+                    guard let startCoord = event.primaryCoordinate,
+                          let endCoord = event.arrivalCoordinate else { continue }
+                    endpoints.append((startCoord, endCoord))
+                }
+            }
+        }
+        return endpoints
+    }
+
+    private func resolveRoutes(_ endpoints: [(CLLocationCoordinate2D, CLLocationCoordinate2D)]) async -> [ResolvedTransportRoute] {
+        var routes: [ResolvedTransportRoute] = []
+        for (start, end) in endpoints {
+            let polyline = await calculateRoutePolyline(from: start, to: end)
+            routes.append(ResolvedTransportRoute(start: start, end: end, polyline: polyline))
+        }
+        return routes
     }
 
     // MARK: - Flight Routes
@@ -75,7 +114,7 @@ struct StatsRouteMapView: View {
                 let reverseKey = "\(arrIata)-\(depIata)"
                 if seen.contains(key) || seen.contains(reverseKey) { continue }
                 seen.insert(key)
-                let arcPoints = flightArcPoints(from: depCoord, to: arrCoord)
+                let arcPoints = greatCirclePoints(from: depCoord, to: arrCoord)
                 routes.append(FlightRoute(
                     depIata: depIata,
                     arrIata: arrIata,
@@ -83,28 +122,6 @@ struct StatsRouteMapView: View {
                     arrCoord: arrCoord,
                     arcPoints: arcPoints
                 ))
-            }
-        }
-        return routes
-    }
-
-    private var trainRoutes: [TransportRoute] {
-        transportRoutes(for: .train)
-    }
-
-    private var busRoutes: [TransportRoute] {
-        transportRoutes(for: .bus)
-    }
-
-    private func transportRoutes(for category: EventCategory) -> [TransportRoute] {
-        var routes: [TransportRoute] = []
-        for trip in trips {
-            for day in trip.days {
-                for event in day.events where event.category == category {
-                    guard let startCoord = event.primaryCoordinate,
-                          let endCoord = event.arrivalCoordinate else { continue }
-                    routes.append(TransportRoute(start: startCoord, end: endCoord))
-                }
             }
         }
         return routes
@@ -126,34 +143,35 @@ struct StatsRouteMapView: View {
         return annotations
     }
 
-    // MARK: - Bezier Arc
+    // MARK: - Great Circle Arc
 
-    private func flightArcPoints(
+    private func greatCirclePoints(
         from start: CLLocationCoordinate2D,
         to end: CLLocationCoordinate2D,
         segments: Int = 60
     ) -> [CLLocationCoordinate2D] {
-        let dLat = end.latitude - start.latitude
-        let dLon = end.longitude - start.longitude
-        let dist = sqrt(dLat * dLat + dLon * dLon)
-        guard dist > 0 else { return [start, end] }
+        let lat1 = start.latitude * .pi / 180
+        let lon1 = start.longitude * .pi / 180
+        let lat2 = end.latitude * .pi / 180
+        let lon2 = end.longitude * .pi / 180
 
-        let midLat = (start.latitude + end.latitude) / 2
-        let midLon = (start.longitude + end.longitude) / 2
-
-        let perpLat = -dLon / dist
-        let perpLon = dLat / dist
-
-        let sign: Double = perpLat >= 0 ? 1 : -1
-        let height = dist * 0.15
-
-        let ctrlLat = midLat + sign * perpLat * height
-        let ctrlLon = midLon + sign * perpLon * height
+        let d = acos(
+            sin(lat1) * sin(lat2) +
+            cos(lat1) * cos(lat2) * cos(lon2 - lon1)
+        )
+        guard d > 1e-10 else { return [start, end] }
 
         return (0...segments).map { i in
             let t = Double(i) / Double(segments)
-            let lat = (1 - t) * (1 - t) * start.latitude + 2 * (1 - t) * t * ctrlLat + t * t * end.latitude
-            let lon = (1 - t) * (1 - t) * start.longitude + 2 * (1 - t) * t * ctrlLon + t * t * end.longitude
+            let a = sin((1 - t) * d) / sin(d)
+            let b = sin(t * d) / sin(d)
+
+            let x = a * cos(lat1) * cos(lon1) + b * cos(lat2) * cos(lon2)
+            let y = a * cos(lat1) * sin(lon1) + b * cos(lat2) * sin(lon2)
+            let z = a * sin(lat1) + b * sin(lat2)
+
+            let lat = atan2(z, sqrt(x * x + y * y)) * 180 / .pi
+            let lon = atan2(y, x) * 180 / .pi
             return CLLocationCoordinate2D(latitude: lat, longitude: lon)
         }
     }
@@ -164,8 +182,8 @@ struct StatsRouteMapView: View {
 private struct StatsFullMapView: View {
     let trips: [Trip]
     let flightRoutes: [FlightRoute]
-    let trainRoutes: [TransportRoute]
-    let busRoutes: [TransportRoute]
+    let trainRoutes: [ResolvedTransportRoute]
+    let busRoutes: [ResolvedTransportRoute]
     let airportAnnotations: [AirportAnnotation]
     @Environment(\.dismiss) private var dismiss
     @State private var filter: RouteFilter = .all
@@ -217,14 +235,14 @@ private struct StatsFullMapView: View {
 
                     if filter == .all || filter == .trains {
                         ForEach(trainRoutes) { route in
-                            MapPolyline(coordinates: [route.start, route.end])
+                            MapPolyline(coordinates: route.polyline)
                                 .stroke(AppTheme.sakuraPink.opacity(0.8), lineWidth: 2)
                         }
                     }
 
                     if filter == .all || filter == .buses {
                         ForEach(busRoutes) { route in
-                            MapPolyline(coordinates: [route.start, route.end])
+                            MapPolyline(coordinates: route.polyline)
                                 .stroke(AppTheme.templeGold.opacity(0.8), lineWidth: 2)
                         }
                     }
@@ -261,14 +279,44 @@ struct FlightRoute: Identifiable {
     let arcPoints: [CLLocationCoordinate2D]
 }
 
-struct TransportRoute: Identifiable {
+struct ResolvedTransportRoute: Identifiable {
     let id = UUID()
     let start: CLLocationCoordinate2D
     let end: CLLocationCoordinate2D
+    let polyline: [CLLocationCoordinate2D]
 }
 
 struct AirportAnnotation: Identifiable {
     let id = UUID()
     let iata: String
     let coordinate: CLLocationCoordinate2D
+}
+
+// MARK: - Route Calculation Helper
+
+/// Shared helper: tries .transit → .automobile → straight line
+func calculateRoutePolyline(
+    from start: CLLocationCoordinate2D,
+    to end: CLLocationCoordinate2D
+) async -> [CLLocationCoordinate2D] {
+    for transportType: MKDirectionsTransportType in [.transit, .automobile] {
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: start))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: end))
+        request.transportType = transportType
+
+        if let response = try? await MKDirections(request: request).calculate(),
+           let mkRoute = response.routes.first {
+            var coords = [CLLocationCoordinate2D](
+                repeating: CLLocationCoordinate2D(),
+                count: mkRoute.polyline.pointCount
+            )
+            mkRoute.polyline.getCoordinates(
+                &coords,
+                range: NSRange(location: 0, length: mkRoute.polyline.pointCount)
+            )
+            return coords
+        }
+    }
+    return [start, end]
 }

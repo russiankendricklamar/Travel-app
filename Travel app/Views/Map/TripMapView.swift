@@ -160,6 +160,23 @@ struct TripMapView: View {
                                     .shadow(color: .black.opacity(0.5), radius: 3)
                             }
                         }
+                        ForEach(flightAirportAnnotations) { ap in
+                            Annotation("", coordinate: ap.coordinate, anchor: .center) {
+                                VStack(spacing: 2) {
+                                    Circle()
+                                        .fill(.white)
+                                        .frame(width: 8, height: 8)
+                                        .overlay(Circle().stroke(AppTheme.sakuraPink, lineWidth: 1.5))
+                                    Text(ap.iata)
+                                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(AppTheme.sakuraPink.opacity(0.85))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
                     }
 
                     UserAnnotation()
@@ -1634,7 +1651,7 @@ struct TripMapView: View {
                   let depCoord = FlightData.coordinate(forIata: data.departureIata),
                   let arrCoord = FlightData.coordinate(forIata: data.arrivalIata) else { continue }
 
-            let points = flightArcPoints(from: depCoord, to: arrCoord)
+            let points = greatCirclePoints(from: depCoord, to: arrCoord)
             let midIdx = points.count / 2
             let midpoint = points[midIdx]
             // Tangent at midpoint — wider window for stable direction
@@ -1646,6 +1663,8 @@ struct TripMapView: View {
                 points: points,
                 depCoord: depCoord,
                 arrCoord: arrCoord,
+                depIata: data.departureIata,
+                arrIata: data.arrivalIata,
                 midpoint: midpoint,
                 bearing: bearing,
                 flightNumber: data.flightIata
@@ -1655,45 +1674,58 @@ struct TripMapView: View {
         flightArcs = arcs
     }
 
-    private func flightArcPoints(
+    private var flightAirportAnnotations: [FlightAirportPin] {
+        var seen = Set<String>()
+        var pins: [FlightAirportPin] = []
+        for arc in flightArcs {
+            for (iata, coord) in [(arc.depIata, arc.depCoord), (arc.arrIata, arc.arrCoord)] {
+                guard !seen.contains(iata) else { continue }
+                seen.insert(iata)
+                pins.append(FlightAirportPin(iata: iata, coordinate: coord))
+            }
+        }
+        return pins
+    }
+
+    /// Great circle (orthodromic) interpolation — the actual path airplanes fly.
+    /// On a Mercator map this naturally curves toward the poles.
+    private func greatCirclePoints(
         from start: CLLocationCoordinate2D,
         to end: CLLocationCoordinate2D,
         segments: Int = 60
     ) -> [CLLocationCoordinate2D] {
-        let dLat = end.latitude - start.latitude
-        let dLon = end.longitude - start.longitude
-        let dist = sqrt(dLat * dLat + dLon * dLon)
-        guard dist > 0 else { return [start, end] }
+        let lat1 = start.latitude * .pi / 180
+        let lon1 = start.longitude * .pi / 180
+        let lat2 = end.latitude * .pi / 180
+        let lon2 = end.longitude * .pi / 180
 
-        let midLat = (start.latitude + end.latitude) / 2
-        let midLon = (start.longitude + end.longitude) / 2
+        // Central angle between the two points
+        let d = acos(
+            sin(lat1) * sin(lat2) +
+            cos(lat1) * cos(lat2) * cos(lon2 - lon1)
+        )
+        guard d > 1e-10 else { return [start, end] }
 
-        // Perpendicular offset for curved control point
-        let perpLat = -dLon / dist
-        let perpLon = dLat / dist
-
-        // Always bulge toward positive latitude (northward)
-        let sign: Double = perpLat >= 0 ? 1 : -1
-        let height = dist * 0.15
-
-        let ctrlLat = midLat + sign * perpLat * height
-        let ctrlLon = midLon + sign * perpLon * height
-
-        // Quadratic Bezier curve
         return (0...segments).map { i in
             let t = Double(i) / Double(segments)
-            let lat = (1 - t) * (1 - t) * start.latitude + 2 * (1 - t) * t * ctrlLat + t * t * end.latitude
-            let lon = (1 - t) * (1 - t) * start.longitude + 2 * (1 - t) * t * ctrlLon + t * t * end.longitude
+            let a = sin((1 - t) * d) / sin(d)
+            let b = sin(t * d) / sin(d)
+
+            let x = a * cos(lat1) * cos(lon1) + b * cos(lat2) * cos(lon2)
+            let y = a * cos(lat1) * sin(lon1) + b * cos(lat2) * sin(lon2)
+            let z = a * sin(lat1) + b * sin(lat2)
+
+            let lat = atan2(z, sqrt(x * x + y * y)) * 180 / .pi
+            let lon = atan2(y, x) * 180 / .pi
             return CLLocationCoordinate2D(latitude: lat, longitude: lon)
         }
     }
 
-    /// Visual bearing on a Mercator-projected map (matches what the user sees on screen)
+    /// Bearing on screen (Mercator-adjusted) from one coordinate to another
     private func screenBearing(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
         let dLat = to.latitude - from.latitude
         let dLon = to.longitude - from.longitude
         let midLatRad = ((from.latitude + to.latitude) / 2) * .pi / 180
-        // Scale longitude by cos(lat) to match Mercator visual proportions
         let visualDLon = dLon * cos(midLatRad)
         return atan2(visualDLon, dLat) * 180 / .pi
     }
@@ -1710,30 +1742,39 @@ struct TripMapView: View {
             guard let start = event.primaryCoordinate,
                   let end = event.arrivalCoordinate else { continue }
 
-            // Use MKDirections with .transit to follow real rail/transit tracks
-            let request = MKDirections.Request()
-            request.source = MKMapItem(placemark: MKPlacemark(coordinate: start))
-            request.destination = MKMapItem(placemark: MKPlacemark(coordinate: end))
-            request.transportType = .transit
+            // Try multiple transport types: transit → automobile → straight line
+            // Apple transit data is patchy; automobile routes follow highways
+            // that run parallel to railway corridors (especially Shinkansen)
+            var resolved = false
+            for transportType: MKDirectionsTransportType in [.transit, .automobile] {
+                let request = MKDirections.Request()
+                request.source = MKMapItem(placemark: MKPlacemark(coordinate: start))
+                request.destination = MKMapItem(placemark: MKPlacemark(coordinate: end))
+                request.transportType = transportType
 
-            if let response = try? await MKDirections(request: request).calculate(),
-               let mkRoute = response.routes.first {
-                var coords = [CLLocationCoordinate2D](
-                    repeating: CLLocationCoordinate2D(),
-                    count: mkRoute.polyline.pointCount
-                )
-                mkRoute.polyline.getCoordinates(&coords, range: NSRange(location: 0, length: mkRoute.polyline.pointCount))
+                if let response = try? await MKDirections(request: request).calculate(),
+                   let mkRoute = response.routes.first {
+                    var coords = [CLLocationCoordinate2D](
+                        repeating: CLLocationCoordinate2D(),
+                        count: mkRoute.polyline.pointCount
+                    )
+                    mkRoute.polyline.getCoordinates(&coords, range: NSRange(location: 0, length: mkRoute.polyline.pointCount))
 
-                let midIdx = coords.count / 2
-                routes.append(TrainRoute(
-                    polyline: coords,
-                    midpoint: coords[midIdx],
-                    title: event.title,
-                    distance: mkRoute.distance,
-                    duration: mkRoute.expectedTravelTime
-                ))
-            } else {
-                // Fallback: straight line if transit directions unavailable
+                    let midIdx = coords.count / 2
+                    routes.append(TrainRoute(
+                        polyline: coords,
+                        midpoint: coords[midIdx],
+                        title: event.title,
+                        distance: mkRoute.distance,
+                        duration: mkRoute.expectedTravelTime
+                    ))
+                    resolved = true
+                    break
+                }
+            }
+
+            if !resolved {
+                // Last resort: straight line
                 routes.append(TrainRoute(
                     polyline: [start, end],
                     midpoint: CLLocationCoordinate2D(
@@ -1758,9 +1799,17 @@ private struct FlightArc: Identifiable {
     let points: [CLLocationCoordinate2D]
     let depCoord: CLLocationCoordinate2D
     let arrCoord: CLLocationCoordinate2D
+    let depIata: String
+    let arrIata: String
     let midpoint: CLLocationCoordinate2D
     let bearing: Double
     let flightNumber: String
+}
+
+private struct FlightAirportPin: Identifiable {
+    let id = UUID()
+    let iata: String
+    let coordinate: CLLocationCoordinate2D
 }
 
 // MARK: - Train Route Data
