@@ -25,6 +25,14 @@ enum Secrets {
         KeychainHelper.save(key: "yandexClientSecret", string: key)
     }
 
+    static var googleClientID: String {
+        KeychainHelper.readString(key: "googleClientID") ?? infoPlistValue("GOOGLE_CLIENT_ID")
+    }
+
+    static func setGoogleClientID(_ key: String) {
+        KeychainHelper.save(key: "googleClientID", string: key)
+    }
+
     static func migrateFromAppStorage() {
         let defaults = UserDefaults.standard
 
