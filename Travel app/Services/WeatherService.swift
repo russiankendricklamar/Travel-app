@@ -21,8 +21,6 @@ final class WeatherService {
     private var lastFetchDate: Date?
     private var lastFetchCoordinate: CLLocationCoordinate2D?
     private let cacheInterval: TimeInterval = 15 * 60
-    private let session: URLSession
-
     // Sunrise/sunset time formatter
     private static let sunTimeFormatter: DateFormatter = {
         let fmt = DateFormatter()
@@ -37,12 +35,7 @@ final class WeatherService {
         return fmt
     }()
 
-    private init() {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 10
-        config.timeoutIntervalForResource = 15
-        self.session = URLSession(configuration: config)
-    }
+    private init() {}
 
     // Geocoded city cache (dynamic, filled at runtime)
     private var geocodedCities: [String: CLLocationCoordinate2D] = [:]
@@ -93,13 +86,7 @@ final class WeatherService {
         errorMessage = nil
 
         do {
-            let url = buildURL(for: coordinate)
-            let (data, response) = try await session.data(from: url)
-
-            guard let http = response as? HTTPURLResponse,
-                  (200...299).contains(http.statusCode) else {
-                throw URLError(.badServerResponse)
-            }
+            let data = try await SupabaseProxy.request(service: "weather", action: "forecast", params: weatherParams(for: coordinate))
 
             let decoded = try JSONDecoder().decode(OpenMeteoResponse.self, from: data)
 
@@ -133,13 +120,7 @@ final class WeatherService {
         }
 
         do {
-            let url = buildURL(for: coordinate)
-            let (data, response) = try await session.data(from: url)
-
-            guard let http = response as? HTTPURLResponse,
-                  (200...299).contains(http.statusCode) else {
-                throw URLError(.badServerResponse)
-            }
+            let data = try await SupabaseProxy.request(service: "weather", action: "forecast", params: weatherParams(for: coordinate))
 
             let decoded = try JSONDecoder().decode(OpenMeteoResponse.self, from: data)
             if let daily = decoded.daily {
@@ -229,18 +210,16 @@ final class WeatherService {
 
     // MARK: - Private
 
-    private func buildURL(for coordinate: CLLocationCoordinate2D) -> URL {
-        var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
-        components.queryItems = [
-            URLQueryItem(name: "latitude", value: String(coordinate.latitude)),
-            URLQueryItem(name: "longitude", value: String(coordinate.longitude)),
-            URLQueryItem(name: "current", value: "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature"),
-            URLQueryItem(name: "hourly", value: "temperature_2m,weather_code,precipitation_probability,apparent_temperature,uv_index"),
-            URLQueryItem(name: "daily", value: "temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset,uv_index_max"),
-            URLQueryItem(name: "timezone", value: "auto"),
-            URLQueryItem(name: "forecast_days", value: "16"),
+    private func weatherParams(for coordinate: CLLocationCoordinate2D) -> [String: String] {
+        [
+            "latitude": String(coordinate.latitude),
+            "longitude": String(coordinate.longitude),
+            "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature",
+            "hourly": "temperature_2m,weather_code,precipitation_probability,apparent_temperature,uv_index",
+            "daily": "temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset,uv_index_max",
+            "timezone": "auto",
+            "forecast_days": "16"
         ]
-        return components.url!
     }
 
     private func parseResponse(_ response: OpenMeteoResponse, coordinate: CLLocationCoordinate2D) {

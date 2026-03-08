@@ -50,34 +50,13 @@ final class TravelpayoutsService {
         limit: Int = 5
     ) async -> [FlightOffer] {
         lastError = nil
-        let token = Secrets.travelpayoutsToken
-        guard !token.isEmpty else {
-            lastError = "Travelpayouts token not set"
-            return []
-        }
 
-        var components = URLComponents(string: "https://api.travelpayouts.com/aviasales/v3/prices_for_dates")!
-        components.queryItems = [
-            URLQueryItem(name: "origin", value: origin),
-            URLQueryItem(name: "destination", value: destination),
-            URLQueryItem(name: "departure_at", value: departureAt),
-            URLQueryItem(name: "currency", value: currency),
-            URLQueryItem(name: "sorting", value: "price"),
-            URLQueryItem(name: "limit", value: "\(limit)"),
-            URLQueryItem(name: "token", value: token),
-            URLQueryItem(name: "unique", value: "false")
-        ]
-        if let returnAt { components.queryItems?.append(URLQueryItem(name: "return_at", value: returnAt)) }
-
-        guard let url = components.url else { return [] }
+        var p = ["origin": origin, "destination": destination, "departure_at": departureAt,
+                 "currency": currency, "sorting": "price", "limit": "\(limit)", "unique": "false"]
+        if let returnAt { p["return_at"] = returnAt }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...299).contains(httpResponse.statusCode) else {
-                lastError = "HTTP error"
-                return []
-            }
+            let data = try await SupabaseProxy.request(service: "travelpayouts", action: "flights", params: p)
 
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
             guard let dataArray = json?["data"] as? [[String: Any]] else { return [] }
@@ -111,31 +90,12 @@ final class TravelpayoutsService {
         limit: Int = 5
     ) async -> [HotelOffer] {
         lastError = nil
-        let token = Secrets.travelpayoutsToken
-        guard !token.isEmpty else {
-            lastError = "Travelpayouts token not set"
-            return []
-        }
 
-        var components = URLComponents(string: "https://engine.hotellook.com/api/v2/cache.json")!
-        components.queryItems = [
-            URLQueryItem(name: "location", value: location),
-            URLQueryItem(name: "checkIn", value: checkIn),
-            URLQueryItem(name: "checkOut", value: checkOut),
-            URLQueryItem(name: "currency", value: currency),
-            URLQueryItem(name: "limit", value: "\(limit)"),
-            URLQueryItem(name: "token", value: token)
-        ]
-
-        guard let url = components.url else { return [] }
+        let p = ["location": location, "checkIn": checkIn, "checkOut": checkOut,
+                 "currency": currency, "limit": "\(limit)"]
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...299).contains(httpResponse.statusCode) else {
-                lastError = "HTTP error"
-                return []
-            }
+            let data = try await SupabaseProxy.request(service: "travelpayouts", action: "hotels", params: p)
 
             let items = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
 
@@ -163,28 +123,12 @@ final class TravelpayoutsService {
         origin: String = "MOW",
         currency: String = "rub"
     ) async -> [(iata: String, price: Int, destination: String)] {
-        let token = Secrets.travelpayoutsToken
-        guard !token.isEmpty else { return [] }
-
-        var components = URLComponents(string: "https://api.travelpayouts.com/aviasales/v3/get_latest_prices")!
-        components.queryItems = [
-            URLQueryItem(name: "origin", value: origin),
-            URLQueryItem(name: "currency", value: currency),
-            URLQueryItem(name: "period_type", value: "month"),
-            URLQueryItem(name: "one_way", value: "false"),
-            URLQueryItem(name: "sorting", value: "price"),
-            URLQueryItem(name: "limit", value: "20"),
-            URLQueryItem(name: "token", value: token)
-        ]
-
-        guard let url = components.url else { return [] }
+        let p = ["origin": origin, "currency": currency, "period_type": "month",
+                 "one_way": "false", "sorting": "price", "limit": "20"]
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...299).contains(httpResponse.statusCode) else {
-                return []
-            }
+            let data = try await SupabaseProxy.request(service: "travelpayouts", action: "cheap", params: p)
+
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
             guard let dataArray = json?["data"] as? [[String: Any]] else { return [] }
 

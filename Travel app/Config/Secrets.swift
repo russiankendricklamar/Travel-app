@@ -9,30 +9,6 @@ enum Secrets {
         Bundle.main.infoDictionary?[key] as? String ?? ""
     }
 
-    static var airLabsApiKey: String {
-        KeychainHelper.readString(key: "airLabsApiKey") ?? infoPlistValue("AIRLABS_API_KEY")
-    }
-
-    static func setAirLabsApiKey(_ key: String) {
-        KeychainHelper.save(key: "airLabsApiKey", string: key)
-    }
-
-    static var geminiApiKey: String {
-        KeychainHelper.readString(key: "geminiApiKey") ?? infoPlistValue("GEMINI_API_KEY")
-    }
-
-    static func setGeminiApiKey(_ key: String) {
-        KeychainHelper.save(key: "geminiApiKey", string: key)
-    }
-
-    static var travelpayoutsToken: String {
-        KeychainHelper.readString(key: "travelpayoutsToken") ?? infoPlistValue("TRAVELPAYOUTS_TOKEN")
-    }
-
-    static func setTravelpayoutsToken(_ key: String) {
-        KeychainHelper.save(key: "travelpayoutsToken", string: key)
-    }
-
     static var yandexClientID: String {
         KeychainHelper.readString(key: "yandexClientID") ?? infoPlistValue("YANDEX_CLIENT_ID")
     }
@@ -76,7 +52,7 @@ enum AIProvider: String, CaseIterable, Identifiable {
     var icon: String { "diamond.fill" }
     var subtitle: String { "Google AI" }
 
-    var needsApiKey: Bool { true }
+    var needsApiKey: Bool { false }
 
     static var current: AIProvider { .gemini }
 }

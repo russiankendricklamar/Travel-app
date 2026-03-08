@@ -10,28 +10,10 @@ final class GeminiService {
     var isLoading = false
     var lastError: String?
 
-    private var localApiKey: String {
-        Secrets.geminiApiKey
-    }
-
-    private var hasLocalApiKey: Bool {
-        !localApiKey.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
-    /// Always available: proxy works without a local key
-    var hasApiKey: Bool {
-        true
-    }
-
-    private var useProxy: Bool {
-        !hasLocalApiKey
-    }
+    var hasApiKey: Bool { true }
 
     private var endpoint: String {
-        if useProxy {
-            return "\(Secrets.supabaseURL)/functions/v1/gemini-proxy"
-        }
-        return "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(localApiKey)"
+        "\(Secrets.supabaseURL)/functions/v1/gemini-proxy"
     }
 
     // MARK: - Summarize Wikipedia article
@@ -91,11 +73,8 @@ final class GeminiService {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 30
 
-        // Supabase Edge Function proxy auth
-        if useProxy {
-            req.setValue(Secrets.supabaseAnonKey, forHTTPHeaderField: "apikey")
-            req.setValue("Bearer \(Secrets.supabaseAnonKey)", forHTTPHeaderField: "Authorization")
-        }
+        req.setValue(Secrets.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer \(Secrets.supabaseAnonKey)", forHTTPHeaderField: "Authorization")
 
         let body: [String: Any] = [
             "contents": [

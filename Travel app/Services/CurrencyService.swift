@@ -42,8 +42,6 @@ final class CurrencyService {
 
     private var lastFetchDate: Date?
     private let cacheInterval: TimeInterval = 60 * 60 // 1 hour
-    private let session: URLSession
-
     // Fallback rates per base currency (1 base = X target)
     private static let fallbackMatrix: [String: [String: Double]] = [
         "RUB": ["JPY": 1.7, "USD": 0.011, "CNY": 0.082, "EUR": 0.010],
@@ -58,10 +56,6 @@ final class CurrencyService {
     }
 
     private init() {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 10
-        config.timeoutIntervalForResource = 15
-        self.session = URLSession(configuration: config)
         rates = Self.fallbackMatrix["RUB"] ?? [:]
     }
 
@@ -153,13 +147,7 @@ final class CurrencyService {
         errorMessage = nil
 
         do {
-            let url = URL(string: "https://open.er-api.com/v6/latest/\(baseCurrency)")!
-            let (data, response) = try await session.data(from: url)
-
-            guard let http = response as? HTTPURLResponse,
-                  (200...299).contains(http.statusCode) else {
-                throw URLError(.badServerResponse)
-            }
+            let data = try await SupabaseProxy.request(service: "currency", action: "rates", params: ["base": baseCurrency])
 
             let decoded = try JSONDecoder().decode(ExchangeRateResponse.self, from: data)
             for code in Self.supportedCurrencies where code != baseCurrency {

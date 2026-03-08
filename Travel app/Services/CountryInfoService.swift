@@ -20,14 +20,8 @@ final class CountryInfoService {
     static let shared = CountryInfoService()
 
     private var cache: [String: CountryInfo] = [:]
-    private let session: URLSession
 
-    private init() {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 10
-        config.timeoutIntervalForResource = 15
-        self.session = URLSession(configuration: config)
-    }
+    private init() {}
 
     // MARK: - Public API
 
@@ -35,17 +29,8 @@ final class CountryInfoService {
         let key = country.lowercased()
         if let cached = cache[key] { return cached }
 
-        guard let encoded = country.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "https://restcountries.com/v3.1/name/\(encoded)?fields=name,flag,currencies,languages,capital,region") else {
-            return nil
-        }
-
         do {
-            let (data, response) = try await session.data(from: url)
-            guard let http = response as? HTTPURLResponse,
-                  (200...299).contains(http.statusCode) else {
-                return nil
-            }
+            let data = try await SupabaseProxy.request(service: "countries", action: "info", params: ["name": country])
 
             let items = try JSONDecoder().decode([RestCountryResponse].self, from: data)
             guard let first = items.first else { return nil }

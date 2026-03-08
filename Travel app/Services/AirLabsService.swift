@@ -25,7 +25,7 @@ final class AirLabsService {
     }
 
     var hasApiKey: Bool {
-        !Secrets.airLabsApiKey.isEmpty
+        true // key is server-side via SupabaseProxy
     }
 
     func fetchFlight(number: String, date: Date? = nil) async -> FlightData? {
@@ -45,16 +45,9 @@ final class AirLabsService {
             return cached
         }
 
-        guard hasApiKey else {
-            lastError = "API-ключ AirLabs не настроен"
-            return nil
-        }
-
         isLoading = true
         lastError = nil
         defer { isLoading = false }
-
-        let key = Secrets.airLabsApiKey
 
         // Only use live schedules for today's flights (±1 day)
         let useSchedules: Bool
@@ -66,14 +59,14 @@ final class AirLabsService {
         }
 
         // 1) Try live schedules first (today's flights with real-time data)
-        if useSchedules, let flight = await fetchFromSchedules(key: key, flightIata: cleaned, date: date) {
+        if useSchedules, let flight = await fetchFromSchedules(flightIata: cleaned, date: date) {
             cachedFlights[cleaned] = flight
             lastFetchDates[cleaned] = Date()
             return flight
         }
 
         // 2) Fallback to routes (static timetable — works for any flight)
-        if let flight = await fetchFromRoutes(key: key, flightIata: cleaned, date: date) {
+        if let flight = await fetchFromRoutes(flightIata: cleaned, date: date) {
             cachedFlights[cleaned] = flight
             lastFetchDates[cleaned] = Date()
             return flight
@@ -98,14 +91,8 @@ final class AirLabsService {
             return cached
         }
 
-        guard hasApiKey else { return nil }
-        let key = Secrets.airLabsApiKey
-
-        guard let url = URL(string: "https://airlabs.co/api/v9/flights?api_key=\(key)&flight_iata=\(cleaned)") else { return nil }
-
         do {
-            let (data, response) = try await session.data(from: url)
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return nil }
+            let data = try await SupabaseProxy.request(service: "airlabs", action: "flights", params: ["flight_iata": cleaned])
 
             let decoded = try JSONDecoder().decode(AirLabsLiveResponse.self, from: data)
             guard let entries = decoded.response, let entry = entries.first else { return nil }
@@ -127,12 +114,9 @@ final class AirLabsService {
 
     // MARK: - Schedules (live data)
 
-    private func fetchFromSchedules(key: String, flightIata: String, date: Date?) async -> FlightData? {
-        guard let url = URL(string: "https://airlabs.co/api/v9/schedules?api_key=\(key)&flight_iata=\(flightIata)") else { return nil }
-
+    private func fetchFromSchedules(flightIata: String, date: Date?) async -> FlightData? {
         do {
-            let (data, response) = try await session.data(from: url)
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return nil }
+            let data = try await SupabaseProxy.request(service: "airlabs", action: "schedules", params: ["flight_iata": flightIata])
 
             let decoded = try JSONDecoder().decode(AirLabsSchedulesResponse.self, from: data)
             guard let entries = decoded.response, !entries.isEmpty else { return nil }
@@ -154,12 +138,9 @@ final class AirLabsService {
 
     // MARK: - Routes (static timetable)
 
-    private func fetchFromRoutes(key: String, flightIata: String, date: Date?) async -> FlightData? {
-        guard let url = URL(string: "https://airlabs.co/api/v9/routes?api_key=\(key)&flight_iata=\(flightIata)") else { return nil }
-
+    private func fetchFromRoutes(flightIata: String, date: Date?) async -> FlightData? {
         do {
-            let (data, response) = try await session.data(from: url)
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return nil }
+            let data = try await SupabaseProxy.request(service: "airlabs", action: "routes", params: ["flight_iata": flightIata])
 
             let decoded = try JSONDecoder().decode(AirLabsRoutesResponse.self, from: data)
             guard let entries = decoded.response, let entry = entries.first else { return nil }

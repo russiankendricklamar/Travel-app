@@ -787,69 +787,42 @@ struct SettingsView: View {
 
     // MARK: - AI Provider Section
 
-    @State private var geminiKey: String = Secrets.geminiApiKey
-    @State private var travelpayoutsKey: String = Secrets.travelpayoutsToken
-
     private var aiProviderSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("GEMINI AI", icon: "diamond.fill")
+            sectionLabel("СЕРВИСЫ", icon: "cloud.fill")
 
-            GlassFormField(label: "GEMINI API KEY (необязательно)", color: AppTheme.bambooGreen) {
-                SecureField("Свой ключ...", text: $geminiKey)
-                    .textFieldStyle(GlassTextFieldStyle())
-                    .onChange(of: geminiKey) { _, newValue in
-                        let trimmed = newValue.trimmingCharacters(in: .whitespaces)
-                        if !trimmed.isEmpty {
-                            Secrets.setGeminiApiKey(trimmed)
-                        } else {
-                            KeychainHelper.delete(key: "geminiApiKey")
-                        }
-                    }
-            }
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.shield.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(
+                        LinearGradient(
+                            colors: [AppTheme.bambooGreen, AppTheme.bambooGreen.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
 
-            if !geminiKey.trimmingCharacters(in: .whitespaces).isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "key.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(AppTheme.bambooGreen)
-                    Text("Свой ключ — прямое подключение")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(AppTheme.bambooGreen)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Облачный прокси")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text("AI, авиабилеты, погода — всё через Supabase")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
                 }
-            } else {
-                HStack(spacing: 6) {
-                    Image(systemName: "cloud.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(AppTheme.sakuraPink)
-                    Text("Облачный прокси — работает везде")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(AppTheme.sakuraPink)
-                }
-            }
 
-            GlassFormField(label: "TRAVELPAYOUTS TOKEN", color: AppTheme.oceanBlue) {
-                SecureField("Token...", text: $travelpayoutsKey)
-                    .textFieldStyle(GlassTextFieldStyle())
-                    .onChange(of: travelpayoutsKey) { _, newValue in
-                        let trimmed = newValue.trimmingCharacters(in: .whitespaces)
-                        if !trimmed.isEmpty {
-                            Secrets.setTravelpayoutsToken(trimmed)
-                        } else {
-                            KeychainHelper.delete(key: "travelpayoutsToken")
-                        }
-                    }
-            }
+                Spacer()
 
-            if !Secrets.travelpayoutsToken.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(AppTheme.bambooGreen)
-                    Text("Токен установлен")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(AppTheme.bambooGreen)
-                }
+                Image(systemName: "cloud.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppTheme.bambooGreen)
             }
+            .padding(10)
+            .background(.thinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
         }
         .padding(AppTheme.spacingM)
         .background(.ultraThinMaterial)
