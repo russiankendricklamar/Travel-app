@@ -9,15 +9,6 @@ enum Secrets {
         Bundle.main.infoDictionary?[key] as? String ?? ""
     }
 
-    static var groqApiKey: String {
-        KeychainHelper.readString(key: "groqApiKey") ?? infoPlistValue("GROQ_API_KEY")
-    }
-
-    static func setGroqApiKey(_ key: String) {
-        KeychainHelper.save(key: "groqApiKey", string: key)
-    }
-
-
     static var airLabsApiKey: String {
         KeychainHelper.readString(key: "airLabsApiKey") ?? infoPlistValue("AIRLABS_API_KEY")
     }
@@ -32,14 +23,6 @@ enum Secrets {
 
     static func setGeminiApiKey(_ key: String) {
         KeychainHelper.save(key: "geminiApiKey", string: key)
-    }
-
-    static var googlePlacesApiKey: String {
-        KeychainHelper.readString(key: "googlePlacesApiKey") ?? infoPlistValue("GOOGLE_PLACES_API_KEY")
-    }
-
-    static func setGooglePlacesApiKey(_ key: String) {
-        KeychainHelper.save(key: "googlePlacesApiKey", string: key)
     }
 
     static var travelpayoutsToken: String {
@@ -71,7 +54,6 @@ enum Secrets {
 
         // Clear stale Keychain keys so xcconfig values take priority
         if !defaults.bool(forKey: "keychainApiKeysMigrated_v2") {
-            KeychainHelper.delete(key: "groqApiKey")
             KeychainHelper.delete(key: "airLabsApiKey")
             defaults.set(true, forKey: "keychainApiKeysMigrated_v2")
         }
@@ -79,8 +61,6 @@ enum Secrets {
         // v3: clear all API keys from Keychain so xcconfig values take priority
         if !defaults.bool(forKey: "keychainApiKeysMigrated_v3") {
             KeychainHelper.delete(key: "geminiApiKey")
-            KeychainHelper.delete(key: "googlePlacesApiKey")
-            KeychainHelper.delete(key: "groqApiKey")
             KeychainHelper.delete(key: "airLabsApiKey")
             defaults.set(true, forKey: "keychainApiKeysMigrated_v3")
         }

@@ -106,6 +106,7 @@ struct AddPlaceSheet: View {
                             onDelete: { photo in
                                 place.photos.removeAll { $0.id == photo.id }
                                 modelContext.delete(photo)
+                                try? modelContext.save()
                             }
                         )
                     }

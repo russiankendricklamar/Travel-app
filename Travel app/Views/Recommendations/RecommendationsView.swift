@@ -161,7 +161,8 @@ struct RecommendationsView: View {
         let city = trip.days.first?.cityName ?? trip.countriesDisplay
         await service.fetchRecommendations(
             city: city,
-            categories: selectedCategories.isEmpty ? Set(allCategories) : selectedCategories
+            categories: selectedCategories.isEmpty ? Set(allCategories) : selectedCategories,
+            tripID: trip.id
         )
     }
 

@@ -91,6 +91,7 @@ struct AddExpenseSheet: View {
                             onDelete: { photo in
                                 expense.photos.removeAll { $0.id == photo.id }
                                 modelContext.delete(photo)
+                                try? modelContext.save()
                             }
                         )
                     }

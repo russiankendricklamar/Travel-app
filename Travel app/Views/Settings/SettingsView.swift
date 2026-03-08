@@ -794,32 +794,36 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("GEMINI AI", icon: "diamond.fill")
 
-            GlassFormField(label: "GEMINI API KEY", color: AppTheme.bambooGreen) {
-                SecureField("AI...", text: $geminiKey)
+            GlassFormField(label: "GEMINI API KEY (необязательно)", color: AppTheme.bambooGreen) {
+                SecureField("Свой ключ...", text: $geminiKey)
                     .textFieldStyle(GlassTextFieldStyle())
                     .onChange(of: geminiKey) { _, newValue in
                         let trimmed = newValue.trimmingCharacters(in: .whitespaces)
-                        if !trimmed.isEmpty { Secrets.setGeminiApiKey(trimmed) }
+                        if !trimmed.isEmpty {
+                            Secrets.setGeminiApiKey(trimmed)
+                        } else {
+                            KeychainHelper.delete(key: "geminiApiKey")
+                        }
                     }
             }
 
-            if GeminiService.shared.hasApiKey {
+            if !geminiKey.trimmingCharacters(in: .whitespaces).isEmpty {
                 HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
+                    Image(systemName: "key.fill")
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.bambooGreen)
-                    Text("Ключ установлен")
+                    Text("Свой ключ — прямое подключение")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(AppTheme.bambooGreen)
                 }
             } else {
                 HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                    Image(systemName: "cloud.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(AppTheme.templeGold)
-                    Text("Введите ключ для работы ИИ")
+                        .foregroundStyle(AppTheme.sakuraPink)
+                    Text("Облачный прокси — работает везде")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(AppTheme.templeGold)
+                        .foregroundStyle(AppTheme.sakuraPink)
                 }
             }
 
@@ -828,7 +832,11 @@ struct SettingsView: View {
                     .textFieldStyle(GlassTextFieldStyle())
                     .onChange(of: travelpayoutsKey) { _, newValue in
                         let trimmed = newValue.trimmingCharacters(in: .whitespaces)
-                        if !trimmed.isEmpty { Secrets.setTravelpayoutsToken(trimmed) }
+                        if !trimmed.isEmpty {
+                            Secrets.setTravelpayoutsToken(trimmed)
+                        } else {
+                            KeychainHelper.delete(key: "travelpayoutsToken")
+                        }
                     }
             }
 
@@ -843,6 +851,13 @@ struct SettingsView: View {
                 }
             }
         }
+        .padding(AppTheme.spacingM)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
     }
 
     // MARK: - Data Section
@@ -910,6 +925,10 @@ struct SettingsView: View {
     private func resetAllData() {
         do {
             try modelContext.delete(model: Trip.self)
+            try modelContext.delete(model: BucketListItem.self)
+            try modelContext.delete(model: OfflineMapCache.self)
+            try modelContext.save()
+            AICacheManager.shared.clearAll()
             UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
         } catch {
             // Silently handle — data reset is best-effort

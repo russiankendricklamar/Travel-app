@@ -1,6 +1,57 @@
 import SwiftUI
 import SwiftData
 import CoreLocation
+import MapKit
+
+enum POICategory: String, CaseIterable, Identifiable {
+    case restaurant
+    case attraction
+    case museum
+    case shopping
+    case cafe
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .restaurant: return String(localized: "Рестораны")
+        case .attraction: return String(localized: "Достопримечательности")
+        case .museum: return String(localized: "Музеи")
+        case .shopping: return String(localized: "Шопинг")
+        case .cafe: return String(localized: "Кафе")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .restaurant: return "fork.knife"
+        case .attraction: return "star.fill"
+        case .museum: return "building.columns"
+        case .shopping: return "bag.fill"
+        case .cafe: return "cup.and.saucer.fill"
+        }
+    }
+
+    var searchQuery: String {
+        switch self {
+        case .restaurant: return "restaurant"
+        case .attraction: return "tourist attraction"
+        case .museum: return "museum"
+        case .shopping: return "shopping"
+        case .cafe: return "cafe"
+        }
+    }
+}
+
+struct POIResult: Identifiable {
+    let id: String
+    let name: String
+    let address: String
+    let latitude: Double
+    let longitude: Double
+    let category: MKPointOfInterestCategory?
+    let distanceMeters: Double?
+}
 
 struct DiscoverNearbyView: View {
     var day: TripDay?
@@ -8,12 +59,10 @@ struct DiscoverNearbyView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    @State private var selectedCategory: GooglePOICategory = .restaurant
+    @State private var selectedCategory: POICategory = .restaurant
     @State private var results: [POIResult] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @State private var showDayPicker = false
-    @State private var addingResult: POIResult?
 
     private var searchCoordinate: CLLocationCoordinate2D? {
         if let coordinate { return coordinate }
@@ -55,9 +104,7 @@ struct DiscoverNearbyView: View {
                     } else {
                         LazyVStack(spacing: AppTheme.spacingS) {
                             ForEach(results) { result in
-                                POIResultCard(result: result, category: selectedCategory) {
-                                    addToItinerary(result)
-                                }
+                                POIResultCard(result: result, categoryIcon: selectedCategory.systemImage, onAdd: day != nil ? { addToItinerary(result) } : nil)
                             }
                         }
                     }
@@ -95,7 +142,7 @@ struct DiscoverNearbyView: View {
     private var categoryChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(GooglePOICategory.allCases) { cat in
+                ForEach(POICategory.allCases) { cat in
                     let isSelected = selectedCategory == cat
                     Button {
                         withAnimation(.spring(response: 0.3)) { selectedCategory = cat }
@@ -129,16 +176,44 @@ struct DiscoverNearbyView: View {
             errorMessage = String(localized: "Нет координат для поиска")
             return
         }
-        guard GooglePlacesService.shared.hasApiKey else {
-            errorMessage = String(localized: "Добавьте Google Places API-ключ в настройках")
-            return
-        }
         isLoading = true
         errorMessage = nil
-        results = await GooglePlacesService.shared.searchNearby(coordinate: coord, category: selectedCategory)
-        if results.isEmpty && GooglePlacesService.shared.errorMessage != nil {
-            errorMessage = GooglePlacesService.shared.errorMessage
+
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = selectedCategory.searchQuery
+        request.region = MKCoordinateRegion(
+            center: coord,
+            span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
+        )
+        request.resultTypes = .pointOfInterest
+
+        do {
+            let search = MKLocalSearch(request: request)
+            let response = try await search.start()
+            let origin = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+
+            results = response.mapItems.prefix(20).map { item in
+                let loc = item.placemark.location
+                let distance = loc.map { origin.distance(from: $0) }
+                return POIResult(
+                    id: UUID().uuidString,
+                    name: item.name ?? "",
+                    address: [item.placemark.thoroughfare, item.placemark.subThoroughfare, item.placemark.locality]
+                        .compactMap { $0 }.joined(separator: ", "),
+                    latitude: item.placemark.coordinate.latitude,
+                    longitude: item.placemark.coordinate.longitude,
+                    category: item.pointOfInterestCategory,
+                    distanceMeters: distance
+                )
+            }.sorted { ($0.distanceMeters ?? 0) < ($1.distanceMeters ?? 0) }
+
+            if results.isEmpty {
+                errorMessage = "Ничего не найдено поблизости"
+            }
+        } catch {
+            errorMessage = "Не удалось выполнить поиск"
         }
+
         isLoading = false
     }
 
@@ -156,7 +231,7 @@ struct DiscoverNearbyView: View {
         try? modelContext.save()
     }
 
-    private func placeCategory(for poiCat: GooglePOICategory) -> PlaceCategory {
+    private func placeCategory(for poiCat: POICategory) -> PlaceCategory {
         switch poiCat {
         case .restaurant, .cafe: return .food
         case .museum: return .culture

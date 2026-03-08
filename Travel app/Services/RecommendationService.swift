@@ -20,7 +20,7 @@ final class RecommendationService {
         GeminiService.shared.hasApiKey
     }
 
-    func fetchRecommendations(city: String, categories: Set<String>, tripCount: Int = 0, bucketItems: [String] = []) async {
+    func fetchRecommendations(city: String, categories: Set<String>, tripID: UUID? = nil, tripCount: Int = 0, bucketItems: [String] = []) async {
         let categoriesKey = categories.sorted().joined(separator: ",")
         let cacheKey = "\(provider.rawValue):\(city.lowercased())|\(categoriesKey)"
 
@@ -68,23 +68,28 @@ final class RecommendationService {
         - Ответ — ТОЛЬКО JSON-массив из 8 объектов, ничего больше
         """
 
+        let aiCacheKey = "ai:recommend:\(city.lowercased())|\(categoriesKey)"
+        if let cached = AICacheManager.shared.get(key: aiCacheKey) {
+            if let parsed = parseRecommendations(from: cached) {
+                recommendations = parsed
+                cache[cacheKey] = parsed
+                return
+            }
+        }
+
         let rawContent = await GeminiService.shared.rawRequest(prompt: prompt)
 
         guard let content = rawContent else {
             let geminiError = GeminiService.shared.lastError ?? "Не удалось получить рекомендации"
-            print("[RecommendationService] rawRequest returned nil — \(geminiError)")
             lastError = geminiError
             return
         }
 
-        print("[RecommendationService] Got response (\(content.count) chars): \(content.prefix(200))...")
-
         if let parsed = parseRecommendations(from: content) {
             recommendations = parsed
             cache[cacheKey] = parsed
-            print("[RecommendationService] Parsed \(parsed.count) recommendations")
+            AICacheManager.shared.set(key: aiCacheKey, response: content, tripID: tripID)
         } else {
-            print("[RecommendationService] PARSE FAILED. Full response:\n\(content)")
             lastError = "Ошибка разбора ответа ИИ"
         }
     }
@@ -116,8 +121,6 @@ final class RecommendationService {
             let items = try JSONDecoder().decode([PlaceRecommendation].self, from: data)
             return items
         } catch {
-            print("[RecommendationService] JSON decode error: \(error)")
-            print("[RecommendationService] Raw JSON: \(cleaned.prefix(500))")
             return nil
         }
     }

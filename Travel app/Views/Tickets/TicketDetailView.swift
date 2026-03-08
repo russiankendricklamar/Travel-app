@@ -53,6 +53,7 @@ struct TicketDetailView: View {
         .confirmationDialog("Удалить билет?", isPresented: $showDeleteConfirmation) {
             Button("Удалить", role: .destructive) {
                 modelContext.delete(ticket)
+                try? modelContext.save()
                 dismiss()
             }
         }

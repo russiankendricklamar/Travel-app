@@ -12,6 +12,7 @@ struct HomeView: View {
     @State private var showProfile = false
     @State private var showProfileSetup = false
     @State private var showAIWizard = false
+    @State private var postTripSheetTripID: UUID?
     // Corporate mode disabled
     // @State private var showModeSwitcher = false
     // @State private var showModeTransition = false
@@ -140,6 +141,18 @@ struct HomeView: View {
                     onComplete: { showProfileSetup = false },
                     onSkip: { showProfileSetup = false }
                 )
+            }
+            .sheet(isPresented: Binding(
+                get: { postTripSheetTripID != nil },
+                set: { if !$0 { postTripSheetTripID = nil } }
+            )) {
+                if let tripID = postTripSheetTripID,
+                   let trip = trips.first(where: { $0.id == tripID }) {
+                    PostTripCacheSheet(trip: trip)
+                }
+            }
+            .onAppear {
+                checkPostTripCache()
             }
             // Corporate mode switcher disabled
             // .overlay {
@@ -445,5 +458,16 @@ struct HomeView: View {
     private func deleteTrip(_ trip: Trip) {
         modelContext.delete(trip)
         try? modelContext.save()
+    }
+
+    private func checkPostTripCache() {
+        guard postTripSheetTripID == nil else { return }
+        for trip in trips where trip.isPast {
+            let cacheKeys = AICacheManager.shared.cachedPlaceNames(for: trip.id)
+            if !cacheKeys.isEmpty {
+                postTripSheetTripID = trip.id
+                return
+            }
+        }
     }
 }

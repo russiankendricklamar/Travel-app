@@ -14,6 +14,7 @@ struct CountryInfo: Codable {
 
 // MARK: - Country Info Service
 
+@MainActor
 @Observable
 final class CountryInfoService {
     static let shared = CountryInfoService()

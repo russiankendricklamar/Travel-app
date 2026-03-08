@@ -273,6 +273,7 @@ struct ExpensesView: View {
                             }
                             Button(role: .destructive) {
                                 modelContext.delete(expense)
+                                try? modelContext.save()
                             } label: {
                                 Label("Удалить", systemImage: "trash")
                             }

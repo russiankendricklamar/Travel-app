@@ -27,6 +27,7 @@ struct ItineraryView: View {
                     .contextMenu {
                         Button(role: .destructive) {
                             modelContext.delete(day)
+                            try? modelContext.save()
                         } label: {
                             Label("Удалить день", systemImage: "trash")
                         }

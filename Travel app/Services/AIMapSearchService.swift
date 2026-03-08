@@ -24,7 +24,7 @@ final class AIMapSearchService {
 
     // MARK: - Public Search
 
-    func search(query: String, city: String, nearCoordinate: CLLocationCoordinate2D?, mapRegion: MKCoordinateRegion? = nil) async {
+    func search(query: String, city: String, nearCoordinate: CLLocationCoordinate2D?, mapRegion: MKCoordinateRegion? = nil, tripID: UUID? = nil) async {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
 
@@ -54,9 +54,7 @@ final class AIMapSearchService {
             return
         }
 
-        let recommendations = await enrichMapItems(mapItems, userQuery: trimmed)
-
-        print("[AIMapSearch] Found \(recommendations.count) real place(s) via MKLocalSearch")
+        let recommendations = await enrichMapItems(mapItems, userQuery: trimmed, tripID: tripID)
 
         results = recommendations
         cache[cacheKey] = recommendations
@@ -65,7 +63,7 @@ final class AIMapSearchService {
     // MARK: - Public Enrichment
 
     /// Converts MKMapItems to PlaceRecommendations, optionally enriching via AI.
-    func enrichMapItems(_ items: [MKMapItem], userQuery: String) async -> [PlaceRecommendation] {
+    func enrichMapItems(_ items: [MKMapItem], userQuery: String, tripID: UUID? = nil) async -> [PlaceRecommendation] {
         var recommendations = items.map { item in
             PlaceRecommendation(
                 name: item.name ?? userQuery,
@@ -79,7 +77,7 @@ final class AIMapSearchService {
         }
 
         if hasApiKey {
-            await enrichWithAI(&recommendations, userQuery: userQuery)
+            await enrichWithAI(&recommendations, userQuery: userQuery, tripID: tripID)
         }
 
         return recommendations
@@ -116,14 +114,13 @@ final class AIMapSearchService {
             let response = try await search.start()
             return Array(response.mapItems.prefix(6))
         } catch {
-            print("[AIMapSearch] MKLocalSearch failed for '\(query)': \(error.localizedDescription)")
             return []
         }
     }
 
     // MARK: - AI Enrichment
 
-    private func enrichWithAI(_ items: inout [PlaceRecommendation], userQuery: String) async {
+    private func enrichWithAI(_ items: inout [PlaceRecommendation], userQuery: String, tripID: UUID? = nil) async {
         let placeNames = items.map { "\($0.name) (\($0.address))" }.joined(separator: "\n")
 
         let profileCtx = AIPromptHelper.profileContext()
@@ -140,11 +137,33 @@ final class AIMapSearchService {
         Ровно \(items.count) записей, тот же порядок. Только JSON, без markdown.
         """
 
+        let aiCacheKey = "ai:mapsearch:\(userQuery.lowercased())"
+        if let cached = AICacheManager.shared.get(key: aiCacheKey),
+           let enrichment = parseEnrichment(from: cached) {
+            for i in items.indices {
+                guard i < enrichment.places.count else { break }
+                let info = enrichment.places[i]
+                if !info.description.isEmpty {
+                    items[i] = PlaceRecommendation(
+                        id: items[i].id,
+                        name: items[i].name,
+                        description: info.description,
+                        category: Self.mapCategory(info.category),
+                        estimatedTime: info.estimatedTime ?? items[i].estimatedTime,
+                        address: items[i].address,
+                        latitude: items[i].latitude,
+                        longitude: items[i].longitude,
+                        localName: info.localName ?? ""
+                    )
+                }
+            }
+            return
+        }
+
         let rawContent = await GeminiService.shared.rawRequest(prompt: prompt)
 
         guard let content = rawContent,
               let enrichment = parseEnrichment(from: content) else {
-            print("[AIMapSearch] AI enrichment failed, using Apple Maps data only")
             return
         }
 
@@ -164,6 +183,10 @@ final class AIMapSearchService {
                     localName: info.localName ?? ""
                 )
             }
+        }
+
+        if let content = rawContent {
+            AICacheManager.shared.set(key: aiCacheKey, response: content, tripID: tripID)
         }
     }
 
@@ -253,7 +276,6 @@ final class AIMapSearchService {
         do {
             return try JSONDecoder().decode(AIEnrichmentResponse.self, from: data)
         } catch {
-            print("[AIMapSearch] Failed to parse AI enrichment: \(error)")
             return nil
         }
     }

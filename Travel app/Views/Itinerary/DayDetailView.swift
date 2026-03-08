@@ -242,6 +242,7 @@ struct DayDetailView: View {
                             }
                             Button(role: .destructive) {
                                 modelContext.delete(event)
+                                try? modelContext.save()
                             } label: {
                                 Label("Удалить", systemImage: "trash")
                             }
@@ -332,6 +333,7 @@ struct DayDetailView: View {
                             }
                             Button(role: .destructive) {
                                 modelContext.delete(place)
+                                try? modelContext.save()
                             } label: {
                                 Label("Удалить", systemImage: "trash")
                             }

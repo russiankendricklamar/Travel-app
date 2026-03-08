@@ -70,7 +70,8 @@ final class PlaceInfoService {
     func fetchInfo(
         placeName: String,
         category: String,
-        city: String? = nil
+        city: String? = nil,
+        tripID: UUID? = nil
     ) async -> PlaceInfo? {
         let cacheKey = "\(provider.rawValue):\(category):\(placeName.lowercased())"
         if let cached = cache[cacheKey] {
@@ -103,6 +104,13 @@ final class PlaceInfoService {
             wikiContext: wikiContext
         )
 
+        let aiCacheKey = "ai:placeinfo:\(category):\(placeName.lowercased())"
+        if let cached = AICacheManager.shared.get(key: aiCacheKey) {
+            let info = parseResponse(cached, category: placeCategory, source: "Cache")
+            cache[cacheKey] = info
+            return info
+        }
+
         let rawContent = await GeminiService.shared.rawRequest(prompt: prompt)
 
         guard let content = rawContent else {
@@ -112,6 +120,7 @@ final class PlaceInfoService {
 
         let info = parseResponse(content, category: placeCategory, source: wikiContext.isEmpty ? provider.label : "Wikipedia + \(provider.label)")
         cache[cacheKey] = info
+        AICacheManager.shared.set(key: aiCacheKey, response: content, tripID: tripID)
         return info
     }
 

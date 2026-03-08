@@ -90,7 +90,7 @@ struct PlaceDTO: Codable {
     let latitude: Double
     let longitude: Double
     let isVisited: Bool
-    let rating: Int
+    let rating: Int?
     let notes: String
     let timeToSpend: String
     let sortOrder: Int
@@ -124,12 +124,12 @@ struct TripEventDTO: Codable {
     let endTime: String?
     let notes: String
     let sortOrder: Int
-    let latitude: Double
-    let longitude: Double
-    let startLatitude: Double
-    let startLongitude: Double
-    let endLatitude: Double
-    let endLongitude: Double
+    let latitude: Double?
+    let longitude: Double?
+    let startLatitude: Double?
+    let startLongitude: Double?
+    let endLatitude: Double?
+    let endLongitude: Double?
     let updatedAt: String
     let isDeleted: Bool
 
@@ -245,8 +245,8 @@ struct JournalEntryDTO: Codable {
     let mood: String
     let timestamp: String
     let isStandalone: Bool
-    let latitude: Double
-    let longitude: Double
+    let latitude: Double?
+    let longitude: Double?
     let updatedAt: String
     let isDeleted: Bool
 
@@ -318,8 +318,8 @@ struct BucketListItemDTO: Codable {
     let destination: String
     let category: String
     let notes: String
-    let latitude: Double
-    let longitude: Double
+    let latitude: Double?
+    let longitude: Double?
     let dateAdded: String
     let isConverted: Bool
     let photoStoragePath: String?

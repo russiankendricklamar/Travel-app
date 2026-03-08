@@ -58,7 +58,7 @@ struct WikipediaService {
 
         do {
             let (data, response) = try await URLSession.shared.data(from: url)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
                 return nil
             }
             let result = try JSONDecoder().decode(SearchResult.self, from: data)
@@ -78,7 +78,7 @@ struct WikipediaService {
 
         do {
             let (data, response) = try await URLSession.shared.data(from: url)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
                 return nil
             }
             let summary = try JSONDecoder().decode(PageSummary.self, from: data)

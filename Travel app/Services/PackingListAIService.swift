@@ -39,9 +39,15 @@ final class PackingListAIService {
         15-20 предметов. Без нумерации, без пояснений.
         """
 
+        let aiCacheKey = "ai:packing:\(trip.id.uuidString)"
+        if let cached = AICacheManager.shared.get(key: aiCacheKey) {
+            return parseSuggestions(cached)
+        }
+
         guard let text = await GeminiService.shared.rawRequest(prompt: prompt) else {
             return defaultSuggestions(duration: duration)
         }
+        AICacheManager.shared.set(key: aiCacheKey, response: text, tripID: trip.id)
         return parseSuggestions(text)
     }
 

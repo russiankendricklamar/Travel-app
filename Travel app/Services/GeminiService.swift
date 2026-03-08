@@ -10,16 +10,28 @@ final class GeminiService {
     var isLoading = false
     var lastError: String?
 
-    private var apiKey: String {
+    private var localApiKey: String {
         Secrets.geminiApiKey
     }
 
+    private var hasLocalApiKey: Bool {
+        !localApiKey.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// Always available: proxy works without a local key
     var hasApiKey: Bool {
-        !apiKey.trimmingCharacters(in: .whitespaces).isEmpty
+        true
+    }
+
+    private var useProxy: Bool {
+        !hasLocalApiKey
     }
 
     private var endpoint: String {
-        "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
+        if useProxy {
+            return "\(Secrets.supabaseURL)/functions/v1/gemini-proxy"
+        }
+        return "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(localApiKey)"
     }
 
     // MARK: - Summarize Wikipedia article
@@ -69,11 +81,6 @@ final class GeminiService {
     func rawRequest(prompt: String) async -> String? {
         lastError = nil
 
-        guard hasApiKey else {
-            lastError = "API-ключ Gemini не задан"
-            return nil
-        }
-
         guard let url = URL(string: endpoint) else {
             lastError = "Некорректный URL Gemini API"
             return nil
@@ -83,6 +90,12 @@ final class GeminiService {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 30
+
+        // Supabase Edge Function proxy auth
+        if useProxy {
+            req.setValue(Secrets.supabaseAnonKey, forHTTPHeaderField: "apikey")
+            req.setValue("Bearer \(Secrets.supabaseAnonKey)", forHTTPHeaderField: "Authorization")
+        }
 
         let body: [String: Any] = [
             "contents": [
@@ -113,7 +126,6 @@ final class GeminiService {
                 } else {
                     lastError = "Ошибка Gemini API: HTTP \(http.statusCode)"
                 }
-                print("[GeminiService] HTTP \(http.statusCode) — \(errorBody.prefix(500))")
                 return nil
             }
 
@@ -132,7 +144,6 @@ final class GeminiService {
                 } else {
                     lastError = "Неожиданный формат ответа Gemini"
                 }
-                print("[GeminiService] unexpected JSON — \(raw.prefix(500))")
                 return nil
             }
 
