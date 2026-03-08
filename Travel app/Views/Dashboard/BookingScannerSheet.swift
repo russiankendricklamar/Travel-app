@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct BookingScannerSheet: View {
     let onFlightsAdded: ([ScannedFlight]) -> Void
+    var onBookingsAdded: (([ScannedBooking]) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     @State private var state: ScanState = .idle
@@ -15,6 +16,8 @@ struct BookingScannerSheet: View {
     @State private var scannedFlights: [ScannedFlight] = []
     @State private var selectedFlightIDs: Set<UUID> = []
     @State private var errorMessage: String?
+    @State private var emailService = EmailScannerService.shared
+    @State private var selectedBookingIDs: Set<UUID> = []
 
     var body: some View {
         NavigationStack {
@@ -89,6 +92,8 @@ struct BookingScannerSheet: View {
                 textInput
             case .pdf:
                 pdfInput
+            case .email:
+                emailSection
             }
         }
     }
@@ -249,6 +254,214 @@ struct BookingScannerSheet: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Email Section
+
+    private var emailSection: some View {
+        VStack(spacing: AppTheme.spacingM) {
+            switch emailService.state {
+            case .idle:
+                emailProviderPicker
+            case .authorizing:
+                VStack(spacing: 16) {
+                    ProgressView().controlSize(.large).tint(AppTheme.sakuraPink)
+                    Text("Авторизация...").font(.system(size: 14, weight: .medium)).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity).padding(.vertical, 60)
+            case .searching:
+                VStack(spacing: 16) {
+                    ProgressView().controlSize(.large).tint(AppTheme.sakuraPink)
+                    Text("Ищем бронирования в почте...").font(.system(size: 14, weight: .medium)).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity).padding(.vertical, 60)
+            case .selectEmails:
+                emailSelectionList
+            case .parsing:
+                VStack(spacing: 16) {
+                    ProgressView().controlSize(.large).tint(AppTheme.sakuraPink)
+                    Text("Распознаю бронирования...").font(.system(size: 14, weight: .medium)).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity).padding(.vertical, 60)
+            case .results:
+                bookingResultsList
+            case .error(let msg):
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle").font(.system(size: 36, weight: .light)).foregroundStyle(AppTheme.toriiRed)
+                    Text(msg).font(.system(size: 14)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Button {
+                        emailService.reset()
+                    } label: {
+                        Text("ПОПРОБОВАТЬ СНОВА").font(.system(size: 11, weight: .bold)).tracking(1)
+                            .foregroundStyle(AppTheme.sakuraPink).padding(.vertical, 12).padding(.horizontal, 24)
+                            .background(.ultraThinMaterial).clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                    }.buttonStyle(.plain)
+                }.frame(maxWidth: .infinity).padding(.vertical, 40)
+            }
+        }
+    }
+
+    private var emailProviderPicker: some View {
+        VStack(spacing: AppTheme.spacingS) {
+            ForEach(EmailScannerService.Provider.allCases, id: \.self) { provider in
+                Button {
+                    Task { await emailService.scan(provider: provider) }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: provider.icon)
+                            .font(.system(size: 24))
+                            .foregroundStyle(provider.color)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(provider.label)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Text("Поиск бронирований за 3 месяца")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(AppTheme.spacingM)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                    .overlay(RoundedRectangle(cornerRadius: AppTheme.radiusMedium).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+                }.buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var emailSelectionList: some View {
+        VStack(spacing: AppTheme.spacingM) {
+            HStack {
+                Text("НАЙДЕННЫЕ ПИСЬМА").font(.system(size: 10, weight: .bold)).tracking(1.5).foregroundStyle(AppTheme.sakuraPink)
+                Spacer()
+                Text("\(emailService.foundEmails.count)").font(.system(size: 12, weight: .bold)).foregroundStyle(AppTheme.sakuraPink)
+                    .padding(.horizontal, 8).padding(.vertical, 2).background(AppTheme.sakuraPink.opacity(0.15)).clipShape(Capsule())
+            }
+
+            ForEach(emailService.foundEmails.indices, id: \.self) { index in
+                let email = emailService.foundEmails[index]
+                Button {
+                    emailService.foundEmails[index].isSelected.toggle()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: email.isSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 22))
+                            .foregroundStyle(email.isSelected ? AnyShapeStyle(AppTheme.sakuraPink) : AnyShapeStyle(.tertiary))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(email.subject).font(.system(size: 14, weight: .medium)).foregroundStyle(.primary).lineLimit(2)
+                            HStack(spacing: 8) {
+                                Text(email.from.components(separatedBy: "<").first?.trimmingCharacters(in: .whitespaces) ?? email.from)
+                                    .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                                Text(email.date.formatted(.dateTime.day().month(.abbreviated)))
+                                    .font(.system(size: 11)).foregroundStyle(.tertiary)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(AppTheme.spacingM).background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                    .overlay(RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                        .stroke(email.isSelected ? AppTheme.sakuraPink.opacity(0.5) : Color.clear, lineWidth: 1))
+                }.buttonStyle(.plain)
+            }
+
+            let selectedCount = emailService.foundEmails.filter(\.isSelected).count
+            HStack(spacing: 12) {
+                Button { emailService.reset() } label: {
+                    Text("ОТМЕНА").font(.system(size: 11, weight: .bold)).tracking(1).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity).padding(.vertical, 14).background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                }.buttonStyle(.plain)
+
+                Button { Task { await emailService.parseSelectedEmails() } } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles").font(.system(size: 14))
+                        Text("РАСПОЗНАТЬ (\(selectedCount))").font(.system(size: 11, weight: .bold)).tracking(1)
+                    }.foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
+                    .background(selectedCount > 0 ? AppTheme.sakuraPink : AppTheme.sakuraPink.opacity(0.4))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                }.buttonStyle(.plain).disabled(selectedCount == 0)
+            }
+        }
+    }
+
+    private var bookingResultsList: some View {
+        VStack(spacing: AppTheme.spacingM) {
+            HStack {
+                Text("БРОНИРОВАНИЯ").font(.system(size: 10, weight: .bold)).tracking(1.5).foregroundStyle(AppTheme.sakuraPink)
+                Spacer()
+                Text("\(emailService.scannedBookings.count)").font(.system(size: 12, weight: .bold)).foregroundStyle(AppTheme.sakuraPink)
+                    .padding(.horizontal, 8).padding(.vertical, 2).background(AppTheme.sakuraPink.opacity(0.15)).clipShape(Capsule())
+            }
+
+            ForEach(emailService.scannedBookings) { booking in
+                let isSelected = selectedBookingIDs.contains(booking.id)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        if isSelected { selectedBookingIDs.remove(booking.id) } else { selectedBookingIDs.insert(booking.id) }
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 22))
+                            .foregroundStyle(isSelected ? AnyShapeStyle(AppTheme.sakuraPink) : AnyShapeStyle(.tertiary))
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Image(systemName: booking.type.icon).font(.system(size: 12)).foregroundStyle(AppTheme.sakuraPink)
+                                Text(booking.title).font(.system(size: 16, weight: .bold, design: .monospaced)).foregroundStyle(.primary)
+                            }
+                            if let subtitle = booking.subtitle {
+                                Text(subtitle).font(.system(size: 12)).foregroundStyle(.secondary)
+                            }
+                            HStack(spacing: 8) {
+                                Text(booking.type.label).font(.system(size: 11, weight: .medium))
+                                    .padding(.horizontal, 6).padding(.vertical, 2).background(AppTheme.sakuraPink.opacity(0.15))
+                                    .clipShape(Capsule()).foregroundStyle(AppTheme.sakuraPink)
+                                if let date = booking.date {
+                                    Text(date.formatted(.dateTime.day().month(.abbreviated).hour().minute()))
+                                        .font(.system(size: 11)).foregroundStyle(.tertiary)
+                                }
+                                if let price = booking.price, let curr = booking.currency {
+                                    Text("\(Int(price)) \(curr)").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(AppTheme.spacingM).background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                    .overlay(RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                        .stroke(isSelected ? AppTheme.sakuraPink.opacity(0.5) : Color.clear, lineWidth: 1))
+                }.buttonStyle(.plain)
+            }
+            .onAppear { selectedBookingIDs = Set(emailService.scannedBookings.map(\.id)) }
+
+            HStack(spacing: 12) {
+                Button { emailService.reset(); selectedBookingIDs = [] } label: {
+                    Text("ЗАНОВО").font(.system(size: 11, weight: .bold)).tracking(1).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity).padding(.vertical, 14).background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                }.buttonStyle(.plain)
+
+                Button {
+                    let selected = emailService.scannedBookings.filter { selectedBookingIDs.contains($0.id) }
+                    let toAdd = selected.isEmpty ? emailService.scannedBookings : selected
+                    let flights = toAdd.compactMap { $0.toScannedFlight() }
+                    let others = toAdd.filter { $0.type != .flight }
+                    if !flights.isEmpty { onFlightsAdded(flights) }
+                    if !others.isEmpty { onBookingsAdded?(others) }
+                    dismiss()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill").font(.system(size: 14))
+                        Text(selectedBookingIDs.isEmpty ? "ДОБАВИТЬ ВСЕ" : "ДОБАВИТЬ (\(selectedBookingIDs.count))")
+                            .font(.system(size: 11, weight: .bold)).tracking(1)
+                    }.foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
+                    .background(AppTheme.sakuraPink).clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                }.buttonStyle(.plain)
+            }
+        }
     }
 
     // MARK: - Processing
@@ -500,7 +713,7 @@ private enum ScanState {
 }
 
 private enum InputMode: CaseIterable {
-    case photo, camera, pdf, text
+    case photo, camera, pdf, text, email
 
     var label: String {
         switch self {
@@ -508,6 +721,7 @@ private enum InputMode: CaseIterable {
         case .camera: return "КАМЕРА"
         case .pdf: return "PDF"
         case .text: return "ТЕКСТ"
+        case .email: return "ПОЧТА"
         }
     }
 
@@ -517,6 +731,7 @@ private enum InputMode: CaseIterable {
         case .camera: return "camera"
         case .pdf: return "doc.richtext"
         case .text: return "doc.text"
+        case .email: return "envelope.fill"
         }
     }
 }
