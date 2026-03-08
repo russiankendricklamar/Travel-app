@@ -788,6 +788,7 @@ struct SettingsView: View {
     // MARK: - AI Provider Section
 
     @State private var geminiKey: String = Secrets.geminiApiKey
+    @State private var travelpayoutsKey: String = Secrets.travelpayoutsToken
 
     private var aiProviderSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -819,6 +820,26 @@ struct SettingsView: View {
                     Text("Введите ключ для работы ИИ")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(AppTheme.templeGold)
+                }
+            }
+
+            GlassFormField(label: "TRAVELPAYOUTS TOKEN", color: AppTheme.oceanBlue) {
+                SecureField("Token...", text: $travelpayoutsKey)
+                    .textFieldStyle(GlassTextFieldStyle())
+                    .onChange(of: travelpayoutsKey) { _, newValue in
+                        let trimmed = newValue.trimmingCharacters(in: .whitespaces)
+                        if !trimmed.isEmpty { Secrets.setTravelpayoutsToken(trimmed) }
+                    }
+            }
+
+            if !Secrets.travelpayoutsToken.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.bambooGreen)
+                    Text("Токен установлен")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(AppTheme.bambooGreen)
                 }
             }
         }

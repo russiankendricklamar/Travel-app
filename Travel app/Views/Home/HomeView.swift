@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var showAllTrips = false
     @State private var showProfile = false
     @State private var showProfileSetup = false
+    @State private var showAIWizard = false
     // Corporate mode disabled
     // @State private var showModeSwitcher = false
     // @State private var showModeTransition = false
@@ -130,6 +131,9 @@ struct HomeView: View {
             .sheet(isPresented: $showProfile) {
                 ProfileDetailView()
             }
+            .fullScreenCover(isPresented: $showAIWizard) {
+                AITripWizardView()
+            }
             .fullScreenCover(isPresented: $showProfileSetup) {
                 ProfileSetupView(
                     initialName: authManager.userName,
@@ -223,6 +227,14 @@ struct HomeView: View {
                 color: AppTheme.sakuraPink
             ) {
                 showCreateSheet = true
+            }
+
+            quickActionButton(
+                icon: "sparkles",
+                label: "AI поездка",
+                color: AppTheme.sakuraPink
+            ) {
+                showAIWizard = true
             }
 
             quickActionButton(
