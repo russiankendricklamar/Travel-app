@@ -34,11 +34,12 @@ final class CurrencyServiceTests: XCTestCase {
     }
 
     func testSupportedCurrencies() {
-        XCTAssertEqual(CurrencyService.supportedCurrencies.count, 4)
+        XCTAssertEqual(CurrencyService.supportedCurrencies.count, 5)
         XCTAssertTrue(CurrencyService.supportedCurrencies.contains("RUB"))
         XCTAssertTrue(CurrencyService.supportedCurrencies.contains("USD"))
         XCTAssertTrue(CurrencyService.supportedCurrencies.contains("JPY"))
         XCTAssertTrue(CurrencyService.supportedCurrencies.contains("CNY"))
+        XCTAssertTrue(CurrencyService.supportedCurrencies.contains("EUR"))
     }
 
     func testSymbolsExist() {

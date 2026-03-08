@@ -20,7 +20,7 @@ struct AddPlaceSheet: View {
 
     // Search
     @State private var searchQuery = ""
-    @State private var searchResults: [MKMapItem] = []
+    @State private var searchResults: [PlaceRecommendation] = []
     @State private var searchTask: Task<Void, Never>?
     @State private var isSearching = false
 
@@ -59,10 +59,6 @@ struct AddPlaceSheet: View {
                         TextField("Название места", text: $name)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
-                    GlassFormField(label: "МЕСТНОЕ НАЗВАНИЕ", color: AppTheme.templeGold) {
-                        TextField("Local name", text: $nameLocal)
-                            .textFieldStyle(GlassTextFieldStyle())
-                    }
                     GlassFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
                         categoryPicker
                     }
@@ -81,10 +77,6 @@ struct AddPlaceSheet: View {
                                 .keyboardType(.decimalPad)
                                 .textFieldStyle(GlassTextFieldStyle())
                         }
-                    }
-                    GlassFormField(label: "ВРЕМЯ НА ПОСЕЩЕНИЕ", color: AppTheme.sakuraPink) {
-                        TextField("1,5 ч", text: $timeToSpend)
-                            .textFieldStyle(GlassTextFieldStyle())
                     }
                     // MARK: - AI Info Button
                     if !name.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -178,7 +170,7 @@ struct AddPlaceSheet: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14))
                     .foregroundStyle(.tertiary)
-                TextField("Поиск места...", text: $searchQuery)
+                TextField("Название, адрес или координаты...", text: $searchQuery)
                     .font(.system(size: 14))
                     .autocorrectionDisabled()
                 if !searchQuery.isEmpty {
@@ -215,11 +207,11 @@ struct AddPlaceSheet: View {
 
             if !searchResults.isEmpty {
                 VStack(spacing: 0) {
-                    ForEach(Array(searchResults.prefix(5).enumerated()), id: \.offset) { _, item in
+                    ForEach(Array(searchResults.prefix(5).enumerated()), id: \.offset) { _, rec in
                         Button {
-                            selectMapItem(item)
+                            selectResult(rec)
                         } label: {
-                            searchResultRow(item)
+                            searchResultRow(rec)
                         }
                         .buttonStyle(.plain)
                     }
@@ -242,20 +234,26 @@ struct AddPlaceSheet: View {
         )
     }
 
-    private func searchResultRow(_ item: MKMapItem) -> some View {
+    private func searchResultRow(_ rec: PlaceRecommendation) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "mappin.circle.fill")
+            Image(systemName: rec.categoryIcon)
                 .font(.system(size: 18))
                 .foregroundStyle(AppTheme.sakuraPink)
+                .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.name ?? "")
+                Text(rec.name)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
-                if let subtitle = formatAddress(item) {
-                    Text(subtitle)
+                if !rec.description.isEmpty {
+                    Text(rec.description)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else if !rec.address.isEmpty {
+                    Text(rec.address)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -338,51 +336,122 @@ struct AddPlaceSheet: View {
         isLoadingAI = false
     }
 
-    // MARK: - Search Logic
+    // MARK: - Smart Search Logic
 
     private func searchPlaces(query: String) async {
         isSearching = true
+        defer { isSearching = false }
 
+        // Detect coordinate input: two numbers separated by comma/space
+        if let coordinate = parseCoordinates(query) {
+            await searchNearCoordinate(coordinate, query: query)
+            return
+        }
+
+        // Standard search: name or address, bound to the day's city
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
-        request.resultTypes = .pointOfInterest
+        request.resultTypes = [.pointOfInterest, .address]
+
+        // Bind to the day's city region
+        if let region = await dayRegion() {
+            request.region = region
+        }
 
         do {
             let search = MKLocalSearch(request: request)
             let response = try await search.start()
-            searchResults = response.mapItems
+            let items = Array(response.mapItems.prefix(6))
+            searchResults = await AIMapSearchService.shared.enrichMapItems(items, userQuery: query)
         } catch {
             searchResults = []
         }
-
-        isSearching = false
     }
 
-    private func selectMapItem(_ item: MKMapItem) {
-        if let itemName = item.name {
-            name = itemName
-        }
-        let coord = item.placemark.coordinate
-        latitude = String(format: "%.6f", coord.latitude)
-        longitude = String(format: "%.6f", coord.longitude)
+    /// Parses "35.6762, 139.6503" or "35.6762 139.6503" into a coordinate.
+    private func parseCoordinates(_ text: String) -> CLLocationCoordinate2D? {
+        let cleaned = text
+            .replacingOccurrences(of: ",", with: " ")
+            .split(separator: " ")
+            .map(String.init)
+            .filter { !$0.isEmpty }
 
-        if let formatted = formatAddress(item) {
-            address = formatted
+        guard cleaned.count == 2,
+              let lat = Double(cleaned[0]),
+              let lon = Double(cleaned[1]),
+              (-90...90).contains(lat),
+              (-180...180).contains(lon) else {
+            return nil
+        }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+
+    /// Searches for POIs near the given coordinate.
+    private func searchNearCoordinate(_ coordinate: CLLocationCoordinate2D, query: String) async {
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = ""
+        request.resultTypes = .pointOfInterest
+        request.region = MKCoordinateRegion(
+            center: coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+        )
+
+        do {
+            let search = MKLocalSearch(request: request)
+            let response = try await search.start()
+            let items = Array(response.mapItems.prefix(6))
+            searchResults = await AIMapSearchService.shared.enrichMapItems(items, userQuery: query)
+        } catch {
+            searchResults = []
+        }
+    }
+
+    /// Returns a map region centered on the day's city.
+    private func dayRegion() async -> MKCoordinateRegion? {
+        // Try to get coordinate from existing places
+        if let firstPlace = day.places.first, firstPlace.latitude != 0 || firstPlace.longitude != 0 {
+            return MKCoordinateRegion(
+                center: firstPlace.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
+            )
         }
 
-        selectedCity = item.placemark.locality
+        // Geocode the day's city name
+        let cityName = day.cityName
+        guard !cityName.isEmpty else { return nil }
+
+        do {
+            let placemarks = try await CLGeocoder().geocodeAddressString(cityName)
+            if let location = placemarks.first?.location {
+                return MKCoordinateRegion(
+                    center: location.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
+                )
+            }
+        } catch {
+            // Geocoding failed, search without region binding
+        }
+
+        return nil
+    }
+
+    // MARK: - Select Result
+
+    private func selectResult(_ rec: PlaceRecommendation) {
+        name = rec.name
+        address = rec.address
+        latitude = String(format: "%.6f", rec.latitude)
+        longitude = String(format: "%.6f", rec.longitude)
+        category = rec.placeCategory
+        nameLocal = rec.localName
+        timeToSpend = rec.estimatedTime
+
+        if !rec.description.isEmpty {
+            notes = rec.description
+        }
 
         searchQuery = ""
         searchResults = []
-    }
-
-    private func formatAddress(_ item: MKMapItem) -> String? {
-        let pm = item.placemark
-        var parts: [String] = []
-        if let subLocality = pm.subLocality { parts.append(subLocality) }
-        if let locality = pm.locality { parts.append(locality) }
-        if let admin = pm.administrativeArea, !parts.contains(admin) { parts.append(admin) }
-        return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 
     // MARK: - Category Picker

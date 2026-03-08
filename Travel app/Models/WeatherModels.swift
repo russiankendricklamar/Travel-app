@@ -151,6 +151,9 @@ enum WeatherRecommendation: CaseIterable {
     case dressWarm
     case drinkWater
     case stormWarning
+    case windyWeather
+    case foggyWeather
+    case enjoyWeather
 
     var labelLocalized: String {
         switch self {
@@ -159,16 +162,22 @@ enum WeatherRecommendation: CaseIterable {
         case .dressWarm: return String(localized: "Оденьтесь теплее")
         case .drinkWater: return String(localized: "Пейте больше воды")
         case .stormWarning: return String(localized: "Ожидается гроза")
+        case .windyWeather: return String(localized: "Сильный ветер")
+        case .foggyWeather: return String(localized: "Ожидается туман")
+        case .enjoyWeather: return String(localized: "Отличная погода для прогулки")
         }
     }
 
     var capsuleColor: Color {
         switch self {
-        case .takeUmbrella: return .blue
+        case .takeUmbrella: return AppTheme.sakuraPink
         case .applySunscreen: return .orange
-        case .dressWarm: return .cyan
+        case .dressWarm: return AppTheme.sakuraPink
         case .drinkWater: return .green
         case .stormWarning: return .red
+        case .windyWeather: return AppTheme.sakuraPink
+        case .foggyWeather: return .gray
+        case .enjoyWeather: return .green
         }
     }
 
@@ -179,16 +188,46 @@ enum WeatherRecommendation: CaseIterable {
         case .dressWarm: return "thermometer.snowflake"
         case .drinkWater: return "drop.fill"
         case .stormWarning: return "cloud.bolt.fill"
+        case .windyWeather: return "wind"
+        case .foggyWeather: return "cloud.fog.fill"
+        case .enjoyWeather: return "sun.max.fill"
         }
     }
 
-    static func recommendations(precip: Int?, uv: Double?, temp: Double?, code: Int?) -> [WeatherRecommendation] {
+    static func recommendations(precip: Int?, uv: Double?, temp: Double?, code: Int?, windSpeed: Double? = nil) -> [WeatherRecommendation] {
         var result: [WeatherRecommendation] = []
-        if let p = precip, p >= 50 { result.append(.takeUmbrella) }
-        if let u = uv, u > 5 { result.append(.applySunscreen) }
-        if let t = temp, t < 5 { result.append(.dressWarm) }
-        if let t = temp, t > 30 { result.append(.drinkWater) }
+
+        // Rain/snow (lowered from 50 to 30)
+        if let p = precip, p >= 30 { result.append(.takeUmbrella) }
+        // Rain/drizzle/snow weather codes even without precip probability
+        if let c = code, [51, 53, 55, 61, 63, 65, 80, 81, 82, 56, 57, 66, 67].contains(c) {
+            if !result.contains(.takeUmbrella) { result.append(.takeUmbrella) }
+        }
+
+        // UV (lowered from 5 to 3)
+        if let u = uv, u >= 3 { result.append(.applySunscreen) }
+
+        // Cold (raised from 5 to 10)
+        if let t = temp, t < 10 { result.append(.dressWarm) }
+
+        // Heat (lowered from 30 to 27)
+        if let t = temp, t > 27 { result.append(.drinkWater) }
+
+        // Thunderstorm
         if let c = code, [95, 96, 99].contains(c) { result.append(.stormWarning) }
+
+        // Windy
+        if let w = windSpeed, w > 10 { result.append(.windyWeather) }
+
+        // Fog
+        if let c = code, [45, 48].contains(c) { result.append(.foggyWeather) }
+
+        // Nice weather — clear/partly cloudy, comfortable temp, no rain
+        if result.isEmpty, let c = code, [0, 1, 2].contains(c),
+           let t = temp, t >= 15 && t <= 27 {
+            result.append(.enjoyWeather)
+        }
+
         return result
     }
 }

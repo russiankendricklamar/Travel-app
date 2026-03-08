@@ -14,6 +14,10 @@ struct WeatherDetailView: View {
     @State private var isLoadingAI = false
     @State private var isLoadingRadar = false
 
+    @AppStorage("notif_weather") private var notifWeather = true
+    @AppStorage("notif_weather_morning_time") private var weatherMorningMinutes = 480
+    @AppStorage("notif_weather_evening_time") private var weatherEveningMinutes = 1260
+
     private var todayForecast: WeatherInfo? {
         weather.forecast(for: Date(), at: coordinate)
     }
@@ -44,6 +48,8 @@ struct WeatherDetailView: View {
                     if !upcomingForecasts.isEmpty {
                         dailyForecastSection
                     }
+
+                    weatherNotificationSection
 
                     Spacer(minLength: 40)
                 }
@@ -142,15 +148,15 @@ struct WeatherDetailView: View {
                     GridItem(.flexible())
                 ], spacing: 10) {
                     if let humidity = weather.currentWeather?.humidity {
-                        detailCard(icon: "humidity.fill", label: "Влажность", value: "\(humidity)%", color: AppTheme.oceanBlue)
+                        detailCard(icon: "humidity.fill", label: "Влажность", value: "\(humidity)%", color: AppTheme.sakuraPink)
                     }
 
                     if let wind = weather.currentWeather?.windSpeed {
-                        detailCard(icon: "wind", label: "Ветер", value: "\(Int(wind)) м/с", color: .teal)
+                        detailCard(icon: "wind", label: "Ветер", value: "\(Int(wind)) м/с", color: AppTheme.sakuraPink)
                     }
 
                     if let precip = today.precipitationProbability, precip > 0 {
-                        detailCard(icon: "drop.fill", label: "Осадки", value: "\(precip)%", color: .blue)
+                        detailCard(icon: "drop.fill", label: "Осадки", value: "\(precip)%", color: AppTheme.sakuraPink)
                     }
 
                     if let uv = today.uvIndexMax {
@@ -344,29 +350,19 @@ struct WeatherDetailView: View {
         }
         if let uv = today?.uvIndexMax { context += "УФ-индекс: \(Int(uv)). " }
 
+        let profileCtx = AIPromptHelper.profileContext()
+
         let prompt = """
         \(context)
+        \(profileCtx)
 
-        Дай 4-5 коротких практических рекомендаций для туриста на сегодня с учётом этой погоды.
-        Каждая рекомендация — одно предложение. Без нумерации. Каждая рекомендация на новой строке.
-        Отвечай на русском.
+        Дай 4-5 коротких практических рекомендаций для туриста на сегодня, СТРОГО привязанных к этой погоде.
+        Каждая рекомендация должна объяснять ПОЧЕМУ именно из-за погоды: что надеть, нужен ли зонт/крем от солнца, какие активности подходят (открытые/закрытые), стоит ли гулять утром или вечером.
+        НЕ рекомендуй конкретные магазины, рестораны или достопримечательности — только советы по погоде и одежде.
+        Каждая рекомендация — одно предложение. Без нумерации. Каждая на новой строке. Русский язык.
         """
 
-        let provider = AIProvider.current
-        var response: String?
-
-        switch provider {
-        case .groq:
-            response = await GroqService.shared.rawRequest(prompt: prompt)
-        case .claude:
-            response = await ClaudeService.shared.rawRequest(prompt: prompt)
-        case .openai:
-            response = await OpenAIService.shared.rawRequest(prompt: prompt)
-        case .gemini:
-            response = await GeminiService.shared.rawRequest(prompt: prompt)
-        }
-
-        if let text = response {
+        if let text = await GeminiService.shared.rawRequest(prompt: prompt) {
             aiRecommendations = text
                 .components(separatedBy: "\n")
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -537,6 +533,105 @@ struct WeatherDetailView: View {
             .frame(height: geo.size.height)
         }
         .frame(height: 4)
+    }
+
+    // MARK: - Weather Notification Settings
+
+    private var weatherMorningTime: Binding<Date> {
+        Binding<Date>(
+            get: {
+                let h = weatherMorningMinutes / 60
+                let m = weatherMorningMinutes % 60
+                return Calendar.current.date(from: DateComponents(hour: h, minute: m)) ?? Date()
+            },
+            set: { newDate in
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                weatherMorningMinutes = (comps.hour ?? 8) * 60 + (comps.minute ?? 0)
+            }
+        )
+    }
+
+    private var weatherEveningTime: Binding<Date> {
+        Binding<Date>(
+            get: {
+                let h = weatherEveningMinutes / 60
+                let m = weatherEveningMinutes % 60
+                return Calendar.current.date(from: DateComponents(hour: h, minute: m)) ?? Date()
+            },
+            set: { newDate in
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                weatherEveningMinutes = (comps.hour ?? 21) * 60 + (comps.minute ?? 0)
+            }
+        )
+    }
+
+    private var weatherNotificationSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            GlassSectionHeader(title: "УВЕДОМЛЕНИЯ", color: AppTheme.oceanBlue)
+
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    Image(systemName: "cloud.sun.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            LinearGradient(
+                                colors: [AppTheme.oceanBlue, AppTheme.oceanBlue.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Прогноз погоды")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        Text("Утром и вечером")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Toggle("", isOn: $notifWeather)
+                        .labelsHidden()
+                        .tint(AppTheme.sakuraPink)
+                }
+
+                if notifWeather {
+                    VStack(spacing: 6) {
+                        HStack {
+                            Text("Утро")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            DatePicker("", selection: weatherMorningTime, displayedComponents: .hourAndMinute)
+                                .labelsHidden()
+                                .tint(AppTheme.oceanBlue)
+                        }
+                        HStack {
+                            Text("Вечер")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            DatePicker("", selection: weatherEveningTime, displayedComponents: .hourAndMinute)
+                                .labelsHidden()
+                                .tint(AppTheme.oceanBlue)
+                        }
+                    }
+                    .padding(.leading, 46)
+                }
+            }
+            .padding(AppTheme.spacingM)
+        }
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+        )
     }
 
     // MARK: - Helpers

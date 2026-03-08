@@ -19,7 +19,9 @@ struct ItineraryView: View {
         NavigationStack {
             List {
                 ForEach(Array(trip.sortedDays.enumerated()), id: \.element.id) { index, day in
-                    NavigationLink(value: day.id) {
+                    ZStack {
+                        NavigationLink(value: day.id) { EmptyView() }
+                            .opacity(0)
                         dayCard(day, index: index)
                     }
                     .contextMenu {

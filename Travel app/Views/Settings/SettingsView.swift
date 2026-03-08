@@ -2,12 +2,13 @@ import SwiftUI
 import SwiftData
 
 struct SettingsView: View {
-    let trip: Trip
+    let trip: Trip?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
     // Palette
     @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
+    // @AppStorage("appMode") private var appMode: String = AppMode.personal.rawValue
 
     // Notifications
     @AppStorage("notif_morning") private var notifMorning = true
@@ -55,13 +56,9 @@ struct SettingsView: View {
     @AppStorage("customRate_JPY") private var customRateJPY: Double = 0.59
     @AppStorage("customRate_USD") private var customRateUSD: Double = 88.0
     @AppStorage("customRate_CNY") private var customRateCNY: Double = 12.2
+    @AppStorage("customRate_EUR") private var customRateEUR: Double = 95.0
+    @AppStorage("customRate_RUB") private var customRateRUB: Double = 0
 
-    // AI Provider
-    @AppStorage("aiProvider") private var aiProvider: String = AIProvider.groq.rawValue
-    @State private var claudeApiKey = Secrets.claudeApiKey
-    @State private var openaiApiKey = Secrets.openaiApiKey
-    @State private var geminiApiKey = Secrets.geminiApiKey
-    @State private var googlePlacesKey = Secrets.googlePlacesApiKey
     @AppStorage("appLanguage") private var appLanguage: String = "system"
     @State private var showResetConfirmation = false
     @State private var showSignOutConfirmation = false
@@ -82,9 +79,8 @@ struct SettingsView: View {
                     notificationSection
                     currencySection
                     exchangeRatesSection
-                    aiProviderSection
-                    googlePlacesSection
                     languageSection
+                    aiProviderSection
                     dataSection
                 }
                 .padding(AppTheme.spacingM)
@@ -305,6 +301,11 @@ struct SettingsView: View {
 
     // MARK: - Palette Section
 
+    // Corporate mode disabled
+    // private var isCorporateMode: Bool {
+    //     AppMode(rawValue: appMode) == .corporate
+    // }
+
     private var paletteSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("ПАЛИТРА", icon: "paintbrush.fill")
@@ -388,23 +389,6 @@ struct SettingsView: View {
                 leadMinutes: $eventLeadMinutes
             )
             notifToggle(
-                title: "Бюджет",
-                subtitle: "Когда потрачено > 80%",
-                icon: "rublesign.circle.fill",
-                color: AppTheme.toriiRed,
-                isOn: $notifBudget
-            )
-            notifToggleWithTwoTimes(
-                title: "Прогноз погоды",
-                icon: "cloud.sun.fill",
-                color: AppTheme.oceanBlue,
-                isOn: $notifWeather,
-                morningTime: weatherMorningTime,
-                eveningTime: weatherEveningTime
-            )
-            liveActivityToggle
-
-            notifToggle(
                 title: "Уведомления о местах",
                 subtitle: "Когда вы рядом с запланированным местом",
                 icon: "location.circle.fill",
@@ -417,7 +401,7 @@ struct SettingsView: View {
                     title: "Авто-отметка посещения",
                     subtitle: "Автоматически отмечать место посещённым",
                     icon: "checkmark.circle.fill",
-                    color: AppTheme.oceanBlue,
+                    color: AppTheme.sakuraPink,
                     isOn: $geofenceAutomark
                 )
             }
@@ -485,17 +469,26 @@ struct SettingsView: View {
         }
     }
 
+    @State private var showCustomLeadPicker = false
+    @State private var customLeadValue = ""
+
     private func notifToggleWithPicker(title: LocalizedStringKey, icon: String, color: Color, isOn: Binding<Bool>, leadMinutes: Binding<Int>) -> some View {
-        VStack(spacing: 0) {
-            notifToggle(title: title, subtitle: "За \(leadMinutes.wrappedValue) мин до начала", icon: icon, color: color, isOn: isOn)
+        let presets = [60, 120]
+        let isCustom = !presets.contains(leadMinutes.wrappedValue)
+        let subtitleText = leadMinutes.wrappedValue >= 60
+            ? "За \(leadMinutes.wrappedValue / 60) ч до начала"
+            : "За \(leadMinutes.wrappedValue) мин до начала"
+
+        return VStack(spacing: 0) {
+            notifToggle(title: title, subtitle: "\(subtitleText)", icon: icon, color: color, isOn: isOn)
             if isOn.wrappedValue {
                 HStack(spacing: 8) {
-                    ForEach([15, 30, 60], id: \.self) { mins in
+                    ForEach(presets, id: \.self) { mins in
                         let selected = leadMinutes.wrappedValue == mins
                         Button {
                             withAnimation(.spring(response: 0.3)) { leadMinutes.wrappedValue = mins }
                         } label: {
-                            Text("\(mins) мин")
+                            Text(mins >= 60 ? "\(mins / 60) ч" : "\(mins) мин")
                                 .font(.system(size: 12, weight: .bold))
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
@@ -506,10 +499,36 @@ struct SettingsView: View {
                                 .overlay(Capsule().stroke(selected ? color.opacity(0.5) : Color.white.opacity(0.2), lineWidth: 0.5))
                         }
                     }
+                    Button {
+                        customLeadValue = "\(leadMinutes.wrappedValue)"
+                        showCustomLeadPicker = true
+                    } label: {
+                        Text(isCustom ? "\(leadMinutes.wrappedValue) мин" : "Своё")
+                            .font(.system(size: 12, weight: .bold))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .foregroundStyle(isCustom ? .white : .secondary)
+                            .background(isCustom ? color : .clear)
+                            .background { if !isCustom { Color.clear.background(.ultraThinMaterial) } }
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(isCustom ? color.opacity(0.5) : Color.white.opacity(0.2), lineWidth: 0.5))
+                    }
                     Spacer()
                 }
                 .padding(10)
             }
+        }
+        .alert("Своё время", isPresented: $showCustomLeadPicker) {
+            TextField("Минуты", text: $customLeadValue)
+                .keyboardType(.numberPad)
+            Button("Сохранить") {
+                if let val = Int(customLeadValue), val > 0 {
+                    leadMinutes.wrappedValue = val
+                }
+            }
+            Button("Отмена", role: .cancel) {}
+        } message: {
+            Text("Введите количество минут до начала события")
         }
     }
 
@@ -542,46 +561,6 @@ struct SettingsView: View {
         }
     }
 
-    private var liveActivityToggle: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "bell.badge.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 34, height: 34)
-                .background(
-                    LinearGradient(
-                        colors: [AppTheme.indigoPurple, AppTheme.indigoPurple.opacity(0.7)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Live Activity")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Text("Dynamic Island + Lock Screen")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Toggle("", isOn: $liveActivityEnabled)
-                .labelsHidden()
-                .tint(AppTheme.sakuraPink)
-                .onChange(of: liveActivityEnabled) { _, enabled in
-                    if !enabled {
-                        LiveActivityManager.shared.endAllActivities()
-                    }
-                }
-        }
-        .padding(10)
-        .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-    }
-
     private func formatTimeMinutes(_ date: Date) -> String {
         let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
         return String(format: "%d:%02d", comps.hour ?? 0, comps.minute ?? 0)
@@ -599,7 +578,7 @@ struct SettingsView: View {
                 }
             }
 
-            Text("Для отображения сумм. Хранение в RUB.")
+            Text("Базовая валюта для хранения и отображения")
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 4)
@@ -618,6 +597,8 @@ struct SettingsView: View {
         let symbols = CurrencyService.symbols
         return Button {
             withAnimation(.spring(response: 0.3)) { currency = code }
+            CurrencyService.shared.invalidateCache()
+            Task { await CurrencyService.shared.fetchRates() }
         } label: {
             VStack(spacing: 4) {
                 Text(symbols[code] ?? code)
@@ -662,9 +643,9 @@ struct SettingsView: View {
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
 
             if useCustomRates {
-                customRateRow("JPY", binding: $customRateJPY)
-                customRateRow("USD", binding: $customRateUSD)
-                customRateRow("CNY", binding: $customRateCNY)
+                ForEach(nonBaseCurrencies, id: \.self) { code in
+                    customRateRow(code, binding: customRateBinding(for: code))
+                }
             } else {
                 apiRatesView
             }
@@ -683,6 +664,21 @@ struct SettingsView: View {
         }
     }
 
+    private var nonBaseCurrencies: [String] {
+        CurrencyService.supportedCurrencies.filter { $0 != currency }
+    }
+
+    private func customRateBinding(for code: String) -> Binding<Double> {
+        switch code {
+        case "JPY": return $customRateJPY
+        case "USD": return $customRateUSD
+        case "CNY": return $customRateCNY
+        case "EUR": return $customRateEUR
+        case "RUB": return $customRateRUB
+        default: return .constant(0)
+        }
+    }
+
     private func customRateRow(_ code: String, binding: Binding<Double>) -> some View {
         HStack(spacing: 8) {
             Text("1 \(code)")
@@ -695,7 +691,7 @@ struct SettingsView: View {
                 .keyboardType(.decimalPad)
                 .textFieldStyle(GlassTextFieldStyle())
                 .frame(maxWidth: 100)
-            Text("RUB")
+            Text(currency)
                 .font(.system(size: 11, weight: .bold))
                 .tracking(1)
                 .foregroundStyle(.secondary)
@@ -709,14 +705,14 @@ struct SettingsView: View {
     private var apiRatesView: some View {
         let svc = CurrencyService.shared
         return VStack(spacing: 6) {
-            ForEach(["JPY", "USD", "CNY"], id: \.self) { code in
-                let rubPer = svc.rubPerUnit(of: code)
+            ForEach(nonBaseCurrencies, id: \.self) { code in
+                let basePerUnit = svc.basePerUnit(of: code)
                 HStack {
                     Text("1 \(code)")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
                     Spacer()
-                    Text(rubPer > 0 ? "\u{20BD}\(String(format: "%.2f", rubPer))" : "—")
+                    Text(basePerUnit > 0 ? "\(CurrencyService.baseCurrencySymbol)\(String(format: "%.2f", basePerUnit))" : "—")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(AppTheme.templeGold)
                 }
@@ -755,143 +751,6 @@ struct SettingsView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
     }
 
-    // MARK: - AI Provider Section
-
-    private var selectedProvider: AIProvider {
-        AIProvider(rawValue: aiProvider) ?? .groq
-    }
-
-    private var aiProviderSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("ИИ-ПОМОЩНИК", icon: "sparkles")
-
-            HStack(spacing: 8) {
-                ForEach(AIProvider.allCases) { provider in
-                    aiProviderButton(provider)
-                }
-            }
-
-            if selectedProvider == .claude {
-                aiKeyField(
-                    title: "Claude API-ключ",
-                    hint: "sk-ant-...",
-                    url: "console.anthropic.com",
-                    binding: $claudeApiKey
-                )
-            }
-
-            if selectedProvider == .openai {
-                aiKeyField(
-                    title: "OpenAI API-ключ",
-                    hint: "sk-...",
-                    url: "platform.openai.com",
-                    binding: $openaiApiKey
-                )
-            }
-
-            if selectedProvider == .gemini {
-                aiKeyField(
-                    title: "Gemini API-ключ",
-                    hint: "AIza...",
-                    url: "aistudio.google.com/apikey",
-                    binding: $geminiApiKey
-                )
-            }
-        }
-        .padding(AppTheme.spacingM)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
-        .onChange(of: claudeApiKey) { _, newValue in
-            Secrets.setClaudeApiKey(newValue)
-        }
-        .onChange(of: openaiApiKey) { _, newValue in
-            Secrets.setOpenaiApiKey(newValue)
-        }
-        .onChange(of: geminiApiKey) { _, newValue in
-            Secrets.setGeminiApiKey(newValue)
-        }
-    }
-
-    private func aiProviderButton(_ provider: AIProvider) -> some View {
-        let isSelected = selectedProvider == provider
-        return Button {
-            withAnimation(.spring(response: 0.3)) {
-                aiProvider = provider.rawValue
-                PlaceInfoService.shared.clearCache()
-            }
-        } label: {
-            VStack(spacing: 6) {
-                Image(systemName: provider.icon)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(isSelected ? .white : .primary)
-
-                Text(provider.label)
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(0.5)
-                    .foregroundStyle(isSelected ? .white : .primary)
-
-                Text(provider.subtitle)
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(isSelected ? Color.white.opacity(0.7) : Color.secondary.opacity(0.6))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(isSelected ? AppTheme.indigoPurple : Color.clear)
-            .background(.thinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                    .stroke(isSelected ? AppTheme.indigoPurple : Color.white.opacity(0.15), lineWidth: isSelected ? 1.5 : 0.5)
-            )
-        }
-    }
-
-    private func aiKeyField(title: String, hint: String, url: String, binding: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SecureField(hint, text: binding)
-                .font(.system(size: 13, design: .monospaced))
-                .textFieldStyle(GlassTextFieldStyle())
-
-            Text("Получить ключ: \(url)")
-                .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
-                .padding(.horizontal, 4)
-        }
-    }
-
-    // MARK: - Google Places Section
-
-    private var googlePlacesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("ПОИСК МЕСТ", icon: "location.magnifyingglass")
-
-            VStack(alignment: .leading, spacing: 8) {
-                SecureField("Google Places API-ключ", text: $googlePlacesKey)
-                    .font(.system(size: 13, design: .monospaced))
-                    .textFieldStyle(GlassTextFieldStyle())
-                    .onChange(of: googlePlacesKey) { _, newValue in
-                        Secrets.setGooglePlacesApiKey(newValue)
-                    }
-
-                Text("console.cloud.google.com → Places API (New)")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 4)
-            }
-        }
-        .padding(AppTheme.spacingM)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
-    }
-
     // MARK: - Language Section
 
     private var languageSection: some View {
@@ -904,6 +763,7 @@ struct SettingsView: View {
                 Text("English").tag("en")
             }
             .pickerStyle(.segmented)
+            .tint(AppTheme.sakuraPink)
             .onChange(of: appLanguage) { _, newValue in
                 if newValue == "system" {
                     UserDefaults.standard.removeObject(forKey: "AppleLanguages")
@@ -923,6 +783,45 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
                 .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
         )
+    }
+
+    // MARK: - AI Provider Section
+
+    @State private var geminiKey: String = Secrets.geminiApiKey
+
+    private var aiProviderSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("GEMINI AI", icon: "diamond.fill")
+
+            GlassFormField(label: "GEMINI API KEY", color: AppTheme.bambooGreen) {
+                SecureField("AI...", text: $geminiKey)
+                    .textFieldStyle(GlassTextFieldStyle())
+                    .onChange(of: geminiKey) { _, newValue in
+                        let trimmed = newValue.trimmingCharacters(in: .whitespaces)
+                        if !trimmed.isEmpty { Secrets.setGeminiApiKey(trimmed) }
+                    }
+            }
+
+            if GeminiService.shared.hasApiKey {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.bambooGreen)
+                    Text("Ключ установлен")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(AppTheme.bambooGreen)
+                }
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.templeGold)
+                    Text("Введите ключ для работы ИИ")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(AppTheme.templeGold)
+                }
+            }
+        }
     }
 
     // MARK: - Data Section

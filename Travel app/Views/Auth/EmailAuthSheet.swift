@@ -23,6 +23,7 @@ struct EmailAuthSheet: View {
                         Text("Регистрация").tag(true)
                     }
                     .pickerStyle(.segmented)
+                    .tint(AppTheme.sakuraPink)
 
                     // Fields
                     VStack(spacing: 14) {

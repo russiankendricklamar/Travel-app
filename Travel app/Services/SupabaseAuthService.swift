@@ -72,6 +72,80 @@ final class SupabaseAuthService {
         try await client.auth.session(from: callbackURL)
     }
 
+    // MARK: - Yandex Sign In (OAuth via ASWebAuthenticationSession)
+
+    func signInWithYandex() async throws {
+        let clientID = Secrets.yandexClientID
+        guard !clientID.isEmpty else {
+            throw AuthError.missingToken
+        }
+
+        let authURL = URL(string: "https://oauth.yandex.ru/authorize?response_type=code&client_id=\(clientID)&redirect_uri=\(Self.oauthCallbackScheme)://yandex-callback&force_confirm=yes")!
+
+        let callbackURL: URL = try await withCheckedThrowingContinuation { continuation in
+            let session = ASWebAuthenticationSession(
+                url: authURL,
+                callbackURLScheme: Self.oauthCallbackScheme
+            ) { callbackURL, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let callbackURL else {
+                    continuation.resume(throwing: AuthError.missingToken)
+                    return
+                }
+                continuation.resume(returning: callbackURL)
+            }
+            session.presentationContextProvider = self.contextProvider
+            session.prefersEphemeralWebBrowserSession = false
+            session.start()
+        }
+
+        // Extract code from callback
+        guard let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
+              let code = components.queryItems?.first(where: { $0.name == "code" })?.value else {
+            throw AuthError.missingToken
+        }
+
+        // Exchange code for token
+        let tokenURL = URL(string: "https://oauth.yandex.ru/token")!
+        var tokenRequest = URLRequest(url: tokenURL)
+        tokenRequest.httpMethod = "POST"
+        tokenRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        let clientSecret = Secrets.yandexClientSecret
+        let bodyString = "grant_type=authorization_code&code=\(code)&client_id=\(clientID)&client_secret=\(clientSecret)"
+        tokenRequest.httpBody = bodyString.data(using: .utf8)
+
+        let (tokenData, _) = try await URLSession.shared.data(for: tokenRequest)
+        guard let tokenJSON = try? JSONSerialization.jsonObject(with: tokenData) as? [String: Any],
+              let accessToken = tokenJSON["access_token"] as? String else {
+            throw AuthError.missingToken
+        }
+
+        // Fetch Yandex user info
+        var infoRequest = URLRequest(url: URL(string: "https://login.yandex.ru/info?format=json")!)
+        infoRequest.setValue("OAuth \(accessToken)", forHTTPHeaderField: "Authorization")
+        let (infoData, _) = try await URLSession.shared.data(for: infoRequest)
+        guard let userInfo = try? JSONSerialization.jsonObject(with: infoData) as? [String: Any],
+              let email = userInfo["default_email"] as? String else {
+            throw AuthError.missingToken
+        }
+
+        let name = userInfo["display_name"] as? String ?? userInfo["real_name"] as? String ?? ""
+
+        // Sign into Supabase with email — try sign-in first, then sign-up
+        do {
+            try await client.auth.signIn(email: email, password: "yandex_oauth_\(accessToken.prefix(32))")
+        } catch {
+            try await client.auth.signUp(
+                email: email,
+                password: "yandex_oauth_\(accessToken.prefix(32))",
+                data: ["full_name": .string(name), "provider": .string("yandex")]
+            )
+        }
+    }
+
     // MARK: - Email Sign In
 
     func signInWithEmail(email: String, password: String) async throws {

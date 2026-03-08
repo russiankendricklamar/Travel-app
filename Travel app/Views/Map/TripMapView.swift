@@ -8,7 +8,12 @@ struct TripMapView: View {
     @Query var offlineCaches: [OfflineMapCache]
     @State private var selectedPlaceID: Place.ID?
     @State private var showRoutes = true
+    @State private var showPlaces = true
+    @State private var showTrainRoutes = true
+    @State private var showFlightArcs = true
+    @State private var showFilterPanel = false
     @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var hasSetInitialCamera = false
     @State private var visibleRegion: MKCoordinateRegion?
     @State private var showDiscoverNearby = false
     #if !targetEnvironment(simulator)
@@ -28,9 +33,25 @@ struct TripMapView: View {
     @State private var selectedAIResult: PlaceRecommendation?
     @State private var showDayPickerForAI: PlaceRecommendation?
 
+    // Apple Maps info
+    @State private var appleMapsInfo: AppleMapsPlaceInfo?
+    @State private var isLoadingInfo = false
+    @State private var showAppleMapsDetail = false
+
+    // Routing
+    @State private var activeRoute: RouteResult?
+    @State private var selectedTransportMode: TransportMode = .walking
+    @State private var routeFromCurrentLocation = true
+    @State private var routeOriginPlaceID: Place.ID?
+    @State private var isCalculatingRoute = false
+    @State private var routeError: String?
+    @State private var isNotesExpanded = false
+
     // Precipitation overlay
     @State private var showPrecipitation = false
     @State private var isLoadingRadar = false
+    @State private var flightArcs: [FlightArc] = []
+    @State private var trainRoutes: [TrainRoute] = []
 
     private var allPlaces: [Place] {
         trip.allPlaces
@@ -56,6 +77,11 @@ struct TripMapView: View {
         return allPlaces.first { $0.id == id }
     }
 
+    private var routeOriginPlace: Place? {
+        guard let id = routeOriginPlaceID else { return nil }
+        return allPlaces.first { $0.id == id }
+    }
+
     private var isOfflineWithCache: Bool {
         !OfflineCacheManager.shared.isOnline && !cachedSnapshotsForTrip.isEmpty
     }
@@ -65,17 +91,26 @@ struct TripMapView: View {
             ZStack(alignment: .bottom) {
                 if isOfflineWithCache {
                     offlineSnapshotGallery
+                } else if showPrecipitation {
+                    RadarOverlayView(
+                        places: allPlaces,
+                        initialCenter: allPlaces.first?.coordinate,
+                        isLoading: $isLoadingRadar
+                    )
+                    .ignoresSafeArea(edges: .all)
                 } else {
                 Map(position: $cameraPosition, selection: $selectedPlaceID) {
-                    ForEach(allPlaces) { place in
-                        Annotation(
-                            place.name,
-                            coordinate: place.coordinate,
-                            anchor: .bottom
-                        ) {
-                            placePin(place)
+                    if showPlaces {
+                        ForEach(allPlaces) { place in
+                            Annotation(
+                                place.name,
+                                coordinate: place.coordinate,
+                                anchor: .bottom
+                            ) {
+                                placePin(place)
+                            }
+                            .tag(place.id)
                         }
-                        .tag(place.id)
                     }
 
                     if showRoutes {
@@ -84,7 +119,45 @@ struct TripMapView: View {
                             let coords = sortedPoints.map(\.coordinate)
                             if coords.count >= 2 {
                                 MapPolyline(coordinates: coords)
-                                    .stroke(routeColor(for: day), lineWidth: 3)
+                                    .stroke(routeColor(for: day), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                            }
+                        }
+                    }
+
+                    if showTrainRoutes {
+                        ForEach(trainRoutes) { train in
+                            MapPolyline(coordinates: train.polyline)
+                                .stroke(Color.orange, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                            Annotation("", coordinate: train.midpoint, anchor: .center) {
+                                Image(systemName: "tram.fill")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(4)
+                                    .background(Color.orange)
+                                    .clipShape(Circle())
+                                    .shadow(color: .black.opacity(0.4), radius: 3)
+                            }
+                        }
+                    }
+
+                    // Calculated direction route (always visible when active)
+                    if let route = activeRoute {
+                        MapPolyline(coordinates: route.polyline)
+                            .stroke(route.mode.color, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                    }
+
+                    if showFlightArcs {
+                        ForEach(flightArcs) { arc in
+                            MapPolyline(coordinates: arc.points)
+                                .stroke(.white.opacity(0.85), lineWidth: 2)
+                        }
+                        ForEach(flightArcs) { arc in
+                            Annotation("", coordinate: arc.midpoint, anchor: .center) {
+                                Image(systemName: "airplane")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .rotationEffect(.degrees(arc.bearing - 45))
+                                    .shadow(color: .black.opacity(0.5), radius: 3)
                             }
                         }
                     }
@@ -129,8 +202,13 @@ struct TripMapView: View {
                 }
 
                 VStack(spacing: 0) {
-                    if !daysWithRoutes.isEmpty {
+                    if !daysWithRoutes.isEmpty && activeRoute == nil {
                         routeStatsBar
+                    }
+
+                    if let route = activeRoute {
+                        routeInfoCard(route)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
 
                     if let rec = selectedAIResult {
@@ -147,10 +225,22 @@ struct TripMapView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("КАРТА")
-                        .font(.system(size: 14, weight: .bold))
-                        .tracking(4)
-                        .foregroundStyle(AppTheme.sakuraPink)
+                    if showPrecipitation {
+                        HStack(spacing: 6) {
+                            Image(systemName: "cloud.rain.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(AppTheme.oceanBlue)
+                            Text("ОСАДКИ")
+                                .font(.system(size: 14, weight: .bold))
+                                .tracking(4)
+                                .foregroundStyle(AppTheme.oceanBlue)
+                        }
+                    } else {
+                        Text("КАРТА")
+                            .font(.system(size: 14, weight: .bold))
+                            .tracking(4)
+                            .foregroundStyle(AppTheme.sakuraPink)
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -168,51 +258,59 @@ struct TripMapView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button {
-                            zoomToAll()
-                        } label: {
-                            Label("Показать все", systemImage: "map")
-                        }
-
-                        Divider()
-
-                        ForEach(uniqueCities, id: \.self) { city in
-                            Button {
-                                zoomToCity(city)
-                            } label: {
-                                Label(city, systemImage: "building.2")
+                        // Layers section
+                        Section("Слои") {
+                            Toggle(isOn: $showPlaces) {
+                                Label("Места", systemImage: "mappin.and.ellipse")
+                            }
+                            Toggle(isOn: $showRoutes) {
+                                Label("GPS-треки", systemImage: "figure.walk")
+                            }
+                            if !trainRoutes.isEmpty {
+                                Toggle(isOn: $showTrainRoutes) {
+                                    Label("Поезда", systemImage: "tram.fill")
+                                }
+                            }
+                            if !flightArcs.isEmpty {
+                                Toggle(isOn: $showFlightArcs) {
+                                    Label("Перелёты", systemImage: "airplane")
+                                }
                             }
                         }
 
-                        if !daysWithRoutes.isEmpty {
-                            Divider()
+                        Section {
                             Button {
-                                showRoutes.toggle()
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showPrecipitation.toggle()
+                                }
                             } label: {
                                 Label(
-                                    showRoutes ? "Скрыть маршруты" : "Показать маршруты",
-                                    systemImage: showRoutes ? "eye.slash" : "eye"
+                                    showPrecipitation ? "Скрыть осадки" : "Карта осадков",
+                                    systemImage: showPrecipitation ? "cloud.rain.fill" : "cloud.rain"
                                 )
                             }
-                        }
 
-                        Divider()
-
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showPrecipitation.toggle()
+                            Button {
+                                showDiscoverNearby = true
+                            } label: {
+                                Label("Обзор", systemImage: "location.magnifyingglass")
                             }
-                        } label: {
-                            Label(
-                                showPrecipitation ? "Скрыть осадки" : "Карта осадков",
-                                systemImage: showPrecipitation ? "cloud.rain.fill" : "cloud.rain"
-                            )
                         }
 
-                        Button {
-                            showDiscoverNearby = true
-                        } label: {
-                            Label("Обзор", systemImage: "location.magnifyingglass")
+                        Section("Навигация") {
+                            Button {
+                                zoomToAll()
+                            } label: {
+                                Label("Показать все", systemImage: "map")
+                            }
+
+                            ForEach(uniqueCities, id: \.self) { city in
+                                Button {
+                                    zoomToCity(city)
+                                } label: {
+                                    Label(city, systemImage: "building.2")
+                                }
+                            }
                         }
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle.fill")
@@ -228,6 +326,25 @@ struct TripMapView: View {
             #endif
             .onAppear {
                 LocationManager.shared.requestPermission()
+                setInitialCamera()
+            }
+            .task {
+                if !hasSetInitialCamera {
+                    await geocodeCountryCamera()
+                }
+                await loadFlightArcs()
+                await loadTrainRoutes()
+            }
+            .task(id: selectedPlaceID) {
+                appleMapsInfo = nil
+                activeRoute = nil
+                guard let place = selectedPlace else { return }
+                isLoadingInfo = true
+                appleMapsInfo = await AppleMapsInfoService.shared.fetchInfo(
+                    name: place.name,
+                    coordinate: place.coordinate
+                )
+                isLoadingInfo = false
             }
             .onChange(of: searchQuery) { _, newValue in
                 guard !isAISearchMode else { return }
@@ -250,6 +367,11 @@ struct TripMapView: View {
             }
             .sheet(item: $showDayPickerForAI) { rec in
                 DayPickerSheet(trip: trip, recommendation: rec)
+            }
+            .sheet(isPresented: $showAppleMapsDetail) {
+                if #available(iOS 18.0, *), let mapItem = appleMapsInfo?.mapItem {
+                    MapItemDetailView(mapItem: mapItem)
+                }
             }
         }
     }
@@ -394,12 +516,13 @@ struct TripMapView: View {
     }
 
     private func routeColor(for day: TripDay) -> Color {
+        // High-contrast colors that stand out on map tiles
         let dayColors: [Color] = [
             AppTheme.sakuraPink,
-            AppTheme.oceanBlue,
-            AppTheme.bambooGreen,
-            AppTheme.templeGold,
-            AppTheme.toriiRed,
+            .red,
+            .brown,
+            .green,
+            .orange,
         ]
         guard let index = trip.sortedDays.firstIndex(where: { $0.id == day.id }) else {
             return AppTheme.sakuraPink
@@ -968,19 +1091,17 @@ struct TripMapView: View {
         let categoryColor = AppTheme.categoryColor(for: place.category.rawValue)
 
         return VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+            // Header: name + localName + close
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(place.name)
                         .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(.primary)
-
                     Text(place.nameLocal)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.tertiary)
                 }
-
                 Spacer()
-
                 Button {
                     selectedPlaceID = nil
                 } label: {
@@ -993,9 +1114,9 @@ struct TripMapView: View {
                 }
             }
 
+            // Category + visited + rating
             HStack(spacing: AppTheme.spacingS) {
                 CategoryBadge(category: place.category)
-
                 if place.isVisited {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
@@ -1010,13 +1131,37 @@ struct TripMapView: View {
                     .background(AppTheme.bambooGreen.opacity(0.1))
                     .clipShape(Capsule())
                 }
-
                 if let rating = place.rating {
                     StarRatingView(rating: rating)
                 }
             }
 
-            if !place.address.isEmpty {
+            // Address — local + English
+            if isLoadingInfo {
+                HStack(spacing: 6) {
+                    ProgressView().scaleEffect(0.7)
+                    Text("Загрузка...")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+            } else if let info = appleMapsInfo {
+                if let localAddr = info.localAddress {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(localAddr)
+                            .font(.system(size: 12, weight: .medium))
+                            .lineLimit(2)
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                if let engAddr = info.englishAddress, engAddr != info.localAddress {
+                    Text(engAddr)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, 15)
+                }
+            } else if !place.address.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "mappin.circle.fill")
                         .font(.system(size: 11, weight: .bold))
@@ -1026,29 +1171,169 @@ struct TripMapView: View {
                 .foregroundStyle(.secondary)
             }
 
-            #if !targetEnvironment(simulator)
-            Button {
-                arPlace = place
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "arkit")
-                        .font(.system(size: 12, weight: .bold))
-                    Text("AR НАВИГАЦИЯ")
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(1)
+            // Phone
+            if let phone = appleMapsInfo?.phoneNumber, !phone.isEmpty {
+                let cleaned = phone.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: "")
+                if let telURL = URL(string: "tel:\(cleaned)") {
+                    Link(destination: telURL) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "phone.fill")
+                                .font(.system(size: 11, weight: .bold))
+                            Text(phone)
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundStyle(AppTheme.oceanBlue)
+                    }
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(AppTheme.indigoPurple)
-                .clipShape(Capsule())
             }
-            #endif
 
+            // Website
+            if let url = appleMapsInfo?.website {
+                Link(destination: url) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "globe")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(url.host ?? url.absoluteString)
+                            .font(.system(size: 12, weight: .medium))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(AppTheme.oceanBlue)
+                }
+            }
+
+            // "ПОДРОБНЕЕ" — Apple Maps detail card
+            if appleMapsInfo?.mapItem != nil {
+                Button {
+                    showAppleMapsDetail = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("ПОДРОБНЕЕ")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(1)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(AppTheme.oceanBlue)
+                    .clipShape(Capsule())
+                }
+            }
+
+            // Divider
+            Rectangle()
+                .fill(Color.white.opacity(0.1))
+                .frame(height: 0.5)
+
+            // Route error
+            if let error = routeError {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11, weight: .bold))
+                    Text(error)
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(AppTheme.toriiRed)
+            }
+
+            // Origin + Route + AR buttons row
+            HStack(spacing: AppTheme.spacingS) {
+                // Origin picker
+                Menu {
+                    Button {
+                        routeFromCurrentLocation = true
+                    } label: {
+                        Label("От меня", systemImage: "location.fill")
+                    }
+                    if let day = place.day {
+                        ForEach(day.sortedPlaces.filter { $0.id != place.id }) { p in
+                            Button {
+                                routeFromCurrentLocation = false
+                                routeOriginPlaceID = p.id
+                            } label: {
+                                Label(p.name, systemImage: p.category.systemImage)
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: routeFromCurrentLocation ? "location.fill" : "mappin")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(AppTheme.sakuraPink)
+                        .frame(width: 36, height: 36)
+                        .background(AppTheme.sakuraPink.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+                }
+
+                Button {
+                    Task { await calculateDirectionRoute(to: place) }
+                } label: {
+                    HStack(spacing: 6) {
+                        if isCalculatingRoute {
+                            ProgressView().scaleEffect(0.7).tint(.white)
+                        } else {
+                            Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        Text("МАРШРУТ")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(1)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(AppTheme.oceanBlue)
+                    .clipShape(Capsule())
+                }
+                .disabled(isCalculatingRoute)
+
+                #if !targetEnvironment(simulator)
+                Button {
+                    arPlace = place
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arkit")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("AR")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(1)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(AppTheme.indigoPurple)
+                    .clipShape(Capsule())
+                }
+                #endif
+            }
+
+            // Collapsible notes
             if !place.notes.isEmpty {
-                Text(place.notes)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Button {
+                        withAnimation(.spring(response: 0.3)) {
+                            isNotesExpanded.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "note.text")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("ЗАМЕТКИ")
+                                .font(.system(size: 9, weight: .bold))
+                                .tracking(1)
+                            Spacer()
+                            Image(systemName: isNotesExpanded ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundStyle(.tertiary)
+                    }
+                    if isNotesExpanded {
+                        Text(place.notes)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
             }
         }
         .padding(AppTheme.spacingM)
@@ -1064,6 +1349,163 @@ struct TripMapView: View {
         .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 6)
         .padding(.horizontal, AppTheme.spacingM)
         .padding(.bottom, AppTheme.spacingS)
+    }
+
+    // MARK: - Route Info Card
+
+    private func routeInfoCard(_ route: RouteResult) -> some View {
+        VStack(spacing: AppTheme.spacingS) {
+            // Transport mode switcher
+            HStack(spacing: 6) {
+                ForEach(TransportMode.allCases) { mode in
+                    Button {
+                        selectedTransportMode = mode
+                        guard let place = selectedPlace else { return }
+                        if mode == .cycling {
+                            // Cycling opens Apple Maps
+                            Task { await calculateDirectionRoute(to: place) }
+                        } else {
+                            Task { await calculateDirectionRoute(to: place) }
+                        }
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: mode.icon)
+                                .font(.system(size: 13, weight: .bold))
+                            Text(mode.label)
+                                .font(.system(size: 8, weight: .bold))
+                                .tracking(0.5)
+                        }
+                        .foregroundStyle(route.mode == mode ? .white : mode.color)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(route.mode == mode ? mode.color : mode.color.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+                    }
+                }
+            }
+
+            // Route info row
+            HStack(spacing: AppTheme.spacingS) {
+                if isCalculatingRoute {
+                    ProgressView().scaleEffect(0.7)
+                    Text("Расчёт...")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                } else {
+                    Image(systemName: route.mode.icon)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(route.mode.color)
+
+                    Text(RoutingService.formatDuration(route.expectedTravelTime))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(route.mode.color)
+
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+
+                    Text(RoutingService.formatDistance(route.distance))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
+                        activeRoute = nil
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+        .padding(AppTheme.spacingS)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                .stroke(route.mode.color.opacity(0.2), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 4)
+        .padding(.horizontal, AppTheme.spacingM)
+        .padding(.bottom, AppTheme.spacingXS)
+    }
+
+    // MARK: - Route Calculation
+
+    private func calculateDirectionRoute(to place: Place) async {
+        isCalculatingRoute = true
+        routeError = nil
+        let destination = place.coordinate
+
+        // Determine origin
+        let origin: CLLocationCoordinate2D
+        if routeFromCurrentLocation {
+            guard let loc = await LocationManager.shared.requestCurrentLocation() else {
+                routeError = "Не удалось определить геопозицию"
+                isCalculatingRoute = false
+                return
+            }
+            origin = loc
+        } else if let originPlace = routeOriginPlace {
+            origin = originPlace.coordinate
+        } else {
+            routeError = "Выберите начальную точку"
+            isCalculatingRoute = false
+            return
+        }
+
+        // Cycling: open Apple Maps
+        if selectedTransportMode == .cycling {
+            RoutingService.openCyclingInAppleMaps(
+                from: origin,
+                to: destination,
+                destinationName: place.name
+            )
+            isCalculatingRoute = false
+            return
+        }
+
+        let result = await RoutingService.shared.calculateRoute(
+            from: origin,
+            to: destination,
+            mode: selectedTransportMode
+        )
+
+        if result == nil {
+            routeError = "Маршрут не найден"
+        }
+
+        withAnimation(.spring(response: 0.3)) {
+            activeRoute = result
+        }
+
+        // Zoom to show route
+        if let route = result {
+            let lats = route.polyline.map(\.latitude)
+            let lons = route.polyline.map(\.longitude)
+            if let minLat = lats.min(), let maxLat = lats.max(),
+               let minLon = lons.min(), let maxLon = lons.max() {
+                withAnimation {
+                    cameraPosition = .region(
+                        MKCoordinateRegion(
+                            center: CLLocationCoordinate2D(
+                                latitude: (minLat + maxLat) / 2,
+                                longitude: (minLon + maxLon) / 2
+                            ),
+                            span: MKCoordinateSpan(
+                                latitudeDelta: max((maxLat - minLat) * 1.5, 0.01),
+                                longitudeDelta: max((maxLon - minLon) * 1.5, 0.01)
+                            )
+                        )
+                    )
+                }
+            }
+        }
+
+        isCalculatingRoute = false
     }
 
     // MARK: - Camera Helpers
@@ -1103,6 +1545,233 @@ struct TripMapView: View {
             )
         }
     }
+
+    // MARK: - Initial Camera
+
+    /// Synchronously set camera from existing place coordinates (no geocoding needed)
+    private func setInitialCamera() {
+        let coords = allPlaces.map(\.coordinate)
+        guard !coords.isEmpty else { return }
+
+        let minLat = coords.map(\.latitude).min()!
+        let maxLat = coords.map(\.latitude).max()!
+        let minLon = coords.map(\.longitude).min()!
+        let maxLon = coords.map(\.longitude).max()!
+
+        let centerLat = (minLat + maxLat) / 2
+        let centerLon = (minLon + maxLon) / 2
+        let spanLat = max((maxLat - minLat) * 1.4, 0.02)
+        let spanLon = max((maxLon - minLon) * 1.4, 0.02)
+
+        cameraPosition = .region(
+            MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
+                span: MKCoordinateSpan(latitudeDelta: spanLat, longitudeDelta: spanLon)
+            )
+        )
+        hasSetInitialCamera = true
+    }
+
+    /// Async fallback: geocode trip countries when no places exist yet
+    private func geocodeCountryCamera() async {
+        let countryNames = trip.countries
+        guard !countryNames.isEmpty else { return }
+
+        var allCoords: [CLLocationCoordinate2D] = []
+        let geocoder = CLGeocoder()
+
+        for name in countryNames {
+            if let placemarks = try? await geocoder.geocodeAddressString(name),
+               let location = placemarks.first?.location {
+                allCoords.append(location.coordinate)
+            }
+        }
+
+        guard !allCoords.isEmpty else { return }
+
+        if allCoords.count == 1 {
+            // Single country — use a reasonable zoom
+            withAnimation {
+                cameraPosition = .region(
+                    MKCoordinateRegion(
+                        center: allCoords[0],
+                        span: MKCoordinateSpan(latitudeDelta: 8, longitudeDelta: 8)
+                    )
+                )
+            }
+        } else {
+            // Multiple countries — fit bounding box
+            let minLat = allCoords.map(\.latitude).min()!
+            let maxLat = allCoords.map(\.latitude).max()!
+            let minLon = allCoords.map(\.longitude).min()!
+            let maxLon = allCoords.map(\.longitude).max()!
+            let centerLat = (minLat + maxLat) / 2
+            let centerLon = (minLon + maxLon) / 2
+            let spanLat = max((maxLat - minLat) * 1.5, 4)
+            let spanLon = max((maxLon - minLon) * 1.5, 4)
+
+            withAnimation {
+                cameraPosition = .region(
+                    MKCoordinateRegion(
+                        center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
+                        span: MKCoordinateSpan(latitudeDelta: spanLat, longitudeDelta: spanLon)
+                    )
+                )
+            }
+        }
+        hasSetInitialCamera = true
+    }
+
+    // MARK: - Flight Arcs
+
+    private func loadFlightArcs() async {
+        guard !trip.flights.isEmpty, AirLabsService.shared.hasApiKey else { return }
+
+        var arcs: [FlightArc] = []
+
+        for flight in trip.flights {
+            guard let data = await AirLabsService.shared.fetchFlight(number: flight.number, date: flight.date),
+                  let depCoord = FlightData.coordinate(forIata: data.departureIata),
+                  let arrCoord = FlightData.coordinate(forIata: data.arrivalIata) else { continue }
+
+            let points = flightArcPoints(from: depCoord, to: arrCoord)
+            let midIdx = points.count / 2
+            let midpoint = points[midIdx]
+            // Tangent at midpoint — wider window for stable direction
+            let before = points[max(midIdx - 5, 0)]
+            let after = points[min(midIdx + 5, points.count - 1)]
+            let bearing = screenBearing(from: before, to: after)
+
+            arcs.append(FlightArc(
+                points: points,
+                depCoord: depCoord,
+                arrCoord: arrCoord,
+                midpoint: midpoint,
+                bearing: bearing,
+                flightNumber: data.flightIata
+            ))
+        }
+
+        flightArcs = arcs
+    }
+
+    private func flightArcPoints(
+        from start: CLLocationCoordinate2D,
+        to end: CLLocationCoordinate2D,
+        segments: Int = 60
+    ) -> [CLLocationCoordinate2D] {
+        let dLat = end.latitude - start.latitude
+        let dLon = end.longitude - start.longitude
+        let dist = sqrt(dLat * dLat + dLon * dLon)
+        guard dist > 0 else { return [start, end] }
+
+        let midLat = (start.latitude + end.latitude) / 2
+        let midLon = (start.longitude + end.longitude) / 2
+
+        // Perpendicular offset for curved control point
+        let perpLat = -dLon / dist
+        let perpLon = dLat / dist
+
+        // Always bulge toward positive latitude (northward)
+        let sign: Double = perpLat >= 0 ? 1 : -1
+        let height = dist * 0.15
+
+        let ctrlLat = midLat + sign * perpLat * height
+        let ctrlLon = midLon + sign * perpLon * height
+
+        // Quadratic Bezier curve
+        return (0...segments).map { i in
+            let t = Double(i) / Double(segments)
+            let lat = (1 - t) * (1 - t) * start.latitude + 2 * (1 - t) * t * ctrlLat + t * t * end.latitude
+            let lon = (1 - t) * (1 - t) * start.longitude + 2 * (1 - t) * t * ctrlLon + t * t * end.longitude
+            return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        }
+    }
+
+    /// Visual bearing on a Mercator-projected map (matches what the user sees on screen)
+    private func screenBearing(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
+        let dLat = to.latitude - from.latitude
+        let dLon = to.longitude - from.longitude
+        let midLatRad = ((from.latitude + to.latitude) / 2) * .pi / 180
+        // Scale longitude by cos(lat) to match Mercator visual proportions
+        let visualDLon = dLon * cos(midLatRad)
+        return atan2(visualDLon, dLat) * 180 / .pi
+    }
+
+    // MARK: - Train Routes
+
+    private func loadTrainRoutes() async {
+        let trainEvents = trip.days.flatMap(\.events).filter { $0.category == .train }
+        guard !trainEvents.isEmpty else { return }
+
+        var routes: [TrainRoute] = []
+
+        for event in trainEvents {
+            guard let start = event.primaryCoordinate,
+                  let end = event.arrivalCoordinate else { continue }
+
+            // Use MKDirections with .transit to follow real rail/transit tracks
+            let request = MKDirections.Request()
+            request.source = MKMapItem(placemark: MKPlacemark(coordinate: start))
+            request.destination = MKMapItem(placemark: MKPlacemark(coordinate: end))
+            request.transportType = .transit
+
+            if let response = try? await MKDirections(request: request).calculate(),
+               let mkRoute = response.routes.first {
+                var coords = [CLLocationCoordinate2D](
+                    repeating: CLLocationCoordinate2D(),
+                    count: mkRoute.polyline.pointCount
+                )
+                mkRoute.polyline.getCoordinates(&coords, range: NSRange(location: 0, length: mkRoute.polyline.pointCount))
+
+                let midIdx = coords.count / 2
+                routes.append(TrainRoute(
+                    polyline: coords,
+                    midpoint: coords[midIdx],
+                    title: event.title,
+                    distance: mkRoute.distance,
+                    duration: mkRoute.expectedTravelTime
+                ))
+            } else {
+                // Fallback: straight line if transit directions unavailable
+                routes.append(TrainRoute(
+                    polyline: [start, end],
+                    midpoint: CLLocationCoordinate2D(
+                        latitude: (start.latitude + end.latitude) / 2,
+                        longitude: (start.longitude + end.longitude) / 2
+                    ),
+                    title: event.title,
+                    distance: nil,
+                    duration: nil
+                ))
+            }
+        }
+
+        trainRoutes = routes
+    }
+}
+
+// MARK: - Flight Arc Data
+
+private struct FlightArc: Identifiable {
+    let id = UUID()
+    let points: [CLLocationCoordinate2D]
+    let depCoord: CLLocationCoordinate2D
+    let arrCoord: CLLocationCoordinate2D
+    let midpoint: CLLocationCoordinate2D
+    let bearing: Double
+    let flightNumber: String
+}
+
+// MARK: - Train Route Data
+
+private struct TrainRoute: Identifiable {
+    let id = UUID()
+    let polyline: [CLLocationCoordinate2D]
+    let midpoint: CLLocationCoordinate2D
+    let title: String
+    let distance: CLLocationDistance?
+    let duration: TimeInterval?
 }
 
 #if DEBUG

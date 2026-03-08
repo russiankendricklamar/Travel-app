@@ -132,14 +132,14 @@ struct DayWeatherSection: View {
                 HStack(spacing: 4) {
                     Image(systemName: "sunset.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(.indigo)
+                        .foregroundStyle(AppTheme.sakuraPink)
                     Text(timeFormatter.string(from: set))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.indigo.opacity(0.1))
+                .background(AppTheme.sakuraPink.opacity(0.1))
                 .clipShape(Capsule())
             }
             Spacer()

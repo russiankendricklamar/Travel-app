@@ -12,7 +12,8 @@ struct PlaceRecommendation: Identifiable, Codable {
     var localName: String
 
     private enum CodingKeys: String, CodingKey {
-        case name, description, category, estimatedTime, address, latitude, longitude
+        case name, description, category, address, latitude, longitude
+        case estimatedTime = "estimated_time"
         case localName = "local_name"
     }
 
@@ -46,8 +47,21 @@ struct PlaceRecommendation: Identifiable, Codable {
         self.category = try container.decode(String.self, forKey: .category)
         self.estimatedTime = try container.decodeIfPresent(String.self, forKey: .estimatedTime) ?? ""
         self.address = try container.decodeIfPresent(String.self, forKey: .address) ?? ""
-        self.latitude = try container.decodeIfPresent(Double.self, forKey: .latitude) ?? 0
-        self.longitude = try container.decodeIfPresent(Double.self, forKey: .longitude) ?? 0
+        // Handle lat/lon as Double or String (Gemini sometimes returns strings)
+        if let lat = try? container.decode(Double.self, forKey: .latitude) {
+            self.latitude = lat
+        } else if let latStr = try? container.decode(String.self, forKey: .latitude), let lat = Double(latStr) {
+            self.latitude = lat
+        } else {
+            self.latitude = 0
+        }
+        if let lon = try? container.decode(Double.self, forKey: .longitude) {
+            self.longitude = lon
+        } else if let lonStr = try? container.decode(String.self, forKey: .longitude), let lon = Double(lonStr) {
+            self.longitude = lon
+        } else {
+            self.longitude = 0
+        }
         self.localName = try container.decodeIfPresent(String.self, forKey: .localName) ?? ""
     }
 

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 @MainActor
 @Observable
@@ -16,15 +17,10 @@ final class RecommendationService {
     }
 
     private var hasApiKey: Bool {
-        switch provider {
-        case .groq: GroqService.shared.hasApiKey
-        case .claude: ClaudeService.shared.hasApiKey
-        case .openai: OpenAIService.shared.hasApiKey
-        case .gemini: GeminiService.shared.hasApiKey
-        }
+        GeminiService.shared.hasApiKey
     }
 
-    func fetchRecommendations(city: String, categories: Set<String>) async {
+    func fetchRecommendations(city: String, categories: Set<String>, tripCount: Int = 0, bucketItems: [String] = []) async {
         let categoriesKey = categories.sorted().joined(separator: ",")
         let cacheKey = "\(provider.rawValue):\(city.lowercased())|\(categoriesKey)"
 
@@ -43,47 +39,52 @@ final class RecommendationService {
         }
 
         let categoriesText = categories.isEmpty ? "любые" : categories.joined(separator: ", ")
+        let profileCtx = AIPromptHelper.profileContext(tripCount: tripCount, bucketItems: bucketItems)
 
         let prompt = """
-        Ты — опытный гид-путешественник. Порекомендуй 8 интересных мест в городе "\(city)".
+        Порекомендуй 8 интересных мест в городе "\(city)".
         Категории: \(categoriesText).
+        \(profileCtx)
 
-        Ответь СТРОГО в формате JSON-массива, без пояснений, без markdown:
-        [
-          {
-            "name": "Название места",
-            "description": "Краткое описание на 1-2 предложения",
-            "category": "Категория (Еда/Культура/Природа/Шопинг/Храм/Святилище)",
-            "estimatedTime": "1-2 часа",
-            "latitude": 35.6762,
-            "longitude": 139.6503
-          }
-        ]
+        Для каждого места напиши описание в 1-2 предложения: что конкретно там делать, чем место примечательно. Конкретика, не общие слова.
 
-        Все тексты на русском языке. Координаты должны быть реальными.
+        Ответь ТОЛЬКО JSON-массивом. Никакого текста до или после, никакого markdown.
+
+        Формат каждого элемента:
+        {
+          "name": "Название места",
+          "description": "Описание на 1-2 предложения",
+          "category": "Одна из категорий",
+          "estimated_time": "1-2 часа",
+          "latitude": 35.6762,
+          "longitude": 139.6503
+        }
+
+        Правила:
+        - category — одна из: \(categoriesText)
+        - estimated_time — примерное время на посещение
+        - latitude/longitude — реальные координаты этого места
+        - Все тексты на русском языке
+        - Ответ — ТОЛЬКО JSON-массив из 8 объектов, ничего больше
         """
 
-        let rawContent: String?
-        switch provider {
-        case .groq:
-            rawContent = await GroqService.shared.rawRequest(prompt: prompt)
-        case .claude:
-            rawContent = await ClaudeService.shared.rawRequest(prompt: prompt)
-        case .openai:
-            rawContent = await OpenAIService.shared.rawRequest(prompt: prompt)
-        case .gemini:
-            rawContent = await GeminiService.shared.rawRequest(prompt: prompt)
-        }
+        let rawContent = await GeminiService.shared.rawRequest(prompt: prompt)
 
         guard let content = rawContent else {
-            lastError = "Не удалось получить рекомендации"
+            let geminiError = GeminiService.shared.lastError ?? "Не удалось получить рекомендации"
+            print("[RecommendationService] rawRequest returned nil — \(geminiError)")
+            lastError = geminiError
             return
         }
+
+        print("[RecommendationService] Got response (\(content.count) chars): \(content.prefix(200))...")
 
         if let parsed = parseRecommendations(from: content) {
             recommendations = parsed
             cache[cacheKey] = parsed
+            print("[RecommendationService] Parsed \(parsed.count) recommendations")
         } else {
+            print("[RecommendationService] PARSE FAILED. Full response:\n\(content)")
             lastError = "Ошибка разбора ответа ИИ"
         }
     }
@@ -107,6 +108,8 @@ final class RecommendationService {
 
         cleaned = String(cleaned[start...end])
 
+        // CodingKeys handles snake_case mapping natively
+
         guard let data = cleaned.data(using: .utf8) else { return nil }
 
         do {
@@ -114,6 +117,7 @@ final class RecommendationService {
             return items
         } catch {
             print("[RecommendationService] JSON decode error: \(error)")
+            print("[RecommendationService] Raw JSON: \(cleaned.prefix(500))")
             return nil
         }
     }

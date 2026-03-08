@@ -9,7 +9,7 @@ struct DashboardBudgetSection: View {
             // Header
             HStack {
                 HStack(spacing: 8) {
-                    Image(systemName: "rublesign.circle.fill")
+                    Image(systemName: "\(CurrencyService.baseCurrencyIcon).circle.fill")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(AppTheme.sakuraPink)
                     Text("БЮДЖЕТ")
@@ -18,7 +18,7 @@ struct DashboardBudgetSection: View {
                         .foregroundStyle(AppTheme.sakuraPink)
                 }
                 Spacer()
-                Text(CurrencyService.formatRub(trip.budget))
+                Text(CurrencyService.formatBase(trip.budget))
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(.secondary)
             }
@@ -58,7 +58,7 @@ struct DashboardBudgetSection: View {
                         .font(.system(size: 8, weight: .bold))
                         .tracking(2)
                         .foregroundStyle(.tertiary)
-                    Text(CurrencyService.formatRub(trip.totalSpent))
+                    Text(CurrencyService.formatBase(trip.totalSpent))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundStyle(AppTheme.toriiRed)
                 }
@@ -72,7 +72,7 @@ struct DashboardBudgetSection: View {
                         .font(.system(size: 8, weight: .bold))
                         .tracking(2)
                         .foregroundStyle(.tertiary)
-                    Text(CurrencyService.formatRub(trip.remainingBudget))
+                    Text(CurrencyService.formatBase(trip.remainingBudget))
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundStyle(trip.remainingBudget >= 0 ? AppTheme.bambooGreen : AppTheme.toriiRed)
                 }
@@ -128,7 +128,7 @@ struct DashboardBudgetSection: View {
             }
             .frame(height: 8)
 
-            Text(CurrencyService.formatRub(item.total))
+            Text(CurrencyService.formatBase(item.total))
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
         }

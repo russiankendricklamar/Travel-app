@@ -11,7 +11,7 @@ struct RecommendationsView: View {
     private let allCategories = [
         "Еда", "Культура", "Природа", "Шопинг", "Храм", "Святилище",
         "Музей", "Галерея", "Дворец", "Парк", "Сад", "Озеро", "Горы",
-        "Аэропорт", "Вокзал", "Метро", "Спорт", "Стадион", "Смотровая"
+        "Спорт", "Стадион", "Смотровая"
     ]
 
     var body: some View {
@@ -158,7 +158,7 @@ struct RecommendationsView: View {
     // MARK: - Helpers
 
     private func fetchIfNeeded() async {
-        let city = trip.days.first?.cityName ?? trip.destination
+        let city = trip.days.first?.cityName ?? trip.countriesDisplay
         await service.fetchRecommendations(
             city: city,
             categories: selectedCategories.isEmpty ? Set(allCategories) : selectedCategories
@@ -180,9 +180,6 @@ struct RecommendationsView: View {
         case "Сад": return "camera.macro"
         case "Озеро": return "water.waves"
         case "Горы": return "mountain.2.fill"
-        case "Аэропорт": return "airplane"
-        case "Вокзал": return "train.side.front.car"
-        case "Метро": return "tram.fill.tunnel"
         case "Спорт": return "figure.run"
         case "Стадион": return "sportscourt.fill"
         case "Смотровая": return "binoculars.fill"

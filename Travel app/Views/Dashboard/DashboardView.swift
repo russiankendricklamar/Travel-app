@@ -29,7 +29,6 @@ struct DashboardView: View {
 
                     switch trip.phase {
                     case .preTrip:
-                        packingMiniCard
                         DashboardCountdownSection(
                             trip: trip,
                             heroScale: heroScale,
@@ -39,11 +38,11 @@ struct DashboardView: View {
                             countdownSeconds: countdownSeconds,
                             statsOffset: statsOffset
                         )
+                        DashboardCountryInfoSection(trip: trip)
+                        packingMiniCard
                         flightOrAddCard
                         DashboardWeatherSection(trip: trip)
-                        DashboardTicketsSection(trip: trip)
                     case .active:
-                        packingMiniCard
                         DashboardActiveSection(
                             trip: trip,
                             heroScale: heroScale,
@@ -51,9 +50,10 @@ struct DashboardView: View {
                             counterValue: counterValue,
                             budgetWidth: budgetWidth
                         )
+                        DashboardCountryInfoSection(trip: trip)
+                        packingMiniCard
                         flightOrAddCard
                         DashboardWeatherSection(trip: trip)
-                        DashboardTicketsSection(trip: trip)
                     case .postTrip:
                         postTripHero
                         statsBanner
@@ -122,10 +122,19 @@ struct DashboardView: View {
                     }
                 }
                 ToolbarItem(placement: .principal) {
-                    Text(trip.destination.uppercased())
+                    Text(trip.flaggedCountriesDisplay.uppercased())
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .tracking(4)
                         .foregroundStyle(AppTheme.sakuraPink)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showAddFlight = true
+                    } label: {
+                        Image(systemName: "airplane")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(AppTheme.oceanBlue)
+                    }
                 }
             }
             .onAppear {
@@ -145,45 +154,8 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var flightOrAddCard: some View {
-        if trip.flightNumber != nil {
+        if !trip.flights.isEmpty {
             DashboardFlightTrackingSection(trip: trip)
-        } else {
-            Button {
-                showAddFlight = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "airplane")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(AppTheme.oceanBlue)
-                        .frame(width: 36, height: 36)
-                        .background(AppTheme.oceanBlue.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("ДОБАВИТЬ РЕЙС")
-                            .font(.system(size: 10, weight: .bold))
-                            .tracking(1.5)
-                            .foregroundStyle(.secondary)
-                        Text("Укажите номер рейса для отслеживания")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(AppTheme.oceanBlue.opacity(0.5))
-                }
-                .padding(AppTheme.spacingM)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                        .stroke(AppTheme.oceanBlue.opacity(0.15), lineWidth: 0.5)
-                )
-            }
-            .buttonStyle(.plain)
         }
     }
 
@@ -197,10 +169,16 @@ struct DashboardView: View {
     }
 
     private func updateCountdown() {
-        if let flight = trip.flightDate, Date() < flight {
+        let now = Date()
+        let nextFlightDate = trip.flights
+            .compactMap(\.date)
+            .filter { $0 > now }
+            .min()
+
+        if let flight = nextFlightDate {
             let components = Calendar.current.dateComponents(
                 [.day, .hour, .minute, .second],
-                from: Date(),
+                from: now,
                 to: flight
             )
             countdownDays = components.day ?? 0
@@ -289,6 +267,7 @@ struct DashboardView: View {
                 RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
                     .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
             )
+            .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 6)
         }
         .sheet(isPresented: $showPackingList) {
             PackingListView(trip: trip)
@@ -332,7 +311,6 @@ struct DashboardView: View {
                 )
         )
         .shadow(color: AppTheme.bambooGreen.opacity(0.15), radius: 16, x: 0, y: 8)
-        .padding(.top, 8)
     }
 
     // MARK: - Stats Banner (Post-Trip)
@@ -343,7 +321,7 @@ struct DashboardView: View {
             Divider().frame(height: 40)
             bannerStat("\(uniqueCities.count)", label: "ГОРОДОВ", icon: "building.2")
             Divider().frame(height: 40)
-            bannerStat(CurrencyService.formatRub(trip.totalSpent), label: "ПОТРАЧЕНО", icon: "rublesign")
+            bannerStat(CurrencyService.formatBase(trip.totalSpent), label: "ПОТРАЧЕНО", icon: CurrencyService.baseCurrencyIcon)
         }
         .padding(.vertical, AppTheme.spacingM)
         .background(AppTheme.sakuraPink.opacity(0.12))

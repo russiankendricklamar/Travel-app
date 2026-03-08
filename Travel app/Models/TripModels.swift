@@ -9,6 +9,10 @@ struct TripFlight: Codable, Identifiable, Equatable {
     var id: UUID = UUID()
     var number: String
     var date: Date?
+    var departureIata: String?
+    var arrivalIata: String?
+    var airlineCode: String?
+    var aircraftType: String?
 }
 
 // MARK: - Trip
@@ -17,7 +21,7 @@ struct TripFlight: Codable, Identifiable, Equatable {
 final class Trip: Syncable {
     @Attribute(.unique) var id: UUID
     var name: String
-    var destination: String
+    @Attribute(originalName: "destination") var country: String
     var startDate: Date
     var endDate: Date
     var budget: Double
@@ -26,6 +30,8 @@ final class Trip: Syncable {
     var flightDate: Date?
     var flightNumber: String?
     var flightsJSON: String?
+    var isCorporateTrip: Bool = false
+    var countryFlags: String = ""
     var updatedAt: Date = Date()
     var isDeleted: Bool = false
 
@@ -44,7 +50,7 @@ final class Trip: Syncable {
     init(
         id: UUID = UUID(),
         name: String,
-        destination: String,
+        country: String,
         startDate: Date,
         endDate: Date,
         budget: Double,
@@ -52,11 +58,13 @@ final class Trip: Syncable {
         coverSystemImage: String,
         flightDate: Date? = nil,
         flightNumber: String? = nil,
-        flightsJSON: String? = nil
+        flightsJSON: String? = nil,
+        isCorporateTrip: Bool = false,
+        countryFlags: String = ""
     ) {
         self.id = id
         self.name = name
-        self.destination = destination
+        self.country = country
         self.startDate = startDate
         self.endDate = endDate
         self.budget = budget
@@ -65,6 +73,8 @@ final class Trip: Syncable {
         self.flightDate = flightDate
         self.flightNumber = flightNumber
         self.flightsJSON = flightsJSON
+        self.isCorporateTrip = isCorporateTrip
+        self.countryFlags = countryFlags
     }
 
     // MARK: - Flights (multi-flight support)
@@ -111,6 +121,31 @@ final class Trip: Syncable {
         }
     }
 
+    // MARK: - Multi-Country Support
+
+    /// Parsed array of countries from the comma-separated `country` field
+    var countries: [String] {
+        get {
+            country.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        }
+        set {
+            country = newValue.joined(separator: ", ")
+        }
+    }
+
+    /// Display string: "Япония, Италия" or single country
+    var countriesDisplay: String {
+        countries.joined(separator: ", ")
+    }
+
+    /// Display with flag emoji prepended: "🇯🇵 Япония, 🇮🇹 Италия"
+    var flaggedCountriesDisplay: String {
+        if countryFlags.isEmpty {
+            return countriesDisplay
+        }
+        return "\(countryFlags) \(countriesDisplay)"
+    }
+
     var totalDays: Int {
         Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 0
     }
@@ -154,6 +189,16 @@ final class Trip: Syncable {
             from: now,
             to: flight
         )
+    }
+
+    func updateFlightIata(flightID: UUID, data: FlightData) {
+        var updated = flights
+        guard let idx = updated.firstIndex(where: { $0.id == flightID }) else { return }
+        updated[idx].departureIata = data.departureIata
+        updated[idx].arrivalIata = data.arrivalIata
+        updated[idx].airlineCode = String(data.flightIata.prefix(while: \.isLetter))
+        updated[idx].aircraftType = data.aircraftType
+        flights = updated
     }
 
     var countdownToStart: DateComponents? {

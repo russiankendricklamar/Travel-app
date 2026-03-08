@@ -6,17 +6,18 @@ struct CreateTripSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Query var bucketItems: [BucketListItem]
 
+    // @AppStorage("appMode") private var appMode: String = AppMode.personal.rawValue
+
     var onCreated: ((Trip) -> Void)?
-    var prefilledDestination: String = ""
+    var prefilledCountry: String = ""
 
     @State private var tripName = ""
-    @State private var destination = ""
+    @State private var countries: [String] = []
+    @State private var currentCountryInput = ""
     @State private var startDate = Date()
     @State private var endDate = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
     @State private var budget = ""
-    @State private var flightDateEnabled = false
-    @State private var flightDate = Date()
-    @State private var flightNumber = ""
+    @State private var flightDrafts: [CreateFlightDraft] = []
     @State private var selectedBucketIDs: Set<UUID> = []
 
     var body: some View {
@@ -30,9 +31,30 @@ struct CreateTripSheet: View {
                             .textFieldStyle(GlassTextFieldStyle())
                     }
 
-                    GlassFormField(label: "НАПРАВЛЕНИЕ", color: AppTheme.oceanBlue) {
-                        TextField("Направление", text: $destination)
-                            .textFieldStyle(GlassTextFieldStyle())
+                    GlassFormField(label: "СТРАНЫ", color: AppTheme.oceanBlue) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if !countries.isEmpty {
+                                FlowLayout(spacing: 6) {
+                                    ForEach(countries, id: \.self) { c in
+                                        countryChip(c)
+                                    }
+                                }
+                            }
+                            HStack(spacing: 8) {
+                                TextField("Добавить страну", text: $currentCountryInput)
+                                    .textFieldStyle(GlassTextFieldStyle())
+                                    .onSubmit { addCurrentCountry() }
+                                Button {
+                                    addCurrentCountry()
+                                } label: {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 22))
+                                        .foregroundStyle(AppTheme.oceanBlue)
+                                }
+                                .disabled(currentCountryInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                                .opacity(currentCountryInput.trimmingCharacters(in: .whitespaces).isEmpty ? 0.3 : 1)
+                            }
+                        }
                     }
 
                     HStack(spacing: AppTheme.spacingS) {
@@ -50,7 +72,7 @@ struct CreateTripSheet: View {
                         }
                     }
 
-                    GlassFormField(label: "БЮДЖЕТ (RUB)", color: AppTheme.templeGold) {
+                    GlassFormField(label: "БЮДЖЕТ (\(CurrencyService.shared.baseCurrency))", color: AppTheme.templeGold) {
                         TextField("350000", text: $budget)
                             .keyboardType(.numberPad)
                             .textFieldStyle(GlassTextFieldStyle())
@@ -80,8 +102,8 @@ struct CreateTripSheet: View {
                 }
             }
             .onAppear {
-                if !prefilledDestination.isEmpty && destination.isEmpty {
-                    destination = prefilledDestination
+                if !prefilledCountry.isEmpty && countries.isEmpty {
+                    countries = [prefilledCountry]
                 }
             }
         }
@@ -90,52 +112,96 @@ struct CreateTripSheet: View {
     // MARK: - Flight Section
 
     private var flightSection: some View {
-        VStack(spacing: 0) {
-            HStack {
-                HStack(spacing: 6) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(AppTheme.oceanBlue)
-                        .frame(width: 3, height: 12)
-                    Text("РЕЙС")
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(1.5)
-                        .foregroundStyle(AppTheme.oceanBlue)
+        VStack(spacing: AppTheme.spacingS) {
+            ForEach($flightDrafts) { $draft in
+                VStack(spacing: 0) {
+                    HStack {
+                        HStack(spacing: 6) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(AppTheme.oceanBlue)
+                                .frame(width: 3, height: 12)
+                            Text("РЕЙС \(flightDraftIndex(draft) + 1)")
+                                .font(.system(size: 10, weight: .bold))
+                                .tracking(1.5)
+                                .foregroundStyle(AppTheme.oceanBlue)
+                        }
+                        Spacer()
+                        Button {
+                            withAnimation(.spring(response: 0.3)) {
+                                flightDrafts.removeAll { $0.id == draft.id }
+                            }
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(AppTheme.toriiRed.opacity(0.7))
+                        }
+                    }
+                    .padding(.horizontal, AppTheme.spacingM)
+                    .padding(.top, AppTheme.spacingM)
+                    .padding(.bottom, AppTheme.spacingS)
+
+                    TextField("SU260", text: $draft.number)
+                        .textFieldStyle(GlassTextFieldStyle())
+                        .textInputAutocapitalization(.characters)
+                        .padding(.horizontal, AppTheme.spacingM)
+
+                    DatePicker("", selection: $draft.date, displayedComponents: [.date, .hourAndMinute])
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .tint(AppTheme.sakuraPink)
+                        .padding(.horizontal, AppTheme.spacingM)
+                        .padding(.vertical, AppTheme.spacingS)
+                        .padding(.bottom, AppTheme.spacingS)
                 }
-                Spacer()
-                Toggle("", isOn: $flightDateEnabled)
-                    .tint(AppTheme.sakuraPink)
-                    .labelsHidden()
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                        .stroke(AppTheme.oceanBlue.opacity(0.15), lineWidth: 0.5)
+                )
             }
-            .padding(AppTheme.spacingM)
 
-            if flightDateEnabled {
-                TextField("SU260", text: $flightNumber)
-                    .textFieldStyle(GlassTextFieldStyle())
-                    .textInputAutocapitalization(.characters)
-                    .padding(.horizontal, AppTheme.spacingM)
-
-                DatePicker("", selection: $flightDate, displayedComponents: [.date, .hourAndMinute])
-                    .datePickerStyle(.compact)
-                    .labelsHidden()
-                    .tint(AppTheme.sakuraPink)
-                    .padding(.horizontal, AppTheme.spacingM)
-                    .padding(.bottom, AppTheme.spacingM)
+            Button {
+                withAnimation(.spring(response: 0.3)) {
+                    flightDrafts.append(CreateFlightDraft(number: "", date: startDate))
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(AppTheme.oceanBlue)
+                    Text("ДОБАВИТЬ РЕЙС")
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(AppTheme.oceanBlue)
+                    Spacer()
+                }
+                .padding(AppTheme.spacingM)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                        .stroke(AppTheme.oceanBlue.opacity(0.15), lineWidth: 0.5)
+                )
             }
+            .buttonStyle(.plain)
         }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                .stroke(AppTheme.oceanBlue.opacity(0.15), lineWidth: 0.5)
-        )
+    }
+
+    private func flightDraftIndex(_ draft: CreateFlightDraft) -> Int {
+        flightDrafts.firstIndex(where: { $0.id == draft.id }) ?? 0
     }
 
     // MARK: - Bucket List Suggestions
 
     private var matchingBucketItems: [BucketListItem] {
-        let dest = destination.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !dest.isEmpty else { return [] }
-        return bucketItems.filter { !$0.isConverted && $0.destination.lowercased().contains(dest) }
+        guard !countries.isEmpty else { return [] }
+        let lowerCountries = countries.map { $0.lowercased() }
+        return bucketItems.filter { item in
+            guard !item.isConverted else { return false }
+            let dest = item.destination.lowercased()
+            return lowerCountries.contains { dest.contains($0) }
+        }
     }
 
     @ViewBuilder
@@ -225,11 +291,47 @@ struct CreateTripSheet: View {
         .buttonStyle(.plain)
     }
 
+    // MARK: - Country Helpers
+
+    private func addCurrentCountry() {
+        let trimmed = currentCountryInput.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        // Capitalize first letter
+        let capitalized = trimmed.prefix(1).uppercased() + trimmed.dropFirst()
+        if !countries.contains(where: { $0.lowercased() == capitalized.lowercased() }) {
+            withAnimation(.spring(response: 0.25)) {
+                countries.append(capitalized)
+            }
+        }
+        currentCountryInput = ""
+    }
+
+    private func countryChip(_ name: String) -> some View {
+        HStack(spacing: 4) {
+            Text(name)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.primary)
+            Button {
+                withAnimation(.spring(response: 0.25)) {
+                    countries.removeAll { $0 == name }
+                }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(AppTheme.oceanBlue.opacity(0.15))
+        .clipShape(Capsule())
+    }
+
     // MARK: - Validation
 
     private var isValid: Bool {
         !tripName.trimmingCharacters(in: .whitespaces).isEmpty
-            && !destination.trimmingCharacters(in: .whitespaces).isEmpty
+            && !countries.isEmpty
             && endDate > startDate
     }
 
@@ -237,17 +339,29 @@ struct CreateTripSheet: View {
 
     private func createTrip() {
         let budgetValue = Double(budget) ?? 350000
+
+        let validFlights = flightDrafts.compactMap { draft -> TripFlight? in
+            let trimmed = draft.number.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { return nil }
+            return TripFlight(number: trimmed, date: draft.date)
+        }
+
         let trip = Trip(
             name: tripName.trimmingCharacters(in: .whitespaces),
-            destination: destination.trimmingCharacters(in: .whitespaces),
+            country: countries.joined(separator: ", "),
             startDate: startDate,
             endDate: endDate,
             budget: budgetValue,
-            currency: "RUB",
+            currency: CurrencyService.shared.baseCurrency,
             coverSystemImage: "airplane",
-            flightDate: flightDateEnabled ? flightDate : nil,
-            flightNumber: flightDateEnabled && !flightNumber.isEmpty ? flightNumber.trimmingCharacters(in: .whitespaces) : nil
+            flightDate: validFlights.first?.date,
+            flightNumber: validFlights.first?.number,
+            isCorporateTrip: false
         )
+
+        if !validFlights.isEmpty {
+            trip.flights = validFlights
+        }
         modelContext.insert(trip)
 
         // Convert selected bucket items into places
@@ -255,7 +369,7 @@ struct CreateTripSheet: View {
             let firstDay = TripDay(
                 date: startDate,
                 title: "День 1",
-                cityName: destination.trimmingCharacters(in: .whitespaces),
+                cityName: countries.first ?? "",
                 sortOrder: 0
             )
             firstDay.trip = trip
@@ -284,6 +398,65 @@ struct CreateTripSheet: View {
         } catch {
             // Save failed silently
         }
+
+        let tripRef = trip
+        let context = modelContext
+        Task {
+            await CountryInfoService.shared.populateTrip(tripRef, context: context)
+        }
+
         dismiss()
+    }
+}
+
+// MARK: - Create Flight Draft
+
+private struct CreateFlightDraft: Identifiable {
+    var id: UUID = UUID()
+    var number: String
+    var date: Date
+}
+
+// MARK: - Flow Layout (wrapping chips)
+
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = layout(subviews: subviews, containerWidth: proposal.width ?? .infinity)
+        return result.size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = layout(subviews: subviews, containerWidth: bounds.width)
+        for (index, position) in result.positions.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y),
+                proposal: ProposedViewSize(subviews[index].sizeThatFits(.unspecified))
+            )
+        }
+    }
+
+    private func layout(subviews: Subviews, containerWidth: CGFloat) -> (size: CGSize, positions: [CGPoint]) {
+        var positions: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var maxWidth: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > containerWidth && x > 0 {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            positions.append(CGPoint(x: x, y: y))
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+            maxWidth = max(maxWidth, x - spacing)
+        }
+
+        return (CGSize(width: maxWidth, height: y + rowHeight), positions)
     }
 }

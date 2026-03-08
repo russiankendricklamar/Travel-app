@@ -131,7 +131,7 @@ final class SyncManager {
                 id: trip.id,
                 userId: userID,
                 name: trip.name,
-                destination: trip.destination,
+                destination: trip.country,
                 startDate: SyncDateFormatter.dateString(from: trip.startDate),
                 endDate: SyncDateFormatter.dateString(from: trip.endDate),
                 budget: trip.budget,
@@ -139,6 +139,8 @@ final class SyncManager {
                 coverSystemImage: trip.coverSystemImage,
                 flightDate: trip.flightDate.map { SyncDateFormatter.string(from: $0) },
                 flightNumber: trip.flightNumber,
+                flightsJson: trip.flightsJSON,
+                countryFlags: trip.countryFlags,
                 updatedAt: SyncDateFormatter.string(from: trip.updatedAt),
                 isDeleted: trip.isDeleted
             )
@@ -393,7 +395,7 @@ final class SyncManager {
                     context.delete(local)
                 } else {
                     local.name = dto.name
-                    local.destination = dto.destination
+                    local.country = dto.destination
                     local.startDate = SyncDateFormatter.dateFromDateString(dto.startDate ?? "") ?? local.startDate
                     local.endDate = SyncDateFormatter.dateFromDateString(dto.endDate ?? "") ?? local.endDate
                     local.budget = dto.budget
@@ -401,6 +403,8 @@ final class SyncManager {
                     local.coverSystemImage = dto.coverSystemImage ?? local.coverSystemImage
                     local.flightDate = dto.flightDate.flatMap { SyncDateFormatter.date(from: $0) }
                     local.flightNumber = dto.flightNumber
+                    local.flightsJSON = dto.flightsJson
+                    local.countryFlags = dto.countryFlags ?? ""
                     local.updatedAt = remoteUpdatedAt
                     local.isDeleted = dto.isDeleted
                 }
@@ -408,14 +412,16 @@ final class SyncManager {
                 let trip = Trip(
                     id: dto.id,
                     name: dto.name,
-                    destination: dto.destination,
+                    country: dto.destination,
                     startDate: SyncDateFormatter.dateFromDateString(dto.startDate ?? "") ?? Date(),
                     endDate: SyncDateFormatter.dateFromDateString(dto.endDate ?? "") ?? Date(),
                     budget: dto.budget,
                     currency: dto.currency,
                     coverSystemImage: dto.coverSystemImage ?? "airplane",
                     flightDate: dto.flightDate.flatMap { SyncDateFormatter.date(from: $0) },
-                    flightNumber: dto.flightNumber
+                    flightNumber: dto.flightNumber,
+                    flightsJSON: dto.flightsJson,
+                    countryFlags: dto.countryFlags ?? ""
                 )
                 trip.updatedAt = remoteUpdatedAt
                 context.insert(trip)

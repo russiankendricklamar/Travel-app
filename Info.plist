@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>GROQ_API_KEY</key>
+	<string>$(GROQ_API_KEY)</string>
+	<key>AIRLABS_API_KEY</key>
+	<string>$(AIRLABS_API_KEY)</string>
+	<key>GEMINI_API_KEY</key>
+	<string>$(GEMINI_API_KEY)</string>
+	<key>GOOGLE_PLACES_API_KEY</key>
+	<string>$(GOOGLE_PLACES_API_KEY)</string>
+	<key>YANDEX_CLIENT_ID</key>
+	<string>$(YANDEX_CLIENT_ID)</string>
+	<key>YANDEX_CLIENT_SECRET</key>
+	<string>$(YANDEX_CLIENT_SECRET)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Камера используется для AR-навигации по маршруту</string>
+</dict>
+</plist>

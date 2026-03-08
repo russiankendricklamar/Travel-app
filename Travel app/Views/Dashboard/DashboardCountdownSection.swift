@@ -84,8 +84,8 @@ struct DashboardCountdownSection: View {
 
                 Spacer()
 
-                if let flight = trip.flightDate {
-                    Text(flightDateFormatted(flight))
+                if let nextDate = nextFlightDate {
+                    Text(flightDateFormatted(nextDate))
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(AppTheme.sakuraPink)
                 }
@@ -107,7 +107,6 @@ struct DashboardCountdownSection: View {
                 )
         )
         .shadow(color: AppTheme.sakuraPink.opacity(0.1), radius: 12, x: 0, y: 6)
-        .padding(.top, 8)
         .scaleEffect(heroScale)
         .offset(y: statsOffset)
     }
@@ -143,10 +142,25 @@ struct DashboardCountdownSection: View {
         return String(localized: "ДНЕЙ")
     }
 
+    private var nextFlight: TripFlight? {
+        let now = Date()
+        return trip.flights.first { ($0.date ?? .distantFuture) > now }
+            ?? trip.flights.first
+    }
+
+    private var nextFlightDate: Date? {
+        nextFlight?.date
+    }
+
     private var flightDestination: String {
-        trip.days
+        if let iata = nextFlight?.number,
+           let cached = AirLabsService.shared.cachedFlights.values.first(where: { $0.flightIata.caseInsensitiveCompare(iata) == .orderedSame }),
+           !cached.arrivalCityName.isEmpty {
+            return cached.arrivalCityName
+        }
+        return trip.days
             .sorted { $0.date < $1.date }
-            .first?.cityName ?? trip.destination
+            .first?.cityName ?? trip.countriesDisplay
     }
 
     private var tripDateRange: String {

@@ -5,9 +5,10 @@ import Foundation
 final class GeminiService {
     static let shared = GeminiService()
 
-    private let model = "gemini-2.0-flash"
+    private let model = "gemini-2.5-flash"
 
     var isLoading = false
+    var lastError: String?
 
     private var apiKey: String {
         Secrets.geminiApiKey
@@ -66,9 +67,17 @@ final class GeminiService {
     // MARK: - Raw Request
 
     func rawRequest(prompt: String) async -> String? {
-        guard hasApiKey else { return nil }
+        lastError = nil
 
-        guard let url = URL(string: endpoint) else { return nil }
+        guard hasApiKey else {
+            lastError = "API-ключ Gemini не задан"
+            return nil
+        }
+
+        guard let url = URL(string: endpoint) else {
+            lastError = "Некорректный URL Gemini API"
+            return nil
+        }
 
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -81,7 +90,7 @@ final class GeminiService {
             ],
             "generationConfig": [
                 "temperature": 0.7,
-                "maxOutputTokens": 2048
+                "maxOutputTokens": 65536
             ]
         ]
 
@@ -89,16 +98,53 @@ final class GeminiService {
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (data, response) = try await URLSession.shared.data(for: req)
 
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return nil }
+            guard let http = response as? HTTPURLResponse else {
+                lastError = "Нет ответа от сервера"
+                return nil
+            }
+            guard (200...299).contains(http.statusCode) else {
+                let errorBody = String(data: data, encoding: .utf8) ?? ""
+                if http.statusCode == 400 {
+                    lastError = "Ошибка запроса (400). Проверьте API-ключ"
+                } else if http.statusCode == 403 {
+                    lastError = "Доступ запрещён (403). API-ключ недействителен"
+                } else if http.statusCode == 429 {
+                    lastError = "Превышен лимит запросов (429)"
+                } else {
+                    lastError = "Ошибка Gemini API: HTTP \(http.statusCode)"
+                }
+                print("[GeminiService] HTTP \(http.statusCode) — \(errorBody.prefix(500))")
+                return nil
+            }
 
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let candidates = json["candidates"] as? [[String: Any]],
                   let content = candidates.first?["content"] as? [String: Any],
                   let parts = content["parts"] as? [[String: Any]],
-                  let text = parts.first?["text"] as? String else { return nil }
+                  let text = parts.first?["text"] as? String else {
+                let raw = String(data: data, encoding: .utf8) ?? ""
+                // Check for blocked/safety responses
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let candidates = json["candidates"] as? [[String: Any]],
+                   let reason = candidates.first?["finishReason"] as? String,
+                   reason == "SAFETY" {
+                    lastError = "Ответ заблокирован фильтром безопасности"
+                } else {
+                    lastError = "Неожиданный формат ответа Gemini"
+                }
+                print("[GeminiService] unexpected JSON — \(raw.prefix(500))")
+                return nil
+            }
 
             return text
+        } catch let error as URLError where error.code == .timedOut {
+            lastError = "Таймаут запроса к Gemini"
+            return nil
+        } catch let error as URLError where error.code == .notConnectedToInternet {
+            lastError = "Нет подключения к интернету"
+            return nil
         } catch {
+            lastError = "Ошибка сети: \(error.localizedDescription)"
             return nil
         }
     }

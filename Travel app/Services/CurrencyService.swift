@@ -4,15 +4,37 @@ import Foundation
 final class CurrencyService {
     static let shared = CurrencyService()
 
-    static let supportedCurrencies = ["RUB", "JPY", "USD", "CNY"]
+    static let supportedCurrencies = ["RUB", "JPY", "USD", "CNY", "EUR"]
     static let symbols: [String: String] = [
         "JPY": "\u{00A5}",
         "USD": "$",
         "RUB": "\u{20BD}",
-        "CNY": "\u{5143}"
+        "CNY": "\u{5143}",
+        "EUR": "\u{20AC}"
     ]
 
-    // API rates: how much 1 RUB costs in each currency
+    /// The base currency used for storage and display
+    var baseCurrency: String {
+        UserDefaults.standard.string(forKey: "preferredCurrency") ?? "RUB"
+    }
+
+    /// SF Symbol name for the current base currency
+    static var baseCurrencyIcon: String {
+        switch shared.baseCurrency {
+        case "RUB": return "rublesign"
+        case "USD": return "dollarsign"
+        case "JPY", "CNY": return "yensign"
+        case "EUR": return "eurosign"
+        default: return "banknote"
+        }
+    }
+
+    /// Symbol character for the current base currency
+    static var baseCurrencySymbol: String {
+        symbols[shared.baseCurrency] ?? shared.baseCurrency
+    }
+
+    // API rates: how much 1 base costs in each currency
     var rates: [String: Double] = [:]
     var isLoading = false
     var errorMessage: String?
@@ -22,19 +44,25 @@ final class CurrencyService {
     private let cacheInterval: TimeInterval = 60 * 60 // 1 hour
     private let session: URLSession
 
-    // Fallback rates (approximate, 1 RUB = X currency)
-    private let fallbackRates: [String: Double] = [
-        "JPY": 1.7,
-        "USD": 0.011,
-        "CNY": 0.082
+    // Fallback rates per base currency (1 base = X target)
+    private static let fallbackMatrix: [String: [String: Double]] = [
+        "RUB": ["JPY": 1.7, "USD": 0.011, "CNY": 0.082, "EUR": 0.010],
+        "USD": ["RUB": 88.0, "JPY": 150.0, "CNY": 7.2, "EUR": 0.92],
+        "EUR": ["RUB": 95.0, "JPY": 163.0, "CNY": 7.8, "USD": 1.09],
+        "JPY": ["RUB": 0.59, "USD": 0.0067, "CNY": 0.048, "EUR": 0.0061],
+        "CNY": ["RUB": 12.2, "JPY": 20.8, "USD": 0.139, "EUR": 0.128],
     ]
+
+    private var fallbackRates: [String: Double] {
+        Self.fallbackMatrix[baseCurrency] ?? [:]
+    }
 
     private init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 10
         config.timeoutIntervalForResource = 15
         self.session = URLSession(configuration: config)
-        rates = fallbackRates
+        rates = Self.fallbackMatrix["RUB"] ?? [:]
     }
 
     // MARK: - Settings
@@ -43,8 +71,8 @@ final class CurrencyService {
         UserDefaults.standard.bool(forKey: "useCustomRates")
     }
 
-    // Custom rates stored as "1 USD = X RUB"
-    func customRateRUBPer(currency: String) -> Double {
+    // Custom rates stored as "1 currency = X baseCurrency"
+    func customRateBasePerUnit(of currency: String) -> Double {
         UserDefaults.standard.double(forKey: "customRate_\(currency)")
     }
 
@@ -53,10 +81,10 @@ final class CurrencyService {
     private var activeRates: [String: Double] {
         if useCustomRates {
             var custom: [String: Double] = [:]
-            for code in ["JPY", "USD", "CNY"] {
-                let rubPer = customRateRUBPer(currency: code)
-                if rubPer > 0 {
-                    custom[code] = 1.0 / rubPer
+            for code in Self.supportedCurrencies where code != baseCurrency {
+                let basePerUnit = customRateBasePerUnit(of: code)
+                if basePerUnit > 0 {
+                    custom[code] = 1.0 / basePerUnit
                 }
             }
             return custom.isEmpty ? rates : custom
@@ -70,24 +98,23 @@ final class CurrencyService {
     func convert(_ amount: Double, from: String, to: String) -> Double {
         if from == to { return amount }
 
+        let base = baseCurrency
         let currentRates = activeRates
 
-        if from == "RUB" {
-            // RUB -> other: multiply by rate
+        if from == base {
             let rate = currentRates[to] ?? 0
             return amount * rate
-        } else if to == "RUB" {
-            // other -> RUB: divide by rate
+        } else if to == base {
             let rate = currentRates[from] ?? 0
             guard rate > 0 else { return 0 }
             return amount / rate
         } else {
-            // cross: from -> RUB -> to
+            // cross: from -> base -> to
             let rateFrom = currentRates[from] ?? 0
             guard rateFrom > 0 else { return 0 }
-            let rubAmount = amount / rateFrom
+            let baseAmount = amount / rateFrom
             let rateTo = currentRates[to] ?? 0
-            return rubAmount * rateTo
+            return baseAmount * rateTo
         }
     }
 
@@ -102,13 +129,13 @@ final class CurrencyService {
         return "\(symbol)\(formatted)"
     }
 
-    /// Convenience: format amount as RUB
-    static func formatRub(_ amount: Double) -> String {
-        shared.format(amount, currency: "RUB")
+    /// Convenience: format amount in base currency
+    static func formatBase(_ amount: Double) -> String {
+        shared.format(amount, currency: shared.baseCurrency)
     }
 
-    /// Get rate: 1 unit of `currency` = X RUB
-    func rubPerUnit(of currency: String) -> Double {
+    /// Get rate: 1 unit of `currency` = X base
+    func basePerUnit(of currency: String) -> Double {
         let currentRates = activeRates
         guard let rate = currentRates[currency], rate > 0 else { return 0 }
         return 1.0 / rate
@@ -126,7 +153,7 @@ final class CurrencyService {
         errorMessage = nil
 
         do {
-            let url = URL(string: "https://open.er-api.com/v6/latest/RUB")!
+            let url = URL(string: "https://open.er-api.com/v6/latest/\(baseCurrency)")!
             let (data, response) = try await session.data(from: url)
 
             guard let http = response as? HTTPURLResponse,
@@ -135,15 +162,17 @@ final class CurrencyService {
             }
 
             let decoded = try JSONDecoder().decode(ExchangeRateResponse.self, from: data)
-            if let jpy = decoded.rates["JPY"] { rates["JPY"] = jpy }
-            if let usd = decoded.rates["USD"] { rates["USD"] = usd }
-            if let cny = decoded.rates["CNY"] { rates["CNY"] = cny }
+            for code in Self.supportedCurrencies where code != baseCurrency {
+                if let rate = decoded.rates[code] {
+                    rates[code] = rate
+                }
+            }
 
             lastFetchDate = Date()
             lastUpdated = Date()
         } catch {
             errorMessage = "Не удалось загрузить курсы"
-            // Keep fallback rates
+            rates = fallbackRates
         }
 
         isLoading = false
@@ -151,6 +180,7 @@ final class CurrencyService {
 
     func invalidateCache() {
         lastFetchDate = nil
+        rates = fallbackRates
     }
 }
 

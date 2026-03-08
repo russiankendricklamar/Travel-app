@@ -84,15 +84,27 @@ final class GroqService {
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (data, response) = try await URLSession.shared.data(for: req)
 
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return nil }
+            guard let http = response as? HTTPURLResponse else {
+                print("[GroqService] rawRequest: no HTTP response")
+                return nil
+            }
+            guard (200...299).contains(http.statusCode) else {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                print("[GroqService] rawRequest: HTTP \(http.statusCode) — \(body.prefix(300))")
+                return nil
+            }
 
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let choices = json["choices"] as? [[String: Any]],
                   let message = choices.first?["message"] as? [String: Any],
-                  let content = message["content"] as? String else { return nil }
+                  let content = message["content"] as? String else {
+                print("[GroqService] rawRequest: unexpected JSON structure")
+                return nil
+            }
 
             return content
         } catch {
+            print("[GroqService] rawRequest error: \(error)")
             return nil
         }
     }

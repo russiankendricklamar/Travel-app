@@ -4,16 +4,20 @@ import SwiftData
 struct TripsListView: View {
     @Query(sort: \Trip.startDate) var trips: [Trip]
     @Environment(\.modelContext) private var modelContext
-    @State private var showCreateSheet = false
-    @State private var showBucketList = false
+    @Environment(\.dismiss) private var dismiss
+    // @AppStorage("appMode") private var appMode: String = AppMode.personal.rawValue
 
     var onSelectTrip: ((Trip) -> Void)?
+
+    private var filteredTrips: [Trip] {
+        trips
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: AppTheme.spacingM) {
-                    if trips.isEmpty {
+                    if filteredTrips.isEmpty {
                         emptyState
                     } else {
                         if !activeTrips.isEmpty {
@@ -34,38 +38,15 @@ struct TripsListView: View {
             .sakuraGradientBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showBucketList = true
-                    } label: {
-                        Image(systemName: "bookmark.fill")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(AppTheme.sakuraPink)
-                    }
-                }
                 ToolbarItem(placement: .principal) {
                     Text("ПОЕЗДКИ")
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .tracking(4)
                         .foregroundStyle(AppTheme.sakuraPink)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showCreateSheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(AppTheme.sakuraPink)
-                    }
-                }
-            }
-            .sheet(isPresented: $showCreateSheet) {
-                CreateTripSheet()
-            }
-            .sheet(isPresented: $showBucketList) {
-                BucketListView()
             }
         }
+        .sakuraGradientBackground()
     }
 
     // MARK: - Sections
@@ -76,6 +57,7 @@ struct TripsListView: View {
 
             ForEach(trips) { trip in
                 Button {
+                    dismiss()
                     onSelectTrip?(trip)
                 } label: {
                     TripCardView(trip: trip)
@@ -107,30 +89,9 @@ struct TripsListView: View {
                 .tracking(3)
                 .foregroundStyle(.secondary)
 
-            Text("Создайте первую поездку")
+            Text("Создайте поездку на главном экране")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.tertiary)
-
-            Button {
-                showCreateSheet = true
-            } label: {
-                Text("СОЗДАТЬ")
-                    .font(.system(size: 14, weight: .bold))
-                    .tracking(4)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        LinearGradient(
-                            colors: [AppTheme.sakuraPink, AppTheme.sakuraPink.opacity(0.8)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .clipShape(Capsule())
-                    .shadow(color: AppTheme.sakuraPink.opacity(0.3), radius: 8, x: 0, y: 4)
-            }
-            .padding(.horizontal, AppTheme.spacingXL)
 
             Spacer(minLength: 80)
         }
@@ -139,15 +100,15 @@ struct TripsListView: View {
     // MARK: - Filters
 
     private var activeTrips: [Trip] {
-        trips.filter(\.isActive)
+        filteredTrips.filter(\.isActive)
     }
 
     private var upcomingTrips: [Trip] {
-        trips.filter(\.isUpcoming)
+        filteredTrips.filter(\.isUpcoming)
     }
 
     private var pastTrips: [Trip] {
-        trips.filter(\.isPast)
+        filteredTrips.filter(\.isPast)
     }
 
     // MARK: - Actions

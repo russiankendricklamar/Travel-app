@@ -70,22 +70,14 @@ struct AuthView: View {
 
     private var headerSection: some View {
         VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 100, height: 100)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
-                    )
+            Image("AppIcon")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 100, height: 100)
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+                .shadow(color: AppTheme.sakuraPink.opacity(0.2), radius: 16, x: 0, y: 8)
 
-                Image(systemName: "airplane")
-                    .font(.system(size: 40, weight: .bold))
-                    .foregroundStyle(AppTheme.sakuraPink)
-                    .rotationEffect(.degrees(-30))
-            }
-
-            Text("TRAVEL PLANNER")
+            Text("ULTIMA THULE")
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .tracking(2)
                 .foregroundStyle(.primary)
@@ -100,33 +92,95 @@ struct AuthView: View {
 
     private var buttonsSection: some View {
         VStack(spacing: 14) {
+            appleSignInButton
             googleSignInButton
+            yandexSignInButton
             emailSignInButton
         }
     }
+
+    // MARK: - Apple Sign In (stub)
+
+    private var appleSignInButton: some View {
+        Button {
+            // TODO: implement Apple Sign In
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "apple.logo")
+                    .font(.system(size: 20, weight: .medium))
+                Text("Войти через Apple")
+                    .font(.system(size: 17, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(Color.black)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        }
+    }
+
+    // MARK: - Yandex Sign In
+
+    private var yandexSignInButton: some View {
+        Button {
+            handleYandexSignIn()
+        } label: {
+            HStack(spacing: 10) {
+                Text("Ya")
+                    .font(.system(size: 18, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("Войти через Яндекс")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(Color(hex: "FC3F1D"))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        }
+    }
+
+    // MARK: - Google Sign In
 
     private var googleSignInButton: some View {
         Button {
             handleGoogleSignIn()
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: "g.circle.fill")
-                    .font(.system(size: 20, weight: .bold))
-
+                googleLogo
+                    .frame(width: 20, height: 20)
                 Text("Войти через Google")
                     .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color(hex: "1F1F1F"))
             }
-            .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(.ultraThinMaterial)
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
             .overlay(
                 RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                    .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+                    .stroke(Color(hex: "DADCE0"), lineWidth: 1)
             )
         }
     }
+
+    /// Google "G" logo drawn with shapes
+    private var googleLogo: some View {
+        ZStack {
+            // Simplified colored G
+            Text("G")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color(hex: "4285F4"), Color(hex: "EA4335"), Color(hex: "FBBC05"), Color(hex: "34A853")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        }
+    }
+
+    // MARK: - Email Sign In
 
     private var emailSignInButton: some View {
         Button {
@@ -134,8 +188,7 @@ struct AuthView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "envelope.fill")
-                    .font(.system(size: 18, weight: .bold))
-
+                    .font(.system(size: 16, weight: .bold))
                 Text("Войти по Email")
                     .font(.system(size: 17, weight: .semibold))
             }
@@ -168,6 +221,24 @@ struct AuthView: View {
     }
 
     // MARK: - Google Sign-In Handler
+
+    private func handleYandexSignIn() {
+        isLoading = true
+        Task {
+            do {
+                try await authManager.signInWithYandex()
+                await MainActor.run {
+                    isLoading = false
+                    onComplete(.signedIn)
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = "Ошибка Яндекс: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
 
     private func handleGoogleSignIn() {
         isLoading = true

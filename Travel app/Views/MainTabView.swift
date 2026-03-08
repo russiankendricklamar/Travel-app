@@ -9,10 +9,13 @@ struct MainTabView: View {
     @AppStorage("hasSkippedAuth") private var hasSkippedAuth = false
     @State private var showSideMenu = false
     @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
+    // @AppStorage("appMode") private var appMode: String = AppMode.personal.rawValue
     @State private var selectedTripID: UUID?
+    @State private var showProfileSetup = false
     @Environment(\.scenePhase) private var scenePhase
 
     private let authManager = AuthManager.shared
+    private let profileService = ProfileService.shared
 
     enum Tab: String {
         case dashboard
@@ -34,12 +37,33 @@ struct MainTabView: View {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         switch result {
                         case .signedIn:
-                            break
+                            Task {
+                                await profileService.fetchProfile()
+                                if !profileService.hasProfile {
+                                    try? await profileService.createInitialProfile(name: authManager.userName)
+                                    showProfileSetup = true
+                                }
+                            }
                         case .skipped:
                             hasSkippedAuth = true
+                            showProfileSetup = true
                         }
                     }
                 }
+            } else if showProfileSetup {
+                ProfileSetupView(
+                    initialName: authManager.userName,
+                    onComplete: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showProfileSetup = false
+                        }
+                    },
+                    onSkip: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showProfileSetup = false
+                        }
+                    }
+                )
             } else if !hasCompletedOnboarding {
                 OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
             } else if authManager.isLocked {
@@ -97,7 +121,7 @@ struct MainTabView: View {
                     })
                 }
             } else {
-                TripsListView { trip in
+                HomeView { trip in
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         selectedTripID = trip.id
                     }
@@ -108,6 +132,9 @@ struct MainTabView: View {
             if newPhase == .active {
                 WidgetDataProvider.updateWidgetData(trips: trips)
                 Task { await SyncManager.shared.syncIfNeeded() }
+                if authManager.isSignedIn && profileService.profile == nil {
+                    Task { await profileService.fetchProfile() }
+                }
             }
         }
     }

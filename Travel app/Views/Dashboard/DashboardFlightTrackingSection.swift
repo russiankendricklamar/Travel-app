@@ -3,20 +3,40 @@ import SwiftUI
 struct DashboardFlightTrackingSection: View {
     let trip: Trip
 
+    var body: some View {
+        if trip.flights.count == 1 {
+            DashboardFlightCard(trip: trip, flight: trip.flights[0])
+        } else {
+            TabView {
+                ForEach(trip.flights) { flight in
+                    DashboardFlightCard(trip: trip, flight: flight)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 260)
+        }
+    }
+}
+
+// MARK: - Single Flight Card
+
+private struct DashboardFlightCard: View {
+    let trip: Trip
+    let flight: TripFlight
+
     @State private var flightData: FlightData?
-    private let flightService = AviationStackService.shared
-    private let estimatedFlightHours: Double = 10
+    private let flightService = AirLabsService.shared
 
     var body: some View {
-        if trip.flightNumber != nil {
-            NavigationLink(destination: FlightDetailView(trip: trip, flightData: flightData)) {
-                flightCard
-            }
-            .buttonStyle(.plain)
-            .task {
-                if let num = trip.flightNumber {
-                    flightData = await flightService.fetchFlight(number: num)
-                }
+        NavigationLink(destination: FlightDetailView(trip: trip, flight: flight, flightData: flightData)) {
+            flightCard
+        }
+        .buttonStyle(.plain)
+        .task {
+            let data = await flightService.fetchFlight(number: flight.number, date: flight.date)
+            flightData = data
+            if let data, flight.departureIata == nil {
+                trip.updateFlightIata(flightID: flight.id, data: data)
             }
         }
     }
@@ -57,15 +77,18 @@ struct DashboardFlightTrackingSection: View {
 
             // Flight number + status badge
             HStack {
-                Text(flightData?.flightIata ?? trip.flightNumber ?? "")
+                Text(flightData?.flightIata ?? flight.number)
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
 
-                if let data = flightData, !data.airlineName.isEmpty {
-                    Text(data.airlineName)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                if let data = flightData {
+                    let displayName = data.airlineDisplayName
+                    if !displayName.isEmpty {
+                        Text(displayName)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer()
@@ -174,13 +197,26 @@ struct DashboardFlightTrackingSection: View {
                             .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundStyle(AppTheme.oceanBlue)
                     }
+                    if let duration = flightData?.durationFormatted {
+                        Spacer()
+                        HStack(spacing: 3) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 9, weight: .semibold))
+                            Text(duration)
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .foregroundStyle(.secondary)
+                    }
                     Spacer()
                 }
                 .padding(.horizontal, AppTheme.spacingM)
                 .padding(.top, 8)
-            } else if let flight = trip.flightDate {
+            } else if let flightDate = flight.date {
                 HStack {
-                    Text(flightTimeFormatted(flight))
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppTheme.oceanBlue.opacity(0.7))
+                    Text(flightTimeFormatted(flightDate))
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(AppTheme.oceanBlue)
                     Spacer()
@@ -204,7 +240,7 @@ struct DashboardFlightTrackingSection: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: AppTheme.oceanBlue.opacity(0.12), radius: 16, x: 0, y: 8)
+        .shadow(color: AppTheme.oceanBlue.opacity(0.12), radius: 12, x: 0, y: 6)
     }
 
     // MARK: - Info Chip
@@ -333,10 +369,10 @@ struct DashboardFlightTrackingSection: View {
     }
 
     private var flightStatus: FlightStatusType {
-        guard let flight = trip.flightDate else { return .scheduled }
+        guard let flightDate = flight.date else { return .scheduled }
         let now = Date()
-        if now < flight { return .scheduled }
-        let landing = flight.addingTimeInterval(estimatedFlightHours * 3600)
+        if now < flightDate { return .scheduled }
+        let landing = flightDate.addingTimeInterval(24 * 3600)
         if now < landing { return .inFlight }
         return .landed
     }
@@ -357,12 +393,7 @@ struct DashboardFlightTrackingSection: View {
             default: return 0
             }
         }
-        guard let flight = trip.flightDate else { return 0 }
-        let now = Date()
-        if now < flight { return 0 }
-        let duration = estimatedFlightHours * 3600
-        let elapsed = now.timeIntervalSince(flight)
-        return min(max(elapsed / duration, 0), 1)
+        return 0
     }
 
     // MARK: - Display Helpers
@@ -371,34 +402,22 @@ struct DashboardFlightTrackingSection: View {
         if let data = flightData, !data.departureIata.isEmpty {
             return data.departureIata
         }
-        return String(originCity.prefix(3)).uppercased()
+        return "···"
     }
 
     private var displayDestinationCode: String {
         if let data = flightData, !data.arrivalIata.isEmpty {
             return data.arrivalIata
         }
-        return String(trip.destination.prefix(3)).uppercased()
+        return "···"
     }
 
     private var displayOriginCity: String {
-        if let data = flightData, !data.departureIata.isEmpty {
-            return data.departureIata
-        }
-        return originCity
+        flightData?.departureCityName ?? ""
     }
 
     private var displayDestinationCity: String {
-        if let data = flightData, !data.arrivalIata.isEmpty {
-            return data.arrivalIata
-        }
-        return trip.destination
-    }
-
-    private var originCity: String {
-        trip.days
-            .sorted { $0.date < $1.date }
-            .first?.cityName ?? String(localized: "Город")
+        flightData?.arrivalCityName ?? ""
     }
 
     private func flightTimeFormatted(_ date: Date) -> String {

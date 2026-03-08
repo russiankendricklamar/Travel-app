@@ -7,6 +7,11 @@ enum ColorPalette: String, CaseIterable, Identifiable {
     case matcha
     case fuji
     case hanami
+    // MARK: - Corporate palettes (disabled)
+    // case corporateCobalt
+    // case corporateGraphite
+    // case corporateOnyx
+    // case corporateTitanium
 
     var id: String { rawValue }
 
@@ -14,16 +19,38 @@ enum ColorPalette: String, CaseIterable, Identifiable {
         ColorPalette(rawValue: UserDefaults.standard.string(forKey: "colorPalette") ?? "sakura") ?? .sakura
     }
 
+    // MARK: - Corporate helpers (disabled)
+    // var isCorporate: Bool {
+    //     switch self {
+    //     case .corporateCobalt, .corporateGraphite, .corporateOnyx, .corporateTitanium:
+    //         return true
+    //     default:
+    //         return false
+    //     }
+    // }
+    //
+    // static var personalPalettes: [ColorPalette] {
+    //     allCases.filter { !$0.isCorporate }
+    // }
+    //
+    // static var corporatePalettes: [ColorPalette] {
+    //     allCases.filter { $0.isCorporate }
+    // }
+
     // MARK: - Accent Color
 
     var accentColor: Color {
         switch self {
-        case .sakura:   return Color(hex: "EC4899")
-        case .midnight: return Color(hex: "EC4899")
-        case .imperial: return Color(hex: "E2D799")
-        case .matcha:   return Color(hex: "FAFFBA")
-        case .fuji:     return Color(hex: "FFED86")
-        case .hanami:   return Color(hex: "FF5A96")
+        case .sakura:    return Color(hex: "EC4899")
+        case .midnight:  return Color(hex: "EC4899")
+        case .imperial:  return Color(hex: "E2D799")
+        case .matcha:    return Color(hex: "FAFFBA")
+        case .fuji:      return Color(hex: "FFED86")
+        case .hanami:    return Color(hex: "FF5A96")
+        // case .corporateCobalt:   return Color(hex: "3B47FF")
+        // case .corporateGraphite: return Color(hex: "8B95A5")
+        // case .corporateOnyx:     return Color(hex: "C9A84C")
+        // case .corporateTitanium: return Color(hex: "0EA5E9")
         }
     }
 
@@ -72,6 +99,34 @@ enum ColorPalette: String, CaseIterable, Identifiable {
                 Color(hex: "FFEFB5"),
                 Color(hex: "FFF4C8"),
             ]
+        // case .corporateCobalt:
+        //     return [
+        //         Color(hex: "050810"),
+        //         Color(hex: "070B14"),
+        //         Color(hex: "090E1A"),
+        //         Color(hex: "060A12"),
+        //     ]
+        // case .corporateGraphite:
+        //     return [
+        //         Color(hex: "08080C"),
+        //         Color(hex: "0A0A10"),
+        //         Color(hex: "0D0D14"),
+        //         Color(hex: "09090E"),
+        //     ]
+        // case .corporateOnyx:
+        //     return [
+        //         Color(hex: "040404"),
+        //         Color(hex: "060606"),
+        //         Color(hex: "080808"),
+        //         Color(hex: "050505"),
+        //     ]
+        // case .corporateTitanium:
+        //     return [
+        //         Color(hex: "060A10"),
+        //         Color(hex: "080D14"),
+        //         Color(hex: "0A1018"),
+        //         Color(hex: "070B12"),
+        //     ]
         }
     }
 
@@ -79,12 +134,14 @@ enum ColorPalette: String, CaseIterable, Identifiable {
 
     var colorScheme: ColorScheme {
         switch self {
-        case .sakura:   return .light
-        case .midnight: return .dark
-        case .imperial: return .dark
-        case .matcha:   return .dark
-        case .fuji:     return .light
-        case .hanami:   return .light
+        case .sakura:    return .light
+        case .midnight:  return .dark
+        case .imperial:  return .dark
+        case .matcha:    return .dark
+        case .fuji:      return .light
+        case .hanami:    return .light
+        // case .corporateCobalt, .corporateGraphite, .corporateOnyx, .corporateTitanium:
+        //     return .dark
         }
     }
 
@@ -92,12 +149,16 @@ enum ColorPalette: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .sakura:   return String(localized: "Сакура")
-        case .midnight: return String(localized: "Полночь")
-        case .imperial: return String(localized: "Императорский")
-        case .matcha:   return String(localized: "Матча")
-        case .fuji:     return String(localized: "Фудзи")
-        case .hanami:   return String(localized: "Ханами")
+        case .sakura:    return String(localized: "Сакура")
+        case .midnight:  return String(localized: "Полночь")
+        case .imperial:  return String(localized: "Императорский")
+        case .matcha:    return String(localized: "Матча")
+        case .fuji:      return String(localized: "Фудзи")
+        case .hanami:    return String(localized: "Ханами")
+        // case .corporateCobalt:   return String(localized: "Кобальт")
+        // case .corporateGraphite: return String(localized: "Графит")
+        // case .corporateOnyx:     return String(localized: "Оникс")
+        // case .corporateTitanium: return String(localized: "Титан")
         }
     }
 }

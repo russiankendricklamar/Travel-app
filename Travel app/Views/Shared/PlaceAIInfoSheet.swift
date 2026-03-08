@@ -155,6 +155,7 @@ struct PlaceAIInfoSheet: View {
         )
     }
 
+
     private func fetchInfo() async {
         isLoading = true
         error = nil

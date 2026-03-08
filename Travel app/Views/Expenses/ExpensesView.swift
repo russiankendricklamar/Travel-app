@@ -7,8 +7,10 @@ struct ExpensesView: View {
     @State private var showingAddSheet = false
     @State private var showingBudgetEdit = false
     @State private var budgetInput = ""
+    @State private var editingExpense: Expense?
 
     @AppStorage("preferredCurrency") private var preferredCurrency = "RUB"
+    @AppStorage("notif_budget") private var notifBudget = true
 
     private var sortedExpenses: [Expense] {
         trip.expenses.sorted { $0.date > $1.date }
@@ -16,16 +18,8 @@ struct ExpensesView: View {
 
     private var currency: CurrencyService { CurrencyService.shared }
 
-    private func formatAmount(_ rubAmount: Double) -> String {
-        if preferredCurrency == "RUB" {
-            return currency.format(rubAmount, currency: "RUB")
-        }
-        let converted = currency.convert(rubAmount, from: "RUB", to: preferredCurrency)
-        return currency.format(converted, currency: preferredCurrency)
-    }
-
-    private func formatRub(_ amount: Double) -> String {
-        currency.format(amount, currency: "RUB")
+    private func formatAmount(_ amount: Double) -> String {
+        currency.format(amount, currency: preferredCurrency)
     }
 
     var body: some View {
@@ -61,8 +55,11 @@ struct ExpensesView: View {
             .sheet(isPresented: $showingAddSheet) {
                 AddExpenseSheet(trip: trip)
             }
+            .sheet(item: $editingExpense) { expense in
+                AddExpenseSheet(trip: trip, editing: expense)
+            }
             .alert("Изменить бюджет", isPresented: $showingBudgetEdit) {
-                TextField("Сумма в RUB", text: $budgetInput)
+                TextField("Сумма в \(preferredCurrency)", text: $budgetInput)
                     .keyboardType(.numberPad)
                 Button("Сохранить") {
                     if let value = Double(budgetInput), value > 0 {
@@ -71,7 +68,7 @@ struct ExpensesView: View {
                 }
                 Button("Отмена", role: .cancel) {}
             } message: {
-                Text("Введите новый бюджет поездки в рублях")
+                Text("Введите новый бюджет поездки в \(preferredCurrency)")
             }
         }
     }
@@ -79,6 +76,7 @@ struct ExpensesView: View {
     // MARK: - Summary
 
     private var summarySection: some View {
+        VStack(spacing: AppTheme.spacingS) {
         VStack(spacing: AppTheme.spacingS) {
             HStack(spacing: AppTheme.spacingM) {
                 VStack(alignment: .leading, spacing: AppTheme.spacingS) {
@@ -155,6 +153,45 @@ struct ExpensesView: View {
                 .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 6)
+
+        // Budget notification toggle
+        HStack(spacing: 12) {
+            Image(systemName: "\(CurrencyService.baseCurrencyIcon).circle.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(
+                    LinearGradient(
+                        colors: [AppTheme.toriiRed, AppTheme.toriiRed.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Уведомление о бюджете")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("Когда потрачено > 80%")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $notifBudget)
+                .labelsHidden()
+                .tint(AppTheme.sakuraPink)
+        }
+        .padding(10)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+        }
     }
 
     // MARK: - Category Breakdown
@@ -224,7 +261,16 @@ struct ExpensesView: View {
             VStack(spacing: 6) {
                 ForEach(sortedExpenses) { expense in
                     expenseRow(expense)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editingExpense = expense
+                        }
                         .contextMenu {
+                            Button {
+                                editingExpense = expense
+                            } label: {
+                                Label("Редактировать", systemImage: "pencil")
+                            }
                             Button(role: .destructive) {
                                 modelContext.delete(expense)
                             } label: {
@@ -277,16 +323,9 @@ struct ExpensesView: View {
                 }
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(formatAmount(expense.amount))
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-                if preferredCurrency != "RUB" {
-                    Text(formatRub(expense.amount))
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.tertiary)
-                }
-            }
+            Text(formatAmount(expense.amount))
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
         }
         .padding(10)
         .background(.ultraThinMaterial)

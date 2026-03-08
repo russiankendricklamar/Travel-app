@@ -12,7 +12,7 @@ struct AddExpenseSheet: View {
     @State private var category: ExpenseCategory = .food
     @State private var date = Date()
     @State private var notes = ""
-    @State private var inputCurrency = "RUB"
+    @State private var inputCurrency = UserDefaults.standard.string(forKey: "preferredCurrency") ?? "RUB"
 
     private var currency: CurrencyService { CurrencyService.shared }
 
@@ -22,10 +22,14 @@ struct AddExpenseSheet: View {
             && Double(amountText)! > 0
     }
 
-    private var convertedRUB: Double? {
+    private var baseCurrency: String {
+        currency.baseCurrency
+    }
+
+    private var convertedBase: Double? {
         guard let amount = Double(amountText), amount > 0 else { return nil }
-        if inputCurrency == "RUB" { return amount }
-        let result = currency.convert(amount, from: inputCurrency, to: "RUB")
+        if inputCurrency == baseCurrency { return amount }
+        let result = currency.convert(amount, from: inputCurrency, to: baseCurrency)
         return result > 0 ? result : nil
     }
 
@@ -33,7 +37,7 @@ struct AddExpenseSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppTheme.spacingM) {
-                    SheetHeader(icon: "rublesign.circle.fill", title: editing != nil ? "РЕДАКТИРОВАТЬ РАСХОД" : "НОВЫЙ РАСХОД", color: AppTheme.sakuraPink)
+                    SheetHeader(icon: "\(CurrencyService.baseCurrencyIcon).circle.fill", title: editing != nil ? "РЕДАКТИРОВАТЬ РАСХОД" : "НОВЫЙ РАСХОД", color: AppTheme.sakuraPink)
 
                     GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
                         TextField("Рамен Ichiran", text: $title)
@@ -49,11 +53,11 @@ struct AddExpenseSheet: View {
 
                             currencySelector
 
-                            if inputCurrency != "RUB", let rub = convertedRUB {
+                            if inputCurrency != baseCurrency, let base = convertedBase {
                                 HStack(spacing: 4) {
                                     Image(systemName: "arrow.right")
                                         .font(.system(size: 10))
-                                    Text("\u{2248} \u{20BD}\(Int(rub))")
+                                    Text("\u{2248} \(currency.format(base, currency: baseCurrency))")
                                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                                 }
                                 .foregroundStyle(AppTheme.templeGold)
@@ -121,7 +125,7 @@ struct AddExpenseSheet: View {
                     category = e.category
                     date = e.date
                     notes = e.notes
-                    inputCurrency = "RUB"
+                    inputCurrency = baseCurrency
                 }
             }
             .task {
@@ -205,25 +209,25 @@ struct AddExpenseSheet: View {
     private func saveExpense() {
         guard let amount = Double(amountText), amount > 0 else { return }
 
-        // Convert to RUB if needed
-        let rubAmount: Double
-        if inputCurrency == "RUB" {
-            rubAmount = amount
+        // Convert to base currency if needed
+        let baseAmount: Double
+        if inputCurrency == baseCurrency {
+            baseAmount = amount
         } else {
-            rubAmount = currency.convert(amount, from: inputCurrency, to: "RUB")
-            guard rubAmount > 0 else { return }
+            baseAmount = currency.convert(amount, from: inputCurrency, to: baseCurrency)
+            guard baseAmount > 0 else { return }
         }
 
         if let e = editing {
             e.title = title.trimmingCharacters(in: .whitespaces)
-            e.amount = rubAmount
+            e.amount = baseAmount
             e.category = category
             e.date = date
             e.notes = notes.trimmingCharacters(in: .whitespaces)
         } else {
             let expense = Expense(
                 title: title.trimmingCharacters(in: .whitespaces),
-                amount: rubAmount,
+                amount: baseAmount,
                 category: category,
                 date: date,
                 notes: notes.trimmingCharacters(in: .whitespaces)

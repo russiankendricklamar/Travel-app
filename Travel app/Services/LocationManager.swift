@@ -40,16 +40,49 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
 
     // MARK: - CLLocationManagerDelegate
 
+    /// One-shot location request (no tracking needed)
+    func requestCurrentLocation() async -> CLLocationCoordinate2D? {
+        if let loc = currentLocation { return loc }
+        if authorizationStatus == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+            try? await Task.sleep(for: .seconds(1))
+        }
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else { return nil }
+        return await withCheckedContinuation { continuation in
+            oneShotContinuation = continuation
+            manager.requestLocation()
+        }
+    }
+
+    private var oneShotContinuation: CheckedContinuation<CLLocationCoordinate2D?, Never>?
+
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last, let day = activeDay, let context = modelContext else { return }
+        guard let location = locations.last else { return }
         currentLocation = location.coordinate
-        let point = RoutePoint(
-            latitude: location.coordinate.latitude,
-            longitude: location.coordinate.longitude,
-            timestamp: location.timestamp
-        )
-        day.routePoints.append(point)
-        try? context.save()
+
+        // One-shot completion
+        if let cont = oneShotContinuation {
+            oneShotContinuation = nil
+            cont.resume(returning: location.coordinate)
+        }
+
+        // Route tracking
+        if let day = activeDay, let context = modelContext {
+            let point = RoutePoint(
+                latitude: location.coordinate.latitude,
+                longitude: location.coordinate.longitude,
+                timestamp: location.timestamp
+            )
+            day.routePoints.append(point)
+            try? context.save()
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        if let cont = oneShotContinuation {
+            oneShotContinuation = nil
+            cont.resume(returning: nil)
+        }
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

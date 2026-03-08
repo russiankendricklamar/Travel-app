@@ -95,7 +95,7 @@ struct DayPickerSheet: View {
             name: recommendation.name,
             nameLocal: "",
             category: recommendation.placeCategory,
-            address: "",
+            address: recommendation.address,
             latitude: recommendation.latitude,
             longitude: recommendation.longitude,
             notes: recommendation.description,

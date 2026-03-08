@@ -8,7 +8,7 @@ struct BucketListView: View {
 
     @State private var showAddSheet = false
     @State private var showCreateTrip = false
-    @State private var prefilledDestination = ""
+    @State private var prefilledCountry = ""
 
     private var unconvertedItems: [BucketListItem] {
         items.filter { !$0.isConverted }
@@ -32,7 +32,7 @@ struct BucketListView: View {
                                     BucketItemCard(item: item)
                                         .contextMenu {
                                             Button {
-                                                prefilledDestination = item.destination
+                                                prefilledCountry = item.destination
                                                 showCreateTrip = true
                                             } label: {
                                                 Label("Создать поездку", systemImage: "airplane.departure")
@@ -113,7 +113,7 @@ struct BucketListView: View {
                 AddBucketItemSheet()
             }
             .sheet(isPresented: $showCreateTrip) {
-                CreateTripSheet(prefilledDestination: prefilledDestination)
+                CreateTripSheet(prefilledCountry: prefilledCountry)
             }
         }
     }

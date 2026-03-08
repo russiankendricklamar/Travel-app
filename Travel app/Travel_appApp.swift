@@ -7,6 +7,7 @@ import Supabase
 struct Travel_appApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
+    // @AppStorage("appMode") private var appMode: String = AppMode.personal.rawValue
     @AppStorage("appLanguage") private var appLanguage: String = "system"
     @Environment(\.scenePhase) private var scenePhase
 
@@ -18,6 +19,13 @@ struct Travel_appApp: App {
         OfflineCacheManager.shared.startMonitoring()
         // Force-init Supabase client eagerly
         _ = supabase.client
+        // Corporate mode disabled
+        // if AppMode.current == .corporate {
+        //     let current = ColorPalette.current
+        //     if !current.isCorporate {
+        //         UserDefaults.standard.set(ColorPalette.corporateCobalt.rawValue, forKey: "colorPalette")
+        //     }
+        // }
     }
 
     private var resolvedScheme: ColorScheme {

@@ -42,6 +42,7 @@ __MACOSX
 
 # Secrets
 **/Config/Secrets.swift
+Secrets.xcconfig
 
 # Build artifacts
 build/

@@ -71,10 +71,18 @@ final class AuthManager {
         isSignedIn = true
     }
 
+    // MARK: - Sign in with Yandex
+
+    func signInWithYandex() async throws {
+        try await SupabaseAuthService.shared.signInWithYandex()
+        isSignedIn = true
+    }
+
     // MARK: - Sign Out
 
     func signOut() async {
         try? await SupabaseAuthService.shared.signOut()
+        ProfileService.shared.clearProfile()
         isSignedIn = false
         isBiometricEnabled = false
         isLocked = false

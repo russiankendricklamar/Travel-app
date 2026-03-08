@@ -32,6 +32,8 @@ struct TripDTO: Codable {
     let coverSystemImage: String?
     let flightDate: String?
     let flightNumber: String?
+    let flightsJson: String?
+    let countryFlags: String?
     let updatedAt: String
     let isDeleted: Bool
 
@@ -45,6 +47,8 @@ struct TripDTO: Codable {
         case coverSystemImage = "cover_system_image"
         case flightDate = "flight_date"
         case flightNumber = "flight_number"
+        case flightsJson = "flights_json"
+        case countryFlags = "country_flags"
         case updatedAt = "updated_at"
         case isDeleted = "is_deleted"
     }

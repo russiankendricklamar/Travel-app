@@ -46,7 +46,7 @@ enum WidgetDataProvider {
         let data = WidgetTripData(
             id: trip.id.uuidString,
             name: trip.name,
-            destination: trip.destination,
+            destination: trip.countriesDisplay,
             startDate: trip.startDate,
             endDate: trip.endDate,
             flightDate: trip.flightDate,

@@ -7,15 +7,15 @@ enum AppTheme {
     static let toriiRed = Color(hex: "E11D48")
     static let templeGold = Color(hex: "D97706")
     static let bambooGreen = Color(hex: "16A34A")
-    static let oceanBlue = Color(hex: "2563EB")
-    static let indigoPurple = Color(hex: "7C3AED")
+    static var oceanBlue: Color { sakuraPink }
+    static var indigoPurple: Color { sakuraPink }
 
     // MARK: - Soft Accent Variants
     static let softPink = Color(hex: "FDF2F8")
     static let softRed = Color(hex: "FFF1F2")
     static let softGold = Color(hex: "FFFBEB")
     static let softGreen = Color(hex: "F0FDF4")
-    static let softBlue = Color(hex: "EFF6FF")
+    static var softBlue: Color { sakuraPink.opacity(0.08) }
 
     // MARK: - Legacy Colors (kept for backward compat, prefer .primary/.secondary)
     static let background = Color(hex: "FEFCFD")
@@ -30,7 +30,7 @@ enum AppTheme {
     static var primary: Color { sakuraPink }
     static let success = bambooGreen
     static let warning = templeGold
-    static let info = oceanBlue
+    static var info: Color { sakuraPink }
 
     // MARK: - Border
     static let border = Color(hex: "F3D5E4")
@@ -54,20 +54,16 @@ enum AppTheme {
     static let borderWidthThick: CGFloat = 1.0
     static let borderWidthBold: CGFloat = 1.5
 
-    // MARK: - New Category Colors
-    static let cyanPool = Color(hex: "0891B2")
+    // MARK: - New Category Colors (non-blue palette)
     static let pinkGallery = Color(hex: "EC4899")
     static let amberPalace = Color(hex: "B45309")
     static let greenDark = Color(hex: "15803D")
     static let limeGarden = Color(hex: "65A30D")
-    static let skyLake = Color(hex: "0284C7")
     static let slateMountain = Color(hex: "475569")
-    static let indigoAirport = Color(hex: "6366F1")
-    static let indigoDarkStation = Color(hex: "4F46E5")
-    static let purpleMetro = Color(hex: "9333EA")
     static let redSport = Color(hex: "DC2626")
     static let orangeStadium = Color(hex: "EA580C")
-    static let tealViewpoint = Color(hex: "0D9488")
+    static let roseMuseum = Color(hex: "BE185D")
+    static let oliveViewpoint = Color(hex: "4D7C0F")
 
     // MARK: - Category Colors
     static func categoryColor(for category: String) -> Color {
@@ -76,23 +72,23 @@ enum AppTheme {
         case "Еда": return toriiRed
         case "Шопинг": return sakuraPink
         case "Природа": return bambooGreen
-        case "Культура": return oceanBlue
-        case "Транспорт": return info
-        case "Жильё": return indigoPurple
+        case "Культура": return templeGold
+        case "Транспорт": return slateMountain
+        case "Жильё": return amberPalace
         case "Развлечения": return sakuraPink
-        case "Музей": return cyanPool
+        case "Музей": return roseMuseum
         case "Галерея": return pinkGallery
         case "Дворец": return amberPalace
         case "Парк": return greenDark
         case "Сад": return limeGarden
-        case "Озеро": return skyLake
+        case "Озеро": return bambooGreen
         case "Горы": return slateMountain
-        case "Аэропорт": return indigoAirport
-        case "Вокзал": return indigoDarkStation
-        case "Метро": return purpleMetro
+        case "Аэропорт": return slateMountain
+        case "Вокзал": return slateMountain
+        case "Метро": return slateMountain
         case "Спорт": return redSport
         case "Стадион": return orangeStadium
-        case "Смотровая": return tealViewpoint
+        case "Смотровая": return oliveViewpoint
         default: return textMuted
         }
     }
@@ -101,8 +97,8 @@ enum AppTheme {
     static func expenseColor(for category: ExpenseCategory) -> Color {
         switch category {
         case .food: return toriiRed
-        case .transport: return oceanBlue
-        case .accommodation: return indigoPurple
+        case .transport: return slateMountain
+        case .accommodation: return amberPalace
         case .activities: return sakuraPink
         case .shopping: return templeGold
         case .other: return textMuted
@@ -274,11 +270,18 @@ struct GradientBackground: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background {
-                LinearGradient(
-                    colors: resolved.backgroundColors,
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                ZStack {
+                    LinearGradient(
+                        colors: resolved.backgroundColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+
+                    // Corporate mode disabled
+                    // if resolved.isCorporate {
+                    //     CorporateWaveBackground()
+                    // }
+                }
                 .ignoresSafeArea()
             }
     }

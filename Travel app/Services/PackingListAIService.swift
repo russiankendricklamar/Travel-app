@@ -10,42 +10,38 @@ final class PackingListAIService {
         let placeTypes = Set(trip.allPlaces.map(\.category.rawValue)).joined(separator: ", ")
         let hasFlights = trip.flightNumber != nil
 
+        // Fetch country info for region-aware suggestions
+        let countryInfos = await CountryInfoService.shared.fetchAll(for: trip.countries)
+        let regions = countryInfos.values.compactMap(\.region).unique()
+        let languages = countryInfos.values.compactMap(\.language).unique()
+        let capitals = countryInfos.values.compactMap(\.capital).unique()
+
+        let monthFormatter = DateFormatter()
+        monthFormatter.locale = Locale(identifier: "ru_RU")
+        monthFormatter.dateFormat = "LLLL"
+        let travelMonth = monthFormatter.string(from: trip.startDate)
+
+        let profileCtx = AIPromptHelper.profileContext()
+
         let prompt = """
-        Ты — опытный путешественник. Составь список вещей для поездки:
-        - Направление: \(trip.destination)
-        - Длительность: \(duration) дней
-        - Типы мест: \(placeTypes.isEmpty ? "разные" : placeTypes)
+        Составь список вещей для поездки:
+        - Куда: \(trip.countriesDisplay) (\(regions.isEmpty ? "" : regions.joined(separator: ", ")))
+        - Месяц: \(travelMonth), \(duration) дней
+        - Места: \(placeTypes.isEmpty ? "разные" : placeTypes)
         - Перелёт: \(hasFlights ? "да" : "нет")
+        \(profileCtx)
 
-        Ответь строго в формате (каждая строка):
-        КАТЕГОРИЯ|НАЗВАНИЕ
+        Учитывай климат региона и сезон.
 
+        Формат (каждая строка): КАТЕГОРИЯ|НАЗВАНИЕ
         Категории: documents, clothing, electronics, toiletries, medicine, other
 
-        Примеры:
-        documents|Загранпаспорт
-        clothing|Футболки (\(min(duration, 7)) шт)
-        electronics|Зарядка для телефона
-
-        Дай 15-20 предметов. Без нумерации, без пояснений, только список.
+        15-20 предметов. Без нумерации, без пояснений.
         """
 
-        let provider = AIProvider.current
-
-        var response: String?
-
-        switch provider {
-        case .groq:
-            response = await GroqService.shared.rawRequest(prompt: prompt)
-        case .claude:
-            response = await ClaudeService.shared.rawRequest(prompt: prompt)
-        case .openai:
-            response = await OpenAIService.shared.rawRequest(prompt: prompt)
-        case .gemini:
-            response = await GeminiService.shared.rawRequest(prompt: prompt)
+        guard let text = await GeminiService.shared.rawRequest(prompt: prompt) else {
+            return defaultSuggestions(duration: duration)
         }
-
-        guard let text = response else { return defaultSuggestions(duration: duration) }
         return parseSuggestions(text)
     }
 

@@ -80,7 +80,6 @@ struct DashboardActiveSection: View {
                 )
         )
         .shadow(color: AppTheme.sakuraPink.opacity(0.12), radius: 20, x: 0, y: 10)
-        .padding(.top, 8)
         .scaleEffect(heroScale)
     }
 
@@ -92,7 +91,7 @@ struct DashboardActiveSection: View {
             Divider().frame(height: 40)
             bannerStat("\(uniqueCities.count)", label: "ГОРОДОВ", icon: "building.2")
             Divider().frame(height: 40)
-            bannerStat(CurrencyService.formatRub(trip.totalSpent), label: "ПОТРАЧЕНО", icon: "rublesign")
+            bannerStat(CurrencyService.formatBase(trip.totalSpent), label: "ПОТРАЧЕНО", icon: CurrencyService.baseCurrencyIcon)
         }
         .padding(.vertical, AppTheme.spacingM)
         .background(AppTheme.sakuraPink.opacity(0.12))
@@ -228,7 +227,7 @@ struct DashboardActiveSection: View {
 
             Spacer()
 
-            Text(CurrencyService.formatRub(expense.amount))
+            Text(CurrencyService.formatBase(expense.amount))
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
         }

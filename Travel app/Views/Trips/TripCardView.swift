@@ -28,7 +28,7 @@ struct TripCardView: View {
                     phaseBadge
                 }
 
-                Text(trip.destination)
+                Text(trip.flaggedCountriesDisplay)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

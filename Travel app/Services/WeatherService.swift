@@ -102,10 +102,11 @@ final class WeatherService {
             }
 
             let decoded = try JSONDecoder().decode(OpenMeteoResponse.self, from: data)
-            parseResponse(decoded, coordinate: coordinate)
 
             lastFetchDate = Date()
             lastFetchCoordinate = coordinate
+
+            parseResponse(decoded, coordinate: coordinate)
 
             // Cache for offline
             if let encoded = try? JSONEncoder().encode(decoded) {
@@ -212,6 +213,8 @@ final class WeatherService {
     private func restoreFromCache(coordinate: CLLocationCoordinate2D) {
         guard let data = OfflineCacheManager.shared.cachedWeather(),
               let decoded = try? JSONDecoder().decode(OpenMeteoResponse.self, from: data) else { return }
+        lastFetchCoordinate = coordinate
+        lastFetchDate = Date()
         parseResponse(decoded, coordinate: coordinate)
         errorMessage = nil
     }

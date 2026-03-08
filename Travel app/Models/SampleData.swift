@@ -17,7 +17,7 @@ enum SampleData {
 
         let trip = Trip(
             name: "Путешествие по Японии",
-            destination: "Япония",
+            country: "Япония",
             startDate: startDate,
             endDate: endDate,
             budget: 500000,

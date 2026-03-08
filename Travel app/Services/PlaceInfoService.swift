@@ -40,8 +40,11 @@ struct PlaceInfo {
     }
 
     var formatted: String {
-        var parts = sections.map { "[\($0.title)] \($0.text)" }
-        parts.append("— \(source)")
+        let parts = sections.map { section in
+            let cleanText = section.text
+                .replacingOccurrences(of: "**", with: "")
+            return "\(section.title)\n\(cleanText)"
+        }
         return parts.joined(separator: "\n\n")
     }
 }
@@ -61,12 +64,7 @@ final class PlaceInfoService {
     }
 
     private var hasApiKey: Bool {
-        switch provider {
-        case .groq: GroqService.shared.hasApiKey
-        case .claude: ClaudeService.shared.hasApiKey
-        case .openai: OpenAIService.shared.hasApiKey
-        case .gemini: GeminiService.shared.hasApiKey
-        }
+        GeminiService.shared.hasApiKey
     }
 
     func fetchInfo(
@@ -105,16 +103,10 @@ final class PlaceInfoService {
             wikiContext: wikiContext
         )
 
-        let rawContent: String?
-        switch provider {
-        case .groq: rawContent = await GroqService.shared.rawRequest(prompt: prompt)
-        case .claude: rawContent = await ClaudeService.shared.rawRequest(prompt: prompt)
-        case .openai: rawContent = await OpenAIService.shared.rawRequest(prompt: prompt)
-        case .gemini: rawContent = await GeminiService.shared.rawRequest(prompt: prompt)
-        }
+        let rawContent = await GeminiService.shared.rawRequest(prompt: prompt)
 
         guard let content = rawContent else {
-            lastError = "Не удалось получить информацию"
+            lastError = GeminiService.shared.lastError ?? "Не удалось получить информацию"
             return nil
         }
 
@@ -131,161 +123,141 @@ final class PlaceInfoService {
 
     private func buildPrompt(placeName: String, category: PlaceCategory?, city: String?, wikiContext: String) -> String {
         let cityHint = city.map { " в городе \($0)" } ?? ""
-        let base = "Ты — опытный гид-путешественник. Расскажи о месте \"\(placeName)\"\(cityHint)."
+        let profileCtx = AIPromptHelper.profileContext()
+
+        let base = "Расскажи о месте \"\(placeName)\"\(cityHint)."
 
         let format: String
         switch category {
         case .temple, .shrine:
             format = """
             📜 ИСТОРИЯ
-            [2-3 предложения: когда основано, кем, религиозное значение, архитектурный стиль]
+            [2-3 предложения: когда и кем основано, религиозное значение, архитектурный стиль. Если есть интересная легенда или исторический факт — добавь.]
 
             🙏 ЭТИКЕТ
-            [2-3 правила поведения: дресс-код, обувь, фотографирование, ритуалы для посетителей]
+            [2-3 конкретных правила: дресс-код, обувь, можно ли фотографировать, ритуалы для посетителей]
 
             💡 СОВЕТЫ
-            [2-3 совета: лучшее время посещения, что не пропустить, стоимость входа, особые церемонии]
+            [2-3 совета: лучшее время посещения, стоимость входа, что обязательно посмотреть, особые церемонии по дням]
             """
 
         case .food:
             format = """
             🍽 КУХНЯ
-            [2-3 предложения: тип кухни, фирменные блюда, ценовая категория, атмосфера]
+            [2-3 предложения: тип кухни, фирменные блюда, ценовая категория (средний чек), атмосфера заведения]
 
             ⭐️ ЧТО ЗАКАЗАТЬ
-            [3-4 конкретных блюда которые стоит попробовать, с кратким описанием]
+            [3-4 конкретных блюда с кратким описанием каждого — почему именно это стоит попробовать]
 
             💡 СОВЕТЫ
-            [2-3 совета: время работы, нужна ли бронь, чаевые, очереди, рекомендации по времени визита]
+            [2-3 совета: часы работы, нужна ли бронь, особенности чаевых, лучшее время для визита без очереди]
             """
 
         case .shopping:
             format = """
             🛍 О МЕСТЕ
-            [2-3 предложения: что продаётся, ценовой уровень, атмосфера, популярность]
+            [2-3 предложения: что здесь продаётся, ценовой уровень, атмосфера, чем отличается от других]
 
             🎁 ЧТО КУПИТЬ
-            [3-4 товара/сувенира которые стоит рассмотреть]
+            [3-4 конкретных товара или сувенира, которые стоит рассмотреть, с примерными ценами]
 
             💡 СОВЕТЫ
-            [2-3 совета: торг, время работы, налоговый возврат (tax-free), лучшие отделы/этажи]
+            [2-3 совета: можно ли торговаться, часы работы, налоговый возврат (tax-free), лучшие отделы или этажи]
             """
 
-        case .nature:
+        case .nature, .park, .garden, .lake, .mountains:
             format = """
             🌿 О МЕСТЕ
-            [2-3 предложения: что за место, чем известно, площадь/протяжённость]
+            [2-3 предложения: что за место, чем известно, площадь или протяжённость, что увидишь]
 
             🥾 МАРШРУТЫ
-            [2-3 рекомендуемых маршрута или точки интереса внутри]
+            [2-3 конкретных маршрута или точки интереса внутри с примерным временем]
 
             💡 СОВЕТЫ
-            [2-3 совета: лучший сезон, что взять с собой, стоимость, время на осмотр]
+            [2-3 совета: лучший сезон для визита, что взять с собой, стоимость входа, сколько времени закладывать]
             """
 
-        case .culture:
+        case .culture, .museum, .gallery, .palace, .viewpoint:
             format = """
             📜 ИСТОРИЯ
-            [2-3 предложения: когда основано, кем, почему важно, основные коллекции/экспозиции]
+            [2-3 предложения: когда основано, кем, почему важно, что составляет коллекцию/экспозицию]
 
             🎭 ЧТО ПОСМОТРЕТЬ
-            [3-4 главных экспоната или зоны которые нельзя пропустить]
+            [3-4 конкретных экспоната, зала или точки, которые нельзя пропустить — с пояснением почему]
 
             💡 СОВЕТЫ
-            [2-3 совета: лучшее время, стоимость, аудиогид, фотографирование, время на осмотр]
+            [2-3 совета: лучшее время (когда меньше людей), стоимость, есть ли аудиогид, правила фотографирования, сколько времени нужно]
             """
 
         case .accommodation:
             format = """
             🏨 О РАЙОНЕ
-            [2-3 предложения: район, транспортная доступность, что рядом]
+            [2-3 предложения: какой район, транспортная доступность, что интересного рядом]
 
             🔑 УДОБСТВА
-            [3-4 ключевых особенности: Wi-Fi, завтрак, вид, парковка]
+            [3-4 ключевых особенности: Wi-Fi, завтрак, вид из окон, парковка, бассейн]
 
             💡 СОВЕТЫ
-            [2-3 совета: чек-ин/чек-аут, депозит, что рядом из еды и магазинов]
+            [2-3 совета: время чек-ина/чек-аута, депозит, ближайшие кафе и магазины]
             """
 
         case .transport:
             format = """
             🚆 О МАРШРУТЕ
-            [2-3 предложения: тип транспорта, маршрут, длительность поездки]
+            [2-3 предложения: тип транспорта, маршрут, длительность поездки, частота рейсов]
 
             🎫 БИЛЕТЫ
-            [стоимость, где купить, нужна ли бронь, классы обслуживания]
+            [Конкретная стоимость, где купить, нужна ли бронь, классы обслуживания]
 
             💡 СОВЕТЫ
-            [2-3 совета: лучшие места, что взять в дорогу, пересадки, багаж]
+            [2-3 совета: лучшие места в вагоне, что взять в дорогу, пересадки, правила багажа]
             """
 
-        case .museum, .gallery, .palace, .viewpoint, .stadium:
+        case .stadium, .sport:
             format = """
-            📜 ИСТОРИЯ
-            [2-3 предложения: когда основано, кем, почему важно, основные коллекции/экспозиции]
+            🏟 О МЕСТЕ
+            [2-3 предложения: какой вид спорта, вместимость, история, знаковые события или матчи]
 
-            🎭 ЧТО ПОСМОТРЕТЬ
-            [3-4 главных экспоната или зоны которые нельзя пропустить]
+            🎫 БИЛЕТЫ И СОБЫТИЯ
+            [Где и как купить билеты, сезон, ближайшие крупные события]
 
             💡 СОВЕТЫ
-            [2-3 совета: лучшее время, стоимость, аудиогид, фотографирование, время на осмотр]
-            """
-
-        case .park, .garden, .lake, .mountains:
-            format = """
-            🌿 О МЕСТЕ
-            [2-3 предложения: что за место, чем известно, площадь/протяжённость]
-
-            🥾 МАРШРУТЫ
-            [2-3 рекомендуемых маршрута или точки интереса внутри]
-
-            💡 СОВЕТЫ
-            [2-3 совета: лучший сезон, что взять с собой, стоимость, время на осмотр]
+            [2-3 совета: как добраться, что рядом, фан-зоны, за сколько приезжать до матча]
             """
 
         case .airport, .station, .metro:
             format = """
-            🚆 О МАРШРУТЕ
-            [2-3 предложения: тип транспорта, маршрут, длительность поездки]
-
-            🎫 БИЛЕТЫ
-            [стоимость, где купить, нужна ли бронь, классы обслуживания]
+            📜 ИСТОРИЯ
+            [1-2 предложения: когда построено, кем, архитектурные особенности]
 
             💡 СОВЕТЫ
-            [2-3 совета: лучшие места, что взять в дорогу, пересадки, багаж]
-            """
-
-        case .sport:
-            format = """
-            🏟 О МЕСТЕ
-            [2-3 предложения: что за место, какой вид спорта, вместимость, история]
-
-            🎫 БИЛЕТЫ И СОБЫТИЯ
-            [как купить билеты, сезон, главные события/матчи]
-
-            💡 СОВЕТЫ
-            [2-3 совета: как добраться, что рядом, фан-зоны, время прибытия]
+            [2-3 практических совета для путешественника: навигация, камеры хранения, еда, Wi-Fi]
             """
 
         case nil:
             format = """
             📜 ИСТОРИЯ
-            [2-3 предложения: когда построено/основано, кем, почему важно]
+            [2-3 предложения: когда построено/основано, кем, почему это место важно или интересно]
 
             💡 СОВЕТЫ
-            [2-3 практических совета: лучшее время, что не пропустить, этикет, стоимость]
+            [2-3 практических совета: лучшее время для визита, что не пропустить, стоимость, этикет]
             """
         }
 
         return """
         \(base)
         \(wikiContext)
+        \(profileCtx)
 
         Ответь строго на русском языке в формате:
 
         \(format)
 
-        Если ты не уверен в фактах — так и скажи, не выдумывай.
+        ПРАВИЛА:
+        - Пиши простым текстом, без markdown (###, ##, #), без звёздочек (**), без нумерованных списков
+        - Давай конкретные факты: даты, цены, названия, часы работы — а не общие фразы
+        - Если для секции нет достоверной информации — ПРОПУСТИ секцию целиком
+        - Если не уверен в факте — так и напиши, не выдумывай
         """
     }
 
@@ -303,8 +275,11 @@ final class PlaceInfoService {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if let matched = sectionDefs.first(where: { trimmed.contains($0.marker) }) {
                 // Save previous section
-                if let def = currentDef, !currentText.isEmpty {
-                    sections.append(PlaceInfo.Section(icon: def.icon, title: def.title, text: currentText.trimmingCharacters(in: .whitespacesAndNewlines), color: def.color))
+                if let def = currentDef {
+                    let cleaned = cleanSectionText(currentText)
+                    if !cleaned.isEmpty && !isEmptyContent(cleaned) {
+                        sections.append(PlaceInfo.Section(icon: def.icon, title: def.title, text: cleaned, color: def.color))
+                    }
                 }
                 currentDef = (matched.icon, matched.title, matched.color)
                 currentText = ""
@@ -314,16 +289,59 @@ final class PlaceInfoService {
         }
 
         // Save last section
-        if let def = currentDef, !currentText.isEmpty {
-            sections.append(PlaceInfo.Section(icon: def.icon, title: def.title, text: currentText.trimmingCharacters(in: .whitespacesAndNewlines), color: def.color))
+        if let def = currentDef {
+            let cleaned = cleanSectionText(currentText)
+            if !cleaned.isEmpty && !isEmptyContent(cleaned) {
+                sections.append(PlaceInfo.Section(icon: def.icon, title: def.title, text: cleaned, color: def.color))
+            }
         }
 
         // Fallback: if no sections parsed, put everything in one section
         if sections.isEmpty {
-            sections.append(PlaceInfo.Section(icon: "info.circle", title: "ИНФОРМАЦИЯ", text: text, color: "blue"))
+            let cleaned = cleanSectionText(text)
+            if !cleaned.isEmpty {
+                sections.append(PlaceInfo.Section(icon: "info.circle", title: "ИНФОРМАЦИЯ", text: cleaned, color: "blue"))
+            }
         }
 
         return PlaceInfo(sections: sections, source: source)
+    }
+
+    /// Strip markdown headers and formatting artifacts
+    private func cleanSectionText(_ text: String) -> String {
+        var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Remove markdown headers (### Header → Header)
+        result = result.replacingOccurrences(
+            of: #"^#{1,4}\s+"#,
+            with: "",
+            options: .regularExpression
+        )
+        // Multi-line: remove ### at line starts
+        result = result.replacingOccurrences(
+            of: #"\n#{1,4}\s+"#,
+            with: "\n",
+            options: .regularExpression
+        )
+        // Remove ** bold markers
+        result = result.replacingOccurrences(of: "**", with: "")
+        // Remove standalone emoji prefixes on section-like lines
+        result = result.replacingOccurrences(
+            of: #"^[\p{So}\p{Sk}]\s+"#,
+            with: "",
+            options: .regularExpression
+        )
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Check if text is essentially empty / "no data"
+    private func isEmptyContent(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        let emptyMarkers = [
+            "информация отсутствует", "нет данных", "данные отсутствуют",
+            "информация недоступна", "нет информации", "не удалось найти",
+            "к сожалению, информация", "к сожалению, данные"
+        ]
+        return emptyMarkers.contains { lower.contains($0) } && text.count < 100
     }
 
     private struct SectionDef {
@@ -371,10 +389,15 @@ final class PlaceInfoService {
                 SectionDef(marker: "УДОБСТВА", icon: "key", title: "УДОБСТВА", color: "gold"),
                 SectionDef(marker: "СОВЕТЫ", icon: "lightbulb", title: "СОВЕТЫ", color: "green"),
             ]
-        case .transport, .airport, .station, .metro:
+        case .transport:
             return [
                 SectionDef(marker: "О МАРШРУТЕ", icon: "tram", title: "О МАРШРУТЕ", color: "blue"),
                 SectionDef(marker: "БИЛЕТЫ", icon: "ticket", title: "БИЛЕТЫ", color: "gold"),
+                SectionDef(marker: "СОВЕТЫ", icon: "lightbulb", title: "СОВЕТЫ", color: "green"),
+            ]
+        case .airport, .station, .metro:
+            return [
+                SectionDef(marker: "ИСТОРИЯ", icon: "scroll", title: "ИСТОРИЯ", color: "gold"),
                 SectionDef(marker: "СОВЕТЫ", icon: "lightbulb", title: "СОВЕТЫ", color: "green"),
             ]
         case .museum, .gallery, .palace, .viewpoint, .stadium:
