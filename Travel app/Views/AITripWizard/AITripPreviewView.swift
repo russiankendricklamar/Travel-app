@@ -161,11 +161,9 @@ struct AITripPreviewView: View {
                         .clipShape(Capsule())
                 }
                 .padding(.vertical, 4)
-                .swipeActions(edge: .trailing) {
+                .contextMenu {
                     Button(role: .destructive) {
-                        withAnimation {
-                            trip.days[dayIndex].places.remove(at: placeIndex)
-                        }
+                        removePlace(dayIndex: dayIndex, placeIndex: placeIndex)
                     } label: {
                         Label("Удалить", systemImage: "trash")
                     }
@@ -177,7 +175,7 @@ struct AITripPreviewView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+                .stroke(Color.white.opacity(0.2) as Color, lineWidth: 0.5)
         )
     }
 
@@ -248,7 +246,7 @@ struct AITripPreviewView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+                .stroke(Color.white.opacity(0.2) as Color, lineWidth: 0.5)
         )
     }
 
@@ -308,7 +306,7 @@ struct AITripPreviewView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+                .stroke(Color.white.opacity(0.2) as Color, lineWidth: 0.5)
         )
     }
 
@@ -425,6 +423,12 @@ struct AITripPreviewView: View {
     }
 
     // MARK: - Helpers
+
+    private func removePlace(dayIndex: Int, placeIndex: Int) {
+        withAnimation {
+            trip.days[dayIndex].places.remove(at: placeIndex)
+        }
+    }
 
     private func mapCategory(_ category: String) -> PlaceCategory {
         switch category.lowercased() {
