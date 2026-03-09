@@ -61,7 +61,7 @@ struct Travel_appApp: App {
                     await CurrencyService.shared.fetchRates()
                 }
         }
-        .modelContainer(for: [Trip.self, JournalEntry.self, BucketListItem.self, PackingItem.self, OfflineMapCache.self])
+        .modelContainer(for: [Trip.self, TripPhoto.self, JournalEntry.self, BucketListItem.self, PackingItem.self, OfflineMapCache.self])
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if oldPhase == .background && newPhase == .active {
                 authManager.lockIfNeeded()
