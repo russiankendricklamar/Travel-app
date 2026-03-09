@@ -49,9 +49,13 @@ final class EmailScannerService {
     var foundEmails: [EmailPreview] = []
     var scannedBookings: [ScannedBooking] = []
 
-    private static let oauthCallbackScheme = "travelapp"
+    private static let yandexCallbackScheme = "travelapp"
     private static let tokenExchangeURL = "\(Secrets.supabaseURL)/functions/v1/email-token-exchange"
     private static let emailScannerURL = "\(Secrets.supabaseURL)/functions/v1/email-scanner"
+
+    private static func reversedClientID(_ clientID: String) -> String {
+        clientID.components(separatedBy: ".").reversed().joined(separator: ".")
+    }
 
     // MARK: - Full Flow
 
@@ -96,24 +100,28 @@ final class EmailScannerService {
 
     private func authorize(provider: Provider) async throws -> String {
         let authURL: URL
-        let scheme = Self.oauthCallbackScheme
+        let callbackScheme: String
 
         switch provider {
         case .gmail:
             let clientID = Secrets.googleClientID
             guard !clientID.isEmpty else { throw EmailScanError.missingClientID }
-            let redirect = "\(scheme)://gmail-callback"
+            let reversed = Self.reversedClientID(clientID)
+            callbackScheme = reversed
+            let redirect = "\(reversed):/oauthredirect"
+            let encodedRedirect = redirect.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? redirect
             let scope = "https://www.googleapis.com/auth/gmail.readonly"
-            authURL = URL(string: "https://accounts.google.com/o/oauth2/v2/auth?client_id=\(clientID)&redirect_uri=\(redirect)&response_type=code&scope=\(scope)&access_type=offline&prompt=consent")!
+            authURL = URL(string: "https://accounts.google.com/o/oauth2/v2/auth?client_id=\(clientID)&redirect_uri=\(encodedRedirect)&response_type=code&scope=\(scope)&access_type=offline&prompt=consent")!
         case .yandex:
             let clientID = Secrets.yandexClientID
             guard !clientID.isEmpty else { throw EmailScanError.missingClientID }
-            let redirect = "\(scheme)://yandex-mail-callback"
+            callbackScheme = Self.yandexCallbackScheme
+            let redirect = "\(callbackScheme)://yandex-mail-callback"
             authURL = URL(string: "https://oauth.yandex.ru/authorize?response_type=code&client_id=\(clientID)&redirect_uri=\(redirect)&scope=mail:imap_full&force_confirm=yes")!
         }
 
         let callbackURL: URL = try await withCheckedThrowingContinuation { continuation in
-            let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: scheme) { url, error in
+            let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: callbackScheme) { url, error in
                 if let error { continuation.resume(throwing: error); return }
                 guard let url else { continuation.resume(throwing: EmailScanError.authFailed); return }
                 continuation.resume(returning: url)
@@ -137,8 +145,11 @@ final class EmailScannerService {
 
         let redirectURI: String
         switch provider {
-        case .gmail: redirectURI = "\(Self.oauthCallbackScheme)://gmail-callback"
-        case .yandex: redirectURI = "\(Self.oauthCallbackScheme)://yandex-mail-callback"
+        case .gmail:
+            let reversed = Self.reversedClientID(Secrets.googleClientID)
+            redirectURI = "\(reversed):/oauthredirect"
+        case .yandex:
+            redirectURI = "\(Self.yandexCallbackScheme)://yandex-mail-callback"
         }
 
         var req = URLRequest(url: url)

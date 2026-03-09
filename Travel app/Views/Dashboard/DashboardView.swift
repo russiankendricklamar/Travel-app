@@ -38,6 +38,7 @@ struct DashboardView: View {
                             countdownSeconds: countdownSeconds,
                             statsOffset: statsOffset
                         )
+                        DashboardTimeZoneSection(trip: trip)
                         DashboardCountryInfoSection(trip: trip)
                         packingMiniCard
                         flightOrAddCard
@@ -50,6 +51,8 @@ struct DashboardView: View {
                             counterValue: counterValue,
                             budgetWidth: budgetWidth
                         )
+                        DashboardTimeZoneSection(trip: trip)
+                        DashboardTodayScheduleSection(trip: trip)
                         DashboardCountryInfoSection(trip: trip)
                         packingMiniCard
                         flightOrAddCard
