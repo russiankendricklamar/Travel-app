@@ -390,7 +390,6 @@ footer { background: var(--black); color: var(--gray); padding: 32px 24px; font-
     <a href="#market">Рынок</a>
     <a href="#product">Продукт</a>
     <a href="#economics">Экономика</a>
-    <a href="#infographic">Инфографика</a>
     <a href="#security">Безопасность</a>
     <a href="#roadmap">Роадмап</a>
     <a href="#team">Команда</a>
@@ -729,7 +728,7 @@ footer { background: var(--black); color: var(--gray); padding: 32px 24px; font-
 <section id="product">
   <div class="container">
     <span class="section-label">05 / Продукт</span>
-    <h2 class="section-title reveal">Функционал:<br><span class="red">35+ фичей готовы</span></h2>
+    <h2 class="section-title reveal">Функционал:<br><span class="red">30+ фичей готовы</span></h2>
 
     <div class="mvp-grid mt-4 reveal">
       <div class="mvp-item"><span class="mvp-priority must">ГОТОВО</span><div class="mvp-name">Мульти-трип менеджмент</div><div class="mvp-desc">Неограниченные поездки. Активные/предстоящие/прошлые. Home screen с hero-картой и быстрыми действиями.</div></div>
@@ -747,8 +746,6 @@ footer { background: var(--black); color: var(--gray); padding: 32px 24px; font-
       <div class="mvp-item"><span class="mvp-priority must">ГОТОВО</span><div class="mvp-name">Трэвел-журнал + Статистика</div><div class="mvp-desc">Фото + заметки. Статистика: страны, расстояние, расходы. Haversine расчёт.</div></div>
       <div class="mvp-item"><span class="mvp-priority must">ГОТОВО</span><div class="mvp-name">Email Scanner</div><div class="mvp-desc">Парсинг бронирований из Gmail и Яндекс.Почты. OAuth + серверные Edge Functions. AI распознаёт рейсы, отели, поезда, аренду авто.</div></div>
       <div class="mvp-item"><span class="mvp-priority must">ГОТОВО</span><div class="mvp-name">Home Screen + Travel Stats</div><div class="mvp-desc">Домашний экран с hero-картой, быстрыми действиями, мини-статистикой. Детальная статистика: география, расстояния, расходы по периодам.</div></div>
-      <div class="mvp-item"><span class="mvp-priority must">ГОТОВО</span><div class="mvp-name">Dual Timezone Clock</div><div class="mvp-desc">Двойные часы: родной город + место назначения. CLGeocoder → TimeZone. Разница в часах. Автообновление каждые 30 сек.</div></div>
-      <div class="mvp-item"><span class="mvp-priority must">ГОТОВО</span><div class="mvp-name">Today's Schedule Dashboard</div><div class="mvp-desc">Плашка «СЕГОДНЯ» в активной поездке. Таймлайн событий с live-статусом (сейчас/скоро/прошло). Список мест с прогрессом посещения.</div></div>
       <div class="mvp-item"><span class="mvp-priority nice">ДАЛЕЕ</span><div class="mvp-name">Premium подписка (StoreKit 2)</div><div class="mvp-desc">Freemium модель. AI-фичи, безлимит трипов, офлайн &mdash; в Premium. 349₽/мес или 2490₽/год.</div></div>
       <div class="mvp-item"><span class="mvp-priority nice">ДАЛЕЕ</span><div class="mvp-name">App Store запуск</div><div class="mvp-desc">TestFlight бета. ASO оптимизация. Скриншоты, описание, ключевые слова.</div></div>
       <div class="mvp-item"><span class="mvp-priority later">V2</span><div class="mvp-name">Совместное планирование</div><div class="mvp-desc">Приглашение попутчиков. Realtime sync через Supabase Realtime.</div></div>
@@ -769,91 +766,6 @@ footer { background: var(--black); color: var(--gray); padding: 32px 24px; font-
       <div class="stack-item"><div class="stack-layer">Maps</div><div class="stack-tech">Apple MapKit</div><div class="stack-desc">Карты, POI, автокомплит, снапшоты, навигация ($0)</div></div>
       <div class="stack-item"><div class="stack-layer">AR / Live</div><div class="stack-tech">ARKit + ActivityKit + WidgetKit</div><div class="stack-desc">AR навигация, Dynamic Island, виджеты</div></div>
       <div class="stack-item"><div class="stack-layer">Vision</div><div class="stack-tech">VNRecognizeTextRequest (OCR)</div><div class="stack-desc">Сканирование бронирований, ru+en</div></div>
-    </div>
-  </div>
-</section>
-
-<!-- INFOGRAPHIC -->
-<section id="infographic" class="bg-black">
-  <div class="container">
-    <span class="section-label" style="background:var(--red);">ИНФОГРАФИКА</span>
-    <h2 class="section-title reveal" style="color:var(--white);">Архитектура<br><span class="red">в цифрах</span></h2>
-
-    <div class="grid-4 mt-4 reveal">
-      <div style="text-align:center; padding:32px 16px; border:2px solid var(--green); position:relative;">
-        <div style="font-family:'Inter',sans-serif; font-size:3.5rem; font-weight:900; color:var(--green); line-height:1;">27+</div>
-        <div style="font-size:0.7rem; color:var(--gray); margin-top:8px; letter-spacing:2px; text-transform:uppercase;">Сессий разработки</div>
-      </div>
-      <div style="text-align:center; padding:32px 16px; border:2px solid var(--red); position:relative;">
-        <div style="font-family:'Inter',sans-serif; font-size:3.5rem; font-weight:900; color:var(--red); line-height:1;">35+</div>
-        <div style="font-size:0.7rem; color:var(--gray); margin-top:8px; letter-spacing:2px; text-transform:uppercase;">Фичей готово</div>
-      </div>
-      <div style="text-align:center; padding:32px 16px; border:2px solid var(--yellow); position:relative;">
-        <div style="font-family:'Inter',sans-serif; font-size:3.5rem; font-weight:900; color:var(--yellow); line-height:1;">12</div>
-        <div style="font-size:0.7rem; color:var(--gray); margin-top:8px; letter-spacing:2px; text-transform:uppercase;">Таблиц БД + RLS</div>
-      </div>
-      <div style="text-align:center; padding:32px 16px; border:2px solid var(--blue); position:relative;">
-        <div style="font-family:'Inter',sans-serif; font-size:3.5rem; font-weight:900; color:var(--blue); line-height:1;">8</div>
-        <div style="font-size:0.7rem; color:var(--gray); margin-top:8px; letter-spacing:2px; text-transform:uppercase;">API через прокси</div>
-      </div>
-    </div>
-
-    <!-- Architecture diagram -->
-    <div class="mt-5 reveal" style="text-align:center;">
-      <svg viewBox="0 0 800 420" style="max-width:800px; width:100%;" xmlns="http://www.w3.org/2000/svg">
-        <!-- Client layer -->
-        <rect x="250" y="10" width="300" height="50" rx="8" fill="none" stroke="#FF2D2D" stroke-width="2"/>
-        <text x="400" y="42" text-anchor="middle" fill="#f8f8f8" font-family="Space Mono" font-size="14" font-weight="700">SwiftUI + SwiftData</text>
-
-        <!-- Arrows -->
-        <line x1="400" y1="60" x2="400" y2="100" stroke="#888" stroke-width="1.5" stroke-dasharray="6,4"/>
-        <polygon points="394,96 406,96 400,106" fill="#888"/>
-
-        <!-- Supabase layer -->
-        <rect x="150" y="110" width="500" height="50" rx="8" fill="none" stroke="#00FF66" stroke-width="2"/>
-        <text x="400" y="142" text-anchor="middle" fill="#00FF66" font-family="Space Mono" font-size="13" font-weight="700">Supabase &bull; Auth &bull; PostgreSQL &bull; Storage &bull; Edge Functions</text>
-
-        <!-- Arrows down -->
-        <line x1="250" y1="160" x2="250" y2="200" stroke="#888" stroke-width="1.5" stroke-dasharray="6,4"/>
-        <polygon points="244,196 256,196 250,206" fill="#888"/>
-        <line x1="550" y1="160" x2="550" y2="200" stroke="#888" stroke-width="1.5" stroke-dasharray="6,4"/>
-        <polygon points="544,196 556,196 550,206" fill="#888"/>
-
-        <!-- Edge Functions -->
-        <rect x="100" y="210" width="300" height="45" rx="8" fill="none" stroke="#FFD600" stroke-width="2"/>
-        <text x="250" y="238" text-anchor="middle" fill="#FFD600" font-family="Space Mono" font-size="12" font-weight="700">api-proxy (6 сервисов)</text>
-
-        <rect x="430" y="210" width="270" height="45" rx="8" fill="none" stroke="#FFD600" stroke-width="2"/>
-        <text x="565" y="238" text-anchor="middle" fill="#FFD600" font-family="Space Mono" font-size="12" font-weight="700">gemini-proxy (AI)</text>
-
-        <!-- Arrows to APIs -->
-        <line x1="250" y1="255" x2="250" y2="295" stroke="#888" stroke-width="1.5" stroke-dasharray="6,4"/>
-        <polygon points="244,291 256,291 250,301" fill="#888"/>
-        <line x1="565" y1="255" x2="565" y2="295" stroke="#888" stroke-width="1.5" stroke-dasharray="6,4"/>
-        <polygon points="559,291 571,291 565,301" fill="#888"/>
-
-        <!-- External APIs -->
-        <rect x="30" y="305" width="130" height="36" rx="6" fill="#1a1a1a" stroke="#888" stroke-width="1"/>
-        <text x="95" y="328" text-anchor="middle" fill="#888" font-family="Space Mono" font-size="10">Open-Meteo</text>
-
-        <rect x="170" y="305" width="130" height="36" rx="6" fill="#1a1a1a" stroke="#888" stroke-width="1"/>
-        <text x="235" y="328" text-anchor="middle" fill="#888" font-family="Space Mono" font-size="10">AirLabs</text>
-
-        <rect x="310" y="305" width="130" height="36" rx="6" fill="#1a1a1a" stroke="#888" stroke-width="1"/>
-        <text x="375" y="328" text-anchor="middle" fill="#888" font-family="Space Mono" font-size="10">Travelpayouts</text>
-
-        <rect x="470" y="305" width="150" height="36" rx="6" fill="#1a1a1a" stroke="#888" stroke-width="1"/>
-        <text x="545" y="328" text-anchor="middle" fill="#888" font-family="Space Mono" font-size="10">Gemini 2.5 Flash</text>
-
-        <rect x="640" y="305" width="130" height="36" rx="6" fill="#1a1a1a" stroke="#888" stroke-width="1"/>
-        <text x="705" y="328" text-anchor="middle" fill="#888" font-family="Space Mono" font-size="10">Wikipedia</text>
-
-        <!-- Feature bars -->
-        <text x="30" y="380" fill="#888" font-family="Space Mono" font-size="10" letter-spacing="2">ПОКРЫТИЕ ФУНКЦИЙ</text>
-        <rect x="30" y="390" width="740" height="8" rx="4" fill="#333"/>
-        <rect x="30" y="390" width="666" height="8" rx="4" fill="#00FF66"/>
-        <text x="710" y="403" fill="#00FF66" font-family="Space Mono" font-size="11" font-weight="700">90%</text>
-      </svg>
     </div>
   </div>
 </section>
@@ -1288,7 +1200,7 @@ footer { background: var(--black); color: var(--gray); padding: 32px 24px; font-
 <section id="roadmap" class="bg-black">
   <div class="container">
     <span class="section-label" style="background:var(--red);">08 / Роадмап</span>
-    <h2 class="section-title reveal" style="color:var(--white);">27+ сессий разработки<br><span class="red">уже позади</span></h2>
+    <h2 class="section-title reveal" style="color:var(--white);">27 сессий разработки<br><span class="red">уже позади</span></h2>
 
     <div class="timeline mt-4 reveal">
       <div class="timeline-item" style="background:var(--dark-gray); color:var(--white); border-color:var(--green);">
@@ -1299,10 +1211,10 @@ footer { background: var(--black); color: var(--gray); padding: 32px 24px; font-
       </div>
 
       <div class="timeline-item" style="background:var(--dark-gray); color:var(--white); border-color:var(--green);">
-        <div class="timeline-phase" style="color:var(--green);">Сессии 13&ndash;27 &bull; ГОТОВО</div>
+        <div class="timeline-phase" style="color:var(--green);">Сессии 13&ndash;25 &bull; ГОТОВО</div>
         <div class="timeline-title">Advanced Features + Sync + AI Generator + Unified API Proxy</div>
-        <div class="timeline-desc" style="color:var(--gray);">Bug audit. Flight tracking. Photos. Journal. D&D reorder. AR nav. Geofence. Bucket list. Packing AI. POI discovery. Offline. Supabase auth+sync (12 таблиц, RLS). Home screen. Stats. Booking OCR. AI prompt rewrite. AI Trip Generator с Aviasales + Hotellook. AI-кэш. Единый API-прокси (8 сервисов). Email Scanner (Gmail + Яндекс). Dual Timezone Clock. Today's Schedule Dashboard.</div>
-        <div class="timeline-kpi" style="background:var(--green); color:var(--black);">18 сессий &bull; 35+ продвинутых фичей</div>
+        <div class="timeline-desc" style="color:var(--gray);">Bug audit. Flight tracking. Photos. Journal. D&D reorder. AR nav. Geofence. Bucket list. Packing AI. POI discovery. Offline. Supabase auth+sync (12 таблиц, RLS). Home screen. Stats. Booking OCR. AI prompt rewrite. AI Trip Generator с Aviasales + Hotellook. AI-кэширование на поездку. Единый API-прокси через Supabase Edge Function &mdash; все 8 сервисов на сервере. Email Scanner (Gmail + Яндекс.Почта). Home Screen + Travel Stats.</div>
+        <div class="timeline-kpi" style="background:var(--green); color:var(--black);">16 сессий &bull; 30+ продвинутых фичей</div>
       </div>
 
       <div class="timeline-item" style="background:var(--dark-gray); color:var(--white); border-color:var(--red);">
