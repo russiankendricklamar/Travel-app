@@ -40,8 +40,11 @@ final class NotificationManager {
         let hour = timeMinutes > 0 ? timeMinutes / 60 : 8
         let minute = timeMinutes > 0 ? timeMinutes % 60 : 0
         for day in trip.sortedDays {
-            var comps = Calendar.current.dateComponents([.year, .month, .day], from: day.date)
+            var cal = Calendar.current
+            if let tz = day.resolvedTimeZone { cal.timeZone = tz }
+            var comps = cal.dateComponents([.year, .month, .day], from: day.date)
             comps.hour = hour; comps.minute = minute
+            comps.timeZone = day.resolvedTimeZone ?? .current
             let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
             let content = UNMutableNotificationContent()
             content.title = "Доброе утро!"
@@ -53,21 +56,46 @@ final class NotificationManager {
         }
     }
 
-    // MARK: - Event Reminders (30 min before)
+    // MARK: - Event Reminders (multiple lead times)
+
+    private var eventLeadMinutes: [Int] {
+        let str = UserDefaults.standard.string(forKey: "notif_event_leads") ?? "30"
+        return str.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }.filter { $0 > 0 }
+    }
+
+    private func formatLeadBody(_ mins: Int) -> String {
+        let h = mins / 60
+        let m = mins % 60
+        if h > 0 && m > 0 { return "\(h) ч \(m) мин" }
+        if h > 0 { return "\(h) ч" }
+        return "\(m) мин"
+    }
 
     func scheduleEventReminder(for event: TripEvent) {
-        let leadMins = UserDefaults.standard.integer(forKey: "notif_event_lead")
-        let reminderDate = event.startTime.addingTimeInterval(-Double(leadMins > 0 ? leadMins : 30) * 60)
-        guard reminderDate > Date() else { return }
-        var comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
-        let content = UNMutableNotificationContent()
-        content.title = event.category.rawValue
-        content.body = "\(event.title) через 30 минут"
-        content.sound = .default
-        content.categoryIdentifier = "event"
-        let request = UNNotificationRequest(identifier: "event-\(event.id)", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        let leads = eventLeadMinutes
+        guard !leads.isEmpty else { return }
+
+        var cal = Calendar.current
+        if let tz = event.day?.resolvedTimeZone {
+            cal.timeZone = tz
+        }
+
+        for lead in leads {
+            let reminderDate = event.startTime.addingTimeInterval(-Double(lead) * 60)
+            guard reminderDate > Date() else { continue }
+
+            var comps = cal.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
+            comps.timeZone = event.day?.resolvedTimeZone ?? .current
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+            let content = UNMutableNotificationContent()
+            content.title = event.category.rawValue
+            content.body = "\(event.title) через \(formatLeadBody(lead))"
+            content.sound = .default
+            content.categoryIdentifier = "event"
+            let request = UNNotificationRequest(identifier: "event-\(event.id)-\(lead)", content: content, trigger: trigger)
+            UNUserNotificationCenter.current().add(request)
+        }
     }
 
     func scheduleAllEventReminders(for trip: Trip) {
@@ -117,11 +145,16 @@ final class NotificationManager {
         let wEveningM = wEvening > 0 ? wEvening % 60 : 0
 
         for day in trip.sortedDays {
+            var cal = Calendar.current
+            if let tz = day.resolvedTimeZone { cal.timeZone = tz }
+            let dayTZ = day.resolvedTimeZone ?? .current
+
             // Morning — today's weather
             if let summary = weatherService.notificationSummary(for: day.date) {
-                var morningComps = Calendar.current.dateComponents([.year, .month, .day], from: day.date)
+                var morningComps = cal.dateComponents([.year, .month, .day], from: day.date)
                 morningComps.hour = wMorningH
                 morningComps.minute = wMorningM
+                morningComps.timeZone = dayTZ
                 let content = UNMutableNotificationContent()
                 content.title = "Погода сегодня"
                 content.body = "\(day.cityName): \(summary)"
@@ -137,11 +170,12 @@ final class NotificationManager {
             }
 
             // Evening 21:00 — tomorrow's weather
-            if let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: day.date),
+            if let tomorrow = cal.date(byAdding: .day, value: 1, to: day.date),
                let summary = weatherService.notificationSummary(for: tomorrow) {
-                var eveningComps = Calendar.current.dateComponents([.year, .month, .day], from: day.date)
+                var eveningComps = cal.dateComponents([.year, .month, .day], from: day.date)
                 eveningComps.hour = wEveningH
                 eveningComps.minute = wEveningM
+                eveningComps.timeZone = dayTZ
                 let content = UNMutableNotificationContent()
                 content.title = "Погода завтра"
                 content.body = "\(day.cityName): \(summary)"
@@ -158,12 +192,57 @@ final class NotificationManager {
         }
     }
 
+    // MARK: - Weather Alert Notifications
+
+    func scheduleWeatherAlertNotifications(for trip: Trip) async {
+        cancelCategory("weather-alert")
+
+        let weatherService = WeatherService.shared
+
+        // Collect unique coordinates from trip
+        var seenKeys = Set<String>()
+        var coordinates: [(String, CLLocationCoordinate2D)] = []
+
+        for day in trip.sortedDays {
+            let city = day.cityName
+            guard !city.isEmpty, !seenKeys.contains(city) else { continue }
+            seenKeys.insert(city)
+            if let place = day.places.first {
+                coordinates.append((city, place.coordinate))
+            }
+        }
+
+        for (city, coord) in coordinates {
+            // Fetch fresh data to get alerts
+            _ = await weatherService.fetchCurrentWeather(for: coord)
+            let alerts = weatherService.weatherAlerts(at: coord)
+
+            for alert in alerts {
+                let content = UNMutableNotificationContent()
+                content.title = alert.isSevere ? "Опасная погода" : "Погодное предупреждение"
+                content.body = "\(city): \(alert.event ?? alert.headline ?? "Внимание")"
+                if let desc = alert.desc {
+                    content.body += "\n\(String(desc.prefix(100)))"
+                }
+                content.sound = alert.isSevere ? .defaultCritical : .default
+                content.categoryIdentifier = "weather-alert"
+
+                // Send immediately (alerts are time-sensitive)
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false)
+                let id = "weather-alert-\(city)-\(alert.id.hashValue)"
+                let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+                try? await UNUserNotificationCenter.current().add(request)
+            }
+        }
+    }
+
     // MARK: - Schedule All
 
     func scheduleAll(for trip: Trip) async {
         scheduleMorningPlans(for: trip)
         scheduleAllEventReminders(for: trip)
         await scheduleWeatherNotifications(for: trip)
+        await scheduleWeatherAlertNotifications(for: trip)
     }
 
     // MARK: - Cancel

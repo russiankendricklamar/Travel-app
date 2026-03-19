@@ -65,14 +65,19 @@ final class FlightAIService {
         cityName: String,
         flightID: UUID
     ) async -> AirportTransportRecommendation? {
+        print("[FlightAIService] 🛫 Generating transport to \(airportIata) from '\(originName)' in \(cityName)")
         let key = cacheKey(for: flightID)
 
-        if let cached = cache[key] { return cached }
+        if let cached = cache[key] {
+            print("[FlightAIService] ✅ Memory cache hit: \(cached.options.count) options")
+            return cached
+        }
 
         if let data = UserDefaults.standard.data(forKey: key),
            let cached = try? JSONDecoder().decode(CachedRecommendation.self, from: data) {
             let result = cached.toRecommendation()
             cache[key] = result
+            print("[FlightAIService] ✅ Disk cache hit: \(result.options.count) options")
             return result
         }
 
@@ -144,8 +149,17 @@ final class FlightAIService {
         Отвечай ТОЛЬКО в этом формате. Без markdown, без заголовков, без нумерации вариантов.
         """
 
-        guard let text = await GeminiService.shared.rawRequest(prompt: prompt) else { return nil }
+        print("[FlightAIService] 📤 Sending prompt to Gemini (\(prompt.count) chars)...")
+        guard let text = await GeminiService.shared.rawRequest(prompt: prompt) else {
+            print("[FlightAIService] ❌ Gemini returned nil")
+            return nil
+        }
+        print("[FlightAIService] 📥 AI response: \(text.count) chars")
         let result = parseResponse(text)
+        print("[FlightAIService] ✅ Parsed \(result.options.count) transport options, recommended=#\(result.recommended + 1)")
+        for (i, opt) in result.options.enumerated() {
+            print("[FlightAIService]   \(i + 1). \(opt.type.rawValue): \(opt.duration), \(opt.priceRange)")
+        }
 
         cache[key] = result
         if let encoded = try? JSONEncoder().encode(CachedRecommendation(from: result)) {

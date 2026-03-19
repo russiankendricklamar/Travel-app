@@ -17,23 +17,17 @@ final class WeatherService {
     // Per-location hourly forecast cache
     private var hourlyByLocation: [String: [HourlyWeatherInfo]] = [:]
 
+    // Per-location current weather cache
+    private var currentByLocation: [String: WeatherInfo] = [:]
+
+    // Per-location AQI and alerts cache
+    private var aqiByLocation: [String: AirQualityInfo] = [:]
+    private var alertsByLocation: [String: [WeatherAPIAlert]] = [:]
+
     // Dashboard cache
     private var lastFetchDate: Date?
     private var lastFetchCoordinate: CLLocationCoordinate2D?
     private let cacheInterval: TimeInterval = 15 * 60
-    // Sunrise/sunset time formatter
-    private static let sunTimeFormatter: DateFormatter = {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd'T'HH:mm"
-        return fmt
-    }()
-
-    // Hourly time formatter
-    private static let hourlyFormatter: ISO8601DateFormatter = {
-        let fmt = ISO8601DateFormatter()
-        fmt.formatOptions = [.withFullDate, .withTime, .withColonSeparatorInTime]
-        return fmt
-    }()
 
     private init() {}
 
@@ -44,12 +38,10 @@ final class WeatherService {
         let trimmed = cityName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return nil }
 
-        // 1. Already geocoded
         if let cached = geocodedCities[trimmed] {
             return cached
         }
 
-        // 2. Geocode dynamically
         let geocoder = CLGeocoder()
         do {
             let placemarks = try await geocoder.geocodeAddressString(trimmed)
@@ -57,57 +49,113 @@ final class WeatherService {
                 geocodedCities[trimmed] = location.coordinate
                 return location.coordinate
             }
-        } catch {
-            // Geocoding can fail for various reasons — silently return nil
-        }
+        } catch {}
         return nil
     }
 
     // MARK: - Location Key
 
     private func locationKey(_ coord: CLLocationCoordinate2D) -> String {
-        let lat = (coord.latitude * 10).rounded() / 10
-        let lon = (coord.longitude * 10).rounded() / 10
+        let lat = (coord.latitude * 100).rounded() / 100
+        let lon = (coord.longitude * 100).rounded() / 100
         return "\(lat),\(lon)"
     }
 
     // MARK: - Dashboard Fetch (current + daily + hourly)
 
     func fetchWeather(for coordinate: CLLocationCoordinate2D) async {
+        let key = locationKey(coordinate)
         if let lastDate = lastFetchDate,
            let lastCoord = lastFetchCoordinate,
            Date().timeIntervalSince(lastDate) < cacheInterval,
            abs(lastCoord.latitude - coordinate.latitude) < 0.01,
            abs(lastCoord.longitude - coordinate.longitude) < 0.01 {
+            print("[Weather] fetchWeather CACHED key=\(key)")
             return
         }
 
+        print("[Weather] fetchWeather START key=\(key)")
         isLoading = true
         errorMessage = nil
 
         do {
             let data = try await SupabaseProxy.request(service: "weather", action: "forecast", params: weatherParams(for: coordinate))
+            print("[Weather] fetchWeather GOT \(data.count) bytes")
 
-            let decoded = try JSONDecoder().decode(OpenMeteoResponse.self, from: data)
+            let decoded = try JSONDecoder().decode(WeatherAPIResponse.self, from: data)
 
             lastFetchDate = Date()
             lastFetchCoordinate = coordinate
 
             parseResponse(decoded, coordinate: coordinate)
+            print("[Weather] fetchWeather OK current=\(currentWeather?.temperature ?? -999)° daily=\(forecastsByLocation[key]?.count ?? 0) hourly=\(hourlyByLocation[key]?.count ?? 0)")
 
-            // Cache for offline
             if let encoded = try? JSONEncoder().encode(decoded) {
                 OfflineCacheManager.shared.cacheWeather(encoded)
             }
         } catch is DecodingError {
+            print("[Weather] fetchWeather DECODE ERROR key=\(key)")
             errorMessage = "Ошибка данных погоды"
             restoreFromCache(coordinate: coordinate)
         } catch {
+            print("[Weather] fetchWeather ERROR key=\(key): \(error.localizedDescription)")
             errorMessage = "Не удалось загрузить погоду"
             restoreFromCache(coordinate: coordinate)
         }
 
         isLoading = false
+    }
+
+    // MARK: - Per-Location Current Weather (no global state mutation)
+
+    func fetchCurrentWeather(for coordinate: CLLocationCoordinate2D, skipCache: Bool = false) async -> WeatherInfo? {
+        let key = locationKey(coordinate)
+
+        if !skipCache,
+           let cached = currentByLocation[key],
+           let fetchDate = fetchDatesByLocation[key],
+           Date().timeIntervalSince(fetchDate) < cacheInterval {
+            print("[Weather] fetchCurrent CACHED key=\(key)")
+            return cached
+        }
+
+        print("[Weather] fetchCurrent START key=\(key)")
+        do {
+            let data = try await SupabaseProxy.request(service: "weather", action: "forecast", params: weatherParams(for: coordinate))
+            print("[Weather] fetchCurrent GOT \(data.count) bytes key=\(key)")
+            let decoded = try JSONDecoder().decode(WeatherAPIResponse.self, from: data)
+
+            if let forecast = decoded.forecast {
+                let (daily, hourly) = parseForecastDays(forecast.forecastday)
+                forecastsByLocation[key] = daily
+                hourlyByLocation[key] = hourly
+                fetchDatesByLocation[key] = Date()
+            }
+
+            if let current = decoded.current {
+                let info = WeatherInfo(
+                    id: "current-\(key)",
+                    temperature: current.tempC,
+                    weatherCode: current.condition.code,
+                    humidity: current.humidity,
+                    windSpeed: current.windKph,
+                    apparentTemperature: current.feelslikeC,
+                    pressureMb: current.pressureMb,
+                    visibilityKm: current.visKm
+                )
+                currentByLocation[key] = info
+
+                if let aq = current.airQuality, let epa = aq.usEpaIndex {
+                    aqiByLocation[key] = AirQualityInfo(epaIndex: epa, pm25: aq.pm2_5 ?? 0, pm10: aq.pm10 ?? 0)
+                }
+
+                return info
+            }
+            print("[Weather] fetchCurrent NO CURRENT DATA key=\(key)")
+        } catch {
+            print("[Weather] fetchCurrent ERROR key=\(key): \(error.localizedDescription)")
+        }
+        return nil
     }
 
     // MARK: - Per-Location Daily Fetch
@@ -121,18 +169,103 @@ final class WeatherService {
 
         do {
             let data = try await SupabaseProxy.request(service: "weather", action: "forecast", params: weatherParams(for: coordinate))
-
-            let decoded = try JSONDecoder().decode(OpenMeteoResponse.self, from: data)
-            if let daily = decoded.daily {
-                forecastsByLocation[key] = parseDailyForecasts(daily)
+            let decoded = try JSONDecoder().decode(WeatherAPIResponse.self, from: data)
+            if let forecast = decoded.forecast {
+                let (daily, hourly) = parseForecastDays(forecast.forecastday)
+                forecastsByLocation[key] = daily
+                hourlyByLocation[key] = hourly
                 fetchDatesByLocation[key] = Date()
             }
-            if let hourly = decoded.hourly {
-                hourlyByLocation[key] = parseHourlyForecasts(hourly)
+        } catch {}
+    }
+
+    // MARK: - Full Detail Fetch (returns all data directly)
+
+    struct WeatherDetailData {
+        var current: WeatherInfo?
+        var hourly: [HourlyWeatherInfo]
+        var daily: [WeatherInfo]
+        var todayForecast: WeatherInfo?
+        var aqi: AirQualityInfo?
+        var alerts: [WeatherAPIAlert] = []
+        var allHourly: [HourlyWeatherInfo] = []
+    }
+
+    func fetchFullDetail(for coordinate: CLLocationCoordinate2D) async -> WeatherDetailData {
+        let key = locationKey(coordinate)
+        print("[Weather] fetchFullDetail START key=\(key)")
+
+        do {
+            let data = try await SupabaseProxy.request(service: "weather", action: "forecast", params: weatherParams(for: coordinate))
+            print("[Weather] fetchFullDetail GOT \(data.count) bytes")
+            let decoded = try JSONDecoder().decode(WeatherAPIResponse.self, from: data)
+
+            var result = WeatherDetailData(current: nil, hourly: [], daily: [], todayForecast: nil, aqi: nil, alerts: [], allHourly: [])
+
+            if let current = decoded.current {
+                result.current = WeatherInfo(
+                    id: "current-\(key)",
+                    temperature: current.tempC,
+                    weatherCode: current.condition.code,
+                    humidity: current.humidity,
+                    windSpeed: current.windKph,
+                    apparentTemperature: current.feelslikeC,
+                    pressureMb: current.pressureMb,
+                    visibilityKm: current.visKm
+                )
+                currentByLocation[key] = result.current
+
+                if let aq = current.airQuality, let epa = aq.usEpaIndex {
+                    let aqiInfo = AirQualityInfo(epaIndex: epa, pm25: aq.pm2_5 ?? 0, pm10: aq.pm10 ?? 0)
+                    aqiByLocation[key] = aqiInfo
+                    result.aqi = aqiInfo
+                }
             }
+
+            if let alerts = decoded.alerts?.alert, !alerts.isEmpty {
+                alertsByLocation[key] = alerts
+                result.alerts = alerts
+            }
+
+            if let forecast = decoded.forecast {
+                let (daily, hourly) = parseForecastDays(forecast.forecastday)
+                forecastsByLocation[key] = daily
+                hourlyByLocation[key] = hourly
+                fetchDatesByLocation[key] = Date()
+
+                result.allHourly = hourly
+
+                let calendar = Calendar.current
+                result.todayForecast = daily.first { info in
+                    guard let d = info.date else { return false }
+                    return calendar.isDate(d, inSameDayAs: Date())
+                }
+
+                let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
+                result.daily = Array(daily.filter { info in
+                    guard let d = info.date else { return false }
+                    return d >= tomorrow
+                }.prefix(10))
+
+                // Hourly for today
+                let todayHourly = hourly.filter { calendar.isDate($0.hour, inSameDayAs: Date()) }
+                result.hourly = stride(from: 0, to: todayHourly.count, by: 3).compactMap { i in
+                    i < todayHourly.count ? todayHourly[i] : nil
+                }
+            }
+
+            print("[Weather] fetchFullDetail OK current=\(result.current != nil) hourly=\(result.hourly.count) daily=\(result.daily.count) aqi=\(result.aqi != nil) alerts=\(result.alerts.count)")
+            return result
         } catch {
-            // Silent fail for per-location fetches
+            print("[Weather] fetchFullDetail ERROR key=\(key): \(error.localizedDescription)")
         }
+
+        return WeatherDetailData(
+            current: currentByLocation[key],
+            hourly: hourlyForecast(for: Date(), at: coordinate),
+            daily: upcomingForecasts(at: coordinate, count: 10),
+            todayForecast: forecast(for: Date(), at: coordinate)
+        )
     }
 
     // MARK: - Forecast Accessors
@@ -157,7 +290,6 @@ final class WeatherService {
         guard let allHourly = hourlyByLocation[key] else { return [] }
         let calendar = Calendar.current
         let dayItems = allHourly.filter { calendar.isDate($0.hour, inSameDayAs: date) }
-        // Return every 3 hours (up to 8 items)
         return stride(from: 0, to: dayItems.count, by: 3).compactMap { i in
             i < dayItems.count ? dayItems[i] : nil
         }
@@ -193,11 +325,23 @@ final class WeatherService {
 
     private func restoreFromCache(coordinate: CLLocationCoordinate2D) {
         guard let data = OfflineCacheManager.shared.cachedWeather(),
-              let decoded = try? JSONDecoder().decode(OpenMeteoResponse.self, from: data) else { return }
+              let decoded = try? JSONDecoder().decode(WeatherAPIResponse.self, from: data) else { return }
         lastFetchCoordinate = coordinate
         lastFetchDate = Date()
         parseResponse(decoded, coordinate: coordinate)
         errorMessage = nil
+    }
+
+    func airQuality(at coordinate: CLLocationCoordinate2D) -> AirQualityInfo? {
+        aqiByLocation[locationKey(coordinate)]
+    }
+
+    func weatherAlerts(at coordinate: CLLocationCoordinate2D) -> [WeatherAPIAlert] {
+        alertsByLocation[locationKey(coordinate)] ?? []
+    }
+
+    func allHourlyData(at coordinate: CLLocationCoordinate2D) -> [HourlyWeatherInfo] {
+        hourlyByLocation[locationKey(coordinate)] ?? []
     }
 
     func invalidateCache() {
@@ -206,119 +350,134 @@ final class WeatherService {
         forecastsByLocation.removeAll()
         fetchDatesByLocation.removeAll()
         hourlyByLocation.removeAll()
+        currentByLocation.removeAll()
+        aqiByLocation.removeAll()
+        alertsByLocation.removeAll()
     }
 
     // MARK: - Private
 
     private func weatherParams(for coordinate: CLLocationCoordinate2D) -> [String: String] {
         [
-            "latitude": String(coordinate.latitude),
-            "longitude": String(coordinate.longitude),
-            "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature",
-            "hourly": "temperature_2m,weather_code,precipitation_probability,apparent_temperature,uv_index",
-            "daily": "temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset,uv_index_max",
-            "timezone": "auto",
-            "forecast_days": "16"
+            "q": "\(coordinate.latitude),\(coordinate.longitude)",
+            "days": "7",
+            "aqi": "yes",
+            "alerts": "yes"
         ]
     }
 
-    private func parseResponse(_ response: OpenMeteoResponse, coordinate: CLLocationCoordinate2D) {
+    private func parseResponse(_ response: WeatherAPIResponse, coordinate: CLLocationCoordinate2D) {
+        let key = locationKey(coordinate)
+
         if let current = response.current {
             currentWeather = WeatherInfo(
                 id: "current",
-                temperature: current.temperature2m,
-                weatherCode: current.weatherCode,
-                humidity: current.relativeHumidity2m,
-                windSpeed: current.windSpeed10m,
-                apparentTemperature: current.apparentTemperature
+                temperature: current.tempC,
+                weatherCode: current.condition.code,
+                humidity: current.humidity,
+                windSpeed: current.windKph,
+                apparentTemperature: current.feelslikeC,
+                pressureMb: current.pressureMb,
+                visibilityKm: current.visKm
             )
+
+            if let aq = current.airQuality, let epa = aq.usEpaIndex {
+                aqiByLocation[key] = AirQualityInfo(
+                    epaIndex: epa,
+                    pm25: aq.pm2_5 ?? 0,
+                    pm10: aq.pm10 ?? 0
+                )
+            }
         }
 
-        let key = locationKey(coordinate)
+        if let alerts = response.alerts?.alert, !alerts.isEmpty {
+            alertsByLocation[key] = alerts
+        }
 
-        if let daily = response.daily {
-            let forecasts = parseDailyForecasts(daily)
-            forecastsByLocation[key] = forecasts
+        if let forecast = response.forecast {
+            let (daily, hourly) = parseForecastDays(forecast.forecastday)
+            forecastsByLocation[key] = daily
+            hourlyByLocation[key] = hourly
             fetchDatesByLocation[key] = Date()
-        }
-
-        if let hourly = response.hourly {
-            hourlyByLocation[key] = parseHourlyForecasts(hourly)
         }
     }
 
-    private func parseDailyForecasts(_ daily: DailyWeatherResponse) -> [WeatherInfo] {
+    private func parseForecastDays(_ days: [WeatherAPIForecastDay]) -> ([WeatherInfo], [HourlyWeatherInfo]) {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
 
-        return daily.time.enumerated().compactMap { index, dateString in
-            guard index < daily.temperature2mMax.count,
-                  index < daily.temperature2mMin.count,
-                  index < daily.weatherCode.count,
-                  index < daily.precipitationProbabilityMax.count,
-                  let maxTemp = daily.temperature2mMax[index],
-                  let minTemp = daily.temperature2mMin[index],
-                  let code = daily.weatherCode[index] else {
-                return nil
-            }
+        let hourFormatter = DateFormatter()
+        hourFormatter.dateFormat = "yyyy-MM-dd HH:mm"
 
+        // Sunrise/sunset: "06:45 AM" format — need date context
+        let sunTimeFormatter = DateFormatter()
+        sunTimeFormatter.dateFormat = "hh:mm a"
+        sunTimeFormatter.locale = Locale(identifier: "en_US_POSIX")
+
+        var allDaily: [WeatherInfo] = []
+        var allHourly: [HourlyWeatherInfo] = []
+
+        for forecastDay in days {
+            let dayDate = dateFormatter.date(from: forecastDay.date)
+
+            // Parse sunrise/sunset with date context
             var sunriseDate: Date?
-            if let sunriseStrings = daily.sunrise,
-               index < sunriseStrings.count,
-               let str = sunriseStrings[index] {
-                sunriseDate = Self.sunTimeFormatter.date(from: str)
-            }
-
             var sunsetDate: Date?
-            if let sunsetStrings = daily.sunset,
-               index < sunsetStrings.count,
-               let str = sunsetStrings[index] {
-                sunsetDate = Self.sunTimeFormatter.date(from: str)
+            if let dayDate {
+                let calendar = Calendar.current
+                if let sunriseStr = forecastDay.astro.sunrise,
+                   let sunriseTime = sunTimeFormatter.date(from: sunriseStr) {
+                    let comps = calendar.dateComponents([.hour, .minute], from: sunriseTime)
+                    sunriseDate = calendar.date(bySettingHour: comps.hour ?? 6, minute: comps.minute ?? 0, second: 0, of: dayDate)
+                }
+                if let sunsetStr = forecastDay.astro.sunset,
+                   let sunsetTime = sunTimeFormatter.date(from: sunsetStr) {
+                    let comps = calendar.dateComponents([.hour, .minute], from: sunsetTime)
+                    sunsetDate = calendar.date(bySettingHour: comps.hour ?? 18, minute: comps.minute ?? 0, second: 0, of: dayDate)
+                }
             }
 
-            var uvMax: Double?
-            if let uvArray = daily.uvIndexMax,
-               index < uvArray.count {
-                uvMax = uvArray[index]
-            }
+            let precipChance = max(
+                forecastDay.day.dailyChanceOfRain?.intValue ?? 0,
+                forecastDay.day.dailyChanceOfSnow?.intValue ?? 0
+            )
 
-            return WeatherInfo(
-                id: dateString,
-                temperature: (maxTemp + minTemp) / 2,
-                temperatureMax: maxTemp,
-                temperatureMin: minTemp,
-                weatherCode: code,
-                precipitationProbability: daily.precipitationProbabilityMax[index],
-                date: dateFormatter.date(from: dateString),
-                uvIndexMax: uvMax,
+            let info = WeatherInfo(
+                id: forecastDay.date,
+                temperature: (forecastDay.day.maxtempC + forecastDay.day.mintempC) / 2,
+                temperatureMax: forecastDay.day.maxtempC,
+                temperatureMin: forecastDay.day.mintempC,
+                weatherCode: forecastDay.day.condition.code,
+                precipitationProbability: precipChance,
+                date: dayDate,
+                uvIndexMax: forecastDay.day.uv,
                 sunrise: sunriseDate,
                 sunset: sunsetDate
             )
-        }
-    }
+            allDaily.append(info)
 
-    private func parseHourlyForecasts(_ hourly: HourlyWeatherResponse) -> [HourlyWeatherInfo] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
+            // Parse hourly
+            for hourData in forecastDay.hour {
+                guard let hourDate = hourFormatter.date(from: hourData.time) else { continue }
 
-        return hourly.time.enumerated().compactMap { index, timeString in
-            guard index < hourly.temperature2m.count,
-                  index < hourly.weatherCode.count,
-                  let temp = hourly.temperature2m[index],
-                  let code = hourly.weatherCode[index],
-                  let date = formatter.date(from: timeString) else {
-                return nil
+                let hourPrecip = max(
+                    hourData.chanceOfRain?.intValue ?? 0,
+                    hourData.chanceOfSnow?.intValue ?? 0
+                )
+
+                let hourInfo = HourlyWeatherInfo(
+                    id: hourData.time,
+                    hour: hourDate,
+                    temperature: hourData.tempC,
+                    weatherCode: hourData.condition.code,
+                    precipitationProbability: hourPrecip,
+                    apparentTemperature: hourData.feelslikeC,
+                    uvIndex: hourData.uv
+                )
+                allHourly.append(hourInfo)
             }
-
-            return HourlyWeatherInfo(
-                id: timeString,
-                hour: date,
-                temperature: temp,
-                weatherCode: code,
-                precipitationProbability: index < hourly.precipitationProbability.count ? hourly.precipitationProbability[index] : nil,
-                apparentTemperature: index < hourly.apparentTemperature.count ? hourly.apparentTemperature[index] : nil,
-                uvIndex: index < hourly.uvIndex.count ? hourly.uvIndex[index] : nil
-            )
         }
+
+        return (allDaily, allHourly)
     }
 }

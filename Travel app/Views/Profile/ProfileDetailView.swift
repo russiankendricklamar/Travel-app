@@ -19,6 +19,7 @@ struct ProfileDetailView: View {
     @State private var showDatePicker = false
     @State private var isSaving = false
 
+    @AppStorage("preferredCurrency") private var currency = "RUB"
     @State private var expandedSection: Section? = .basic
     @State private var showSecureVault = false
 
@@ -314,11 +315,67 @@ struct ProfileDetailView: View {
 
     // MARK: - Section Contents
 
+    // MARK: - Country → Currency mapping
+
+    private static let countryCurrencyMap: [String: String] = [
+        "россия": "RUB", "рф": "RUB", "russia": "RUB",
+        "япония": "JPY", "japan": "JPY",
+        "сша": "USD", "usa": "USD", "америка": "USD",
+        "китай": "CNY", "china": "CNY",
+        "германия": "EUR", "франция": "EUR", "италия": "EUR", "испания": "EUR",
+        "нидерланды": "EUR", "бельгия": "EUR", "австрия": "EUR", "португалия": "EUR",
+        "греция": "EUR", "финляндия": "EUR", "ирландия": "EUR",
+        "germany": "EUR", "france": "EUR", "italy": "EUR", "spain": "EUR",
+    ]
+
+    private func suggestedCurrency(for country: String) -> String? {
+        let lower = country.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !lower.isEmpty else { return nil }
+        return Self.countryCurrencyMap[lower]
+    }
+
     private var basicContent: some View {
         VStack(spacing: AppTheme.spacingS) {
             compactField("Имя", text: $name, placeholder: "Ваше имя")
             compactField("Страна", text: $homeCountry, placeholder: "Россия")
+                .onChange(of: homeCountry) { _, newValue in
+                    if let suggested = suggestedCurrency(for: newValue), suggested != currency {
+                        withAnimation(.spring(response: 0.3)) { currency = suggested }
+                        CurrencyService.shared.invalidateCache()
+                        Task { await CurrencyService.shared.fetchRates() }
+                    }
+                }
             compactField("Город", text: $homeCity, placeholder: "Москва")
+
+            // Currency
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Валюта")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if let suggested = suggestedCurrency(for: homeCountry), suggested != currency {
+                        Button {
+                            withAnimation(.spring(response: 0.3)) { currency = suggested }
+                            CurrencyService.shared.invalidateCache()
+                            Task { await CurrencyService.shared.fetchRates() }
+                        } label: {
+                            Text("→ \(suggested)")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(AppTheme.bambooGreen)
+                        }
+                    }
+                }
+                HStack(spacing: 6) {
+                    ForEach(CurrencyService.supportedCurrencies, id: \.self) { code in
+                        currencyChip(code)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
 
             // Birth date
             Button {
@@ -720,6 +777,35 @@ struct ProfileDetailView: View {
     }
 
     // MARK: - Compact Components
+
+    private func currencyChip(_ code: String) -> some View {
+        let isSelected = currency == code
+        let symbol = CurrencyService.symbols[code] ?? code
+        return Button {
+            withAnimation(.spring(response: 0.3)) { currency = code }
+            CurrencyService.shared.invalidateCache()
+            Task { await CurrencyService.shared.fetchRates() }
+        } label: {
+            VStack(spacing: 2) {
+                Text(symbol)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(isSelected ? .white : .primary)
+                Text(code)
+                    .font(.system(size: 8, weight: .bold))
+                    .tracking(0.5)
+                    .foregroundStyle(isSelected ? .white.opacity(0.8) : .secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(isSelected ? AppTheme.sakuraPink : Color.clear)
+            .background(.thinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.radiusSmall)
+                    .stroke(isSelected ? AppTheme.sakuraPink : Color.white.opacity(0.15), lineWidth: isSelected ? 1.5 : 0.5)
+            )
+        }
+    }
 
     private func compactField(_ label: String, text: Binding<String>, placeholder: String) -> some View {
         HStack {

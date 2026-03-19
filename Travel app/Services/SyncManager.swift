@@ -38,6 +38,9 @@ final class SyncManager {
     @ObservationIgnored
     private lazy var engine = SyncEngine(client: SupabaseManager.shared.client)
 
+    /// Shared model container — must be set from app entry point
+    var modelContainer: ModelContainer?
+
     private init() {}
 
     // MARK: - Public
@@ -115,8 +118,7 @@ final class SyncManager {
 
     @MainActor
     private func getModelContainer() -> ModelContainer? {
-        // Access via the shared model container
-        try? ModelContainer(for: Trip.self, JournalEntry.self, BucketListItem.self, PackingItem.self, OfflineMapCache.self)
+        modelContainer
     }
 
     // MARK: - Push Helpers
@@ -247,6 +249,9 @@ final class SyncManager {
                 category: expense.category.rawValue,
                 date: SyncDateFormatter.dateString(from: expense.date),
                 notes: expense.notes,
+                originalAmount: expense.originalAmount > 0 ? expense.originalAmount : nil,
+                originalCurrency: expense.originalCurrency.isEmpty ? nil : expense.originalCurrency,
+                exchangeRate: expense.exchangeRate > 0 ? expense.exchangeRate : nil,
                 updatedAt: SyncDateFormatter.string(from: expense.updatedAt),
                 isDeleted: expense.isDeleted
             )
@@ -615,6 +620,9 @@ final class SyncManager {
                     local.category = ExpenseCategory(rawValue: dto.category) ?? .other
                     local.date = SyncDateFormatter.dateFromDateString(dto.date ?? "") ?? local.date
                     local.notes = dto.notes
+                    local.originalAmount = dto.originalAmount ?? 0
+                    local.originalCurrency = dto.originalCurrency ?? ""
+                    local.exchangeRate = dto.exchangeRate ?? 0
                     local.updatedAt = remoteUpdatedAt
                     local.isDeleted = dto.isDeleted
                     if local.trip?.id != dto.tripId {
@@ -628,7 +636,10 @@ final class SyncManager {
                     amount: dto.amount,
                     category: ExpenseCategory(rawValue: dto.category) ?? .other,
                     date: SyncDateFormatter.dateFromDateString(dto.date ?? "") ?? Date(),
-                    notes: dto.notes
+                    notes: dto.notes,
+                    originalAmount: dto.originalAmount ?? 0,
+                    originalCurrency: dto.originalCurrency ?? "",
+                    exchangeRate: dto.exchangeRate ?? 0
                 )
                 expense.updatedAt = remoteUpdatedAt
                 expense.trip = tripMap[dto.tripId]

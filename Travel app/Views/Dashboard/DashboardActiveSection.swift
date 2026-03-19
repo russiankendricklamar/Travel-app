@@ -1,70 +1,91 @@
 import SwiftUI
+import CoreLocation
 
 struct DashboardActiveSection: View {
     let trip: Trip
     let heroScale: CGFloat
     let statsOffset: CGFloat
     let counterValue: Int
-    let budgetWidth: CGFloat
+
+    @State private var homeTimeZone: TimeZone?
+    @State private var destinationTimeZone: TimeZone?
+    @State private var currentTime = Date()
+    @State private var timer: Timer?
+
+    private let profileService = ProfileService.shared
+
+    private var homeCity: String {
+        profileService.profile?.homeCity ?? ""
+    }
+
+    private var destinationCity: String {
+        let sortedDays = trip.days.sorted { $0.date < $1.date }
+        if let today = sortedDays.first(where: { Calendar.current.isDateInToday($0.date) }) {
+            return today.cityName
+        }
+        return sortedDays.first?.cityName ?? ""
+    }
 
     var body: some View {
         VStack(spacing: AppTheme.spacingM) {
-            heroSection
+            compactHero
             statsBanner
-            statsCards
-            DashboardBudgetSection(trip: trip, budgetWidth: budgetWidth)
-            recentExpensesSection
         }
+        .task { await resolveTimeZones() }
+        .onAppear { startTimer() }
+        .onDisappear { timer?.invalidate() }
     }
 
-    // MARK: - Hero
+    // MARK: - Compact Hero with Timezone
 
-    private var heroSection: some View {
+    private var compactHero: some View {
         VStack(spacing: 0) {
-            Spacer(minLength: 16)
-
-            ZStack {
+            // Day counter
+            HStack(alignment: .lastTextBaseline, spacing: 6) {
                 Text("\(counterValue)")
-                    .font(.system(size: 140, weight: .bold, design: .rounded))
-                    .foregroundStyle(AppTheme.sakuraPink.opacity(0.08))
-                    .blur(radius: 30)
-
-                Text("\(counterValue)")
-                    .font(.system(size: 140, weight: .bold, design: .rounded))
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
-                    .shadow(color: AppTheme.sakuraPink.opacity(0.25), radius: 20, x: 0, y: 10)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("ДЕНЬ")
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(2)
+                        .foregroundStyle(AppTheme.sakuraPink)
+                    Text("ПУТЕШЕСТВИЯ")
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(2)
+                        .foregroundStyle(AppTheme.sakuraPink.opacity(0.6))
+                }
             }
+            .padding(.top, AppTheme.spacingS)
 
-            HStack(spacing: 8) {
-                Capsule()
-                    .fill(AppTheme.sakuraPink.opacity(0.3))
-                    .frame(height: 1.5)
-                Text("ДЕНЬ ПУТЕШЕСТВИЯ")
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(4)
-                    .foregroundStyle(AppTheme.sakuraPink)
-                    .fixedSize()
-                Capsule()
-                    .fill(AppTheme.sakuraPink.opacity(0.3))
-                    .frame(height: 1.5)
+            VStack(spacing: 2) {
+                Text(trip.name.uppercased())
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1)
+                    .foregroundStyle(.secondary)
+                Text(tripDateRange.uppercased())
+                    .font(.system(size: 9, weight: .medium))
+                    .tracking(1)
+                    .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, AppTheme.spacingL)
+            .padding(.top, 4)
 
-            Spacer(minLength: 12)
+            // Timezone comparison (if both cities available)
+            if !homeCity.isEmpty && !destinationCity.isEmpty {
+                Rectangle()
+                    .fill(AppTheme.sakuraPink.opacity(0.15))
+                    .frame(height: 0.5)
+                    .padding(.horizontal, AppTheme.spacingM)
+                    .padding(.top, 12)
 
-            Text(trip.name.uppercased())
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundStyle(.secondary)
-
-            Text(tripDateRange.uppercased())
-                .font(.system(size: 10, weight: .medium))
-                .tracking(1)
-                .foregroundStyle(.tertiary)
-                .padding(.top, 4)
-
-            Spacer(minLength: 16)
+                timezoneRow
+                    .padding(.horizontal, AppTheme.spacingM)
+                    .padding(.vertical, 10)
+            } else {
+                Spacer().frame(height: AppTheme.spacingM)
+            }
         }
-        .frame(height: 300)
         .frame(maxWidth: .infinity)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusXL))
@@ -81,6 +102,63 @@ struct DashboardActiveSection: View {
         )
         .shadow(color: AppTheme.sakuraPink.opacity(0.12), radius: 20, x: 0, y: 10)
         .scaleEffect(heroScale)
+    }
+
+    // MARK: - Timezone Row
+
+    private var timezoneRow: some View {
+        HStack(spacing: 0) {
+            // Home
+            VStack(spacing: 2) {
+                HStack(spacing: 4) {
+                    Image(systemName: "house.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(AppTheme.sakuraPink.opacity(0.5))
+                    Text(homeCity.uppercased())
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+                Text(formattedTime(in: homeTimeZone ?? .current))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+                    .animation(.default, value: formattedTime(in: homeTimeZone ?? .current))
+            }
+            .frame(maxWidth: .infinity)
+
+            // Difference badge
+            if let diff = timeDifference {
+                Text(diff)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppTheme.sakuraPink)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(AppTheme.sakuraPink.opacity(0.1))
+                    .clipShape(Capsule())
+            }
+
+            // Destination
+            VStack(spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(destinationCity.uppercased())
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(AppTheme.sakuraPink.opacity(0.5))
+                }
+                Text(formattedTime(in: destinationTimeZone ?? .current))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .contentTransition(.numericText())
+                    .animation(.default, value: formattedTime(in: destinationTimeZone ?? .current))
+            }
+            .frame(maxWidth: .infinity)
+        }
     }
 
     // MARK: - Stats Banner
@@ -122,128 +200,59 @@ struct DashboardActiveSection: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Stats Cards
+    // MARK: - Timezone Helpers
 
-    private var statsCards: some View {
-        HStack(spacing: AppTheme.spacingS) {
-            glassStatCard(
-                value: "\(trip.days.count)",
-                label: "ДНЕЙ",
-                icon: "calendar",
-                color: AppTheme.sakuraPink
-            )
-            glassStatCard(
-                value: "\(Int(trip.budgetUsedPercent * 100))%",
-                label: "БЮДЖЕТА",
-                icon: "chart.bar.fill",
-                color: AppTheme.templeGold
-            )
-        }
-        .offset(y: statsOffset)
+    private func formattedTime(in tz: TimeZone) -> String {
+        let f = DateFormatter()
+        f.timeZone = tz
+        f.dateFormat = "HH:mm"
+        return f.string(from: currentTime)
     }
 
-    private func glassStatCard(value: String, label: LocalizedStringKey, icon: String, color: Color) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(value)
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundStyle(color)
-                Text(label)
-                    .font(.system(size: 9, weight: .bold))
-                    .tracking(2)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Image(systemName: icon)
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(color.opacity(0.2))
+    private var timeDifference: String? {
+        guard let home = homeTimeZone, let dest = destinationTimeZone else { return nil }
+        let diffSeconds = dest.secondsFromGMT(for: currentTime) - home.secondsFromGMT(for: currentTime)
+        let diffHours = diffSeconds / 3600
+        let diffMinutes = abs(diffSeconds % 3600) / 60
+        if diffHours == 0 && diffMinutes == 0 { return nil }
+        let sign = diffHours >= 0 ? "+" : ""
+        if diffMinutes == 0 {
+            return "\(sign)\(diffHours)ч"
         }
-        .padding(AppTheme.spacingM)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(color.opacity(0.15), lineWidth: 0.5)
-        )
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
+        return "\(sign)\(diffHours):\(String(format: "%02d", diffMinutes))"
     }
 
-    // MARK: - Recent Expenses
-
-    private var recentExpensesSection: some View {
-        Group {
-            if !trip.recentExpenses.isEmpty {
-                VStack(alignment: .leading, spacing: AppTheme.spacingS) {
-                    HStack {
-                        HStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(AppTheme.sakuraPink)
-                                .frame(width: 4, height: 16)
-                            Text("ПОСЛЕДНИЕ РАСХОДЫ")
-                                .font(.system(size: 11, weight: .bold))
-                                .tracking(2)
-                                .foregroundStyle(AppTheme.sakuraPink)
-                        }
-                        Spacer()
-                        Text("\(trip.recentExpenses.count)")
-                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                            .foregroundStyle(AppTheme.sakuraPink.opacity(0.4))
-                    }
-                    .padding(.horizontal, 4)
-
-                    ForEach(Array(trip.recentExpenses.enumerated()), id: \.element.id) { index, expense in
-                        expenseRow(index: index, expense: expense)
-                    }
-                }
-            }
+    private func startTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
+            currentTime = Date()
         }
     }
 
-    private func expenseRow(index: Int, expense: Expense) -> some View {
-        HStack(spacing: AppTheme.spacingS) {
-            Image(systemName: expense.category.systemImage)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 32, height: 32)
-                .background(
-                    LinearGradient(
-                        colors: [AppTheme.expenseColor(for: expense.category), AppTheme.expenseColor(for: expense.category).opacity(0.7)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(expense.title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Text(expense.category.rawValue)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Text(CurrencyService.formatBase(expense.amount))
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
+    private func resolveTimeZones() async {
+        async let homeResult = resolveTimeZone(for: homeCity)
+        async let destResult = resolveTimeZone(for: destinationCity)
+        let (home, dest) = await (homeResult, destResult)
+        await MainActor.run {
+            homeTimeZone = home
+            destinationTimeZone = dest
         }
-        .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
-        )
+    }
+
+    private func resolveTimeZone(for city: String) async -> TimeZone? {
+        guard !city.isEmpty else { return nil }
+        let coder = CLGeocoder()
+        return await withCheckedContinuation { continuation in
+            coder.geocodeAddressString(city) { placemarks, _ in
+                continuation.resume(returning: placemarks?.first?.timeZone)
+            }
+        }
     }
 
     // MARK: - Helpers
 
     private var uniqueCities: [String] {
-        Array(Set(trip.days.map(\.cityName))).sorted()
+        Array(Set(trip.days.map(\.cityName).filter { !$0.isEmpty })).sorted()
     }
 
     private var tripDateRange: String {

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreLocation
 
 struct DashboardView: View {
     let trip: Trip
@@ -9,8 +10,6 @@ struct DashboardView: View {
     @State private var statsOffset: CGFloat = 60
     @State private var budgetWidth: CGFloat = 0
     @State private var counterValue: Int = 0
-    @State private var showPackingList = false
-    @State private var showAddFlight = false
 
     // Countdown timer
     @State private var countdownTimer: Timer?
@@ -40,70 +39,36 @@ struct DashboardView: View {
                         )
                         DashboardTimeZoneSection(trip: trip)
                         DashboardCountryInfoSection(trip: trip)
-                        packingMiniCard
                         flightOrAddCard
                         DashboardWeatherSection(trip: trip)
+
                     case .active:
+                        // 1. Day counter (compact) with timezone
                         DashboardActiveSection(
                             trip: trip,
                             heroScale: heroScale,
                             statsOffset: statsOffset,
-                            counterValue: counterValue,
-                            budgetWidth: budgetWidth
+                            counterValue: counterValue
                         )
-                        DashboardTimeZoneSection(trip: trip)
-                        DashboardTodayScheduleSection(trip: trip)
-                        DashboardCountryInfoSection(trip: trip)
-                        packingMiniCard
-                        flightOrAddCard
+                        // 2. Weather
                         DashboardWeatherSection(trip: trip)
+                        // --- divider ---
+                        sectionDivider
+                        // 3. Today's schedule
+                        DashboardTodayScheduleSection(trip: trip)
+                        // --- divider ---
+                        sectionDivider
+                        // 4. Budget & expenses
+                        activeStatsSection
+                        // 5. Future flights (if any)
+                        flightOrAddCard
+
                     case .postTrip:
                         postTripHero
                         statsBanner
                         DashboardBudgetSection(trip: trip, budgetWidth: budgetWidth)
                         if !trip.allJournalEntries.isEmpty {
-                            NavigationLink {
-                                JournalMemoryBookView(trip: trip)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "book.fill")
-                                        .font(.system(size: 22, weight: .bold))
-                                        .foregroundStyle(AppTheme.indigoPurple)
-                                        .frame(width: 40, height: 40)
-                                        .background(AppTheme.indigoPurple.opacity(0.12))
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("КНИГА ВОСПОМИНАНИЙ")
-                                            .font(.system(size: 12, weight: .bold))
-                                            .tracking(2)
-                                            .foregroundStyle(.primary)
-                                        Text("\(trip.allJournalEntries.count) записей")
-                                            .font(.system(size: 12, weight: .medium))
-                                            .foregroundStyle(.secondary)
-                                    }
-
-                                    Spacer()
-
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(.tertiary)
-                                }
-                                .padding(AppTheme.spacingM)
-                                .background(.ultraThinMaterial)
-                                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                                        .strokeBorder(
-                                            LinearGradient(
-                                                colors: [AppTheme.indigoPurple.opacity(0.4), AppTheme.indigoPurple.opacity(0.1)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            ),
-                                            lineWidth: 1
-                                        )
-                                )
-                            }
+                            journalLink
                         }
                     }
                     Spacer(minLength: 80)
@@ -130,15 +95,6 @@ struct DashboardView: View {
                         .tracking(4)
                         .foregroundStyle(AppTheme.sakuraPink)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showAddFlight = true
-                    } label: {
-                        Image(systemName: "airplane")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(AppTheme.oceanBlue)
-                    }
-                }
             }
             .onAppear {
                 animateIn()
@@ -147,19 +103,99 @@ struct DashboardView: View {
             .onDisappear {
                 countdownTimer?.invalidate()
             }
-            .sheet(isPresented: $showAddFlight) {
-                EditFlightSheet(trip: trip)
+            .task {
+                await resolveAndFixTimezones()
             }
         }
     }
 
-    // MARK: - Flight or Add Card
+    // MARK: - Flight or Add Card (future flights only)
 
     @ViewBuilder
     private var flightOrAddCard: some View {
-        if !trip.flights.isEmpty {
-            DashboardFlightTrackingSection(trip: trip)
+        let now = Date()
+        let fiveDaysFromNow = Calendar.current.date(byAdding: .day, value: 5, to: now) ?? now
+        let soonFlights = trip.flights.filter { flight in
+            guard let date = flight.date else { return false }
+            return date > now && date <= fiveDaysFromNow
         }
+        if !soonFlights.isEmpty {
+            DashboardFlightTrackingSection(trip: trip, flights: soonFlights)
+        }
+    }
+
+    // MARK: - Active Stats Section (budget + expenses)
+
+    private var activeStatsSection: some View {
+        VStack(spacing: AppTheme.spacingM) {
+            DashboardBudgetSection(trip: trip, budgetWidth: budgetWidth)
+
+            // Recent expenses
+            if !trip.recentExpenses.isEmpty {
+                VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+                    HStack {
+                        HStack(spacing: 6) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(AppTheme.sakuraPink)
+                                .frame(width: 4, height: 16)
+                            Text("ПОСЛЕДНИЕ РАСХОДЫ")
+                                .font(.system(size: 11, weight: .bold))
+                                .tracking(2)
+                                .foregroundStyle(AppTheme.sakuraPink)
+                        }
+                        Spacer()
+                        Text("\(trip.recentExpenses.count)")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(AppTheme.sakuraPink.opacity(0.4))
+                    }
+                    .padding(.horizontal, 4)
+
+                    ForEach(trip.recentExpenses) { expense in
+                        expenseRow(expense: expense)
+                    }
+                }
+            }
+        }
+    }
+
+    private func expenseRow(expense: Expense) -> some View {
+        HStack(spacing: AppTheme.spacingS) {
+            Image(systemName: expense.category.systemImage)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                .background(
+                    LinearGradient(
+                        colors: [AppTheme.expenseColor(for: expense.category), AppTheme.expenseColor(for: expense.category).opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(expense.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(expense.category.rawValue)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text(CurrencyService.formatBase(expense.amount))
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+        )
     }
 
     // MARK: - Countdown Timer
@@ -220,60 +256,6 @@ struct DashboardView: View {
             } else {
                 counterValue = min(counterValue + step, target)
             }
-        }
-    }
-
-    // MARK: - Packing Mini Card
-
-    private var packingMiniCard: some View {
-        Button {
-            showPackingList = true
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "bag.fill")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(trip.packingProgress >= 1.0 ? AppTheme.bambooGreen : AppTheme.oceanBlue)
-                    .frame(width: 36, height: 36)
-                    .background((trip.packingProgress >= 1.0 ? AppTheme.bambooGreen : AppTheme.oceanBlue).opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("СПИСОК ВЕЩЕЙ")
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(1.5)
-                        .foregroundStyle(.secondary)
-                    Text("\(trip.totalPacked)/\(trip.packingItems.count) упаковано")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.primary)
-                }
-
-                Spacer()
-
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.secondary.opacity(0.15))
-                        Capsule()
-                            .fill(trip.packingProgress >= 1.0 ? AppTheme.bambooGreen : AppTheme.oceanBlue)
-                            .frame(width: geo.size.width * trip.packingProgress)
-                    }
-                }
-                .frame(width: 60, height: 6)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(AppTheme.spacingM)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-            )
-            .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 6)
-        }
-        .sheet(isPresented: $showPackingList) {
-            PackingListView(trip: trip)
         }
     }
 
@@ -355,10 +337,107 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity)
     }
 
+    // MARK: - Journal Link (Post-Trip)
+
+    private var journalLink: some View {
+        NavigationLink {
+            JournalMemoryBookView(trip: trip)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "book.fill")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(AppTheme.indigoPurple)
+                    .frame(width: 40, height: 40)
+                    .background(AppTheme.indigoPurple.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("КНИГА ВОСПОМИНАНИЙ")
+                        .font(.system(size: 12, weight: .bold))
+                        .tracking(2)
+                        .foregroundStyle(.primary)
+                    Text("\(trip.allJournalEntries.count) записей")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(AppTheme.spacingM)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [AppTheme.indigoPurple.opacity(0.4), AppTheme.indigoPurple.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+        }
+    }
+
+    // MARK: - Section Divider
+
+    private var sectionDivider: some View {
+        Rectangle()
+            .fill(AppTheme.sakuraPink.opacity(0.18))
+            .frame(height: 1)
+            .padding(.horizontal, AppTheme.spacingS)
+    }
+
+    // MARK: - Timezone Resolution & One-Time Fix
+
+    private func resolveAndFixTimezones() async {
+        let geocoder = CLGeocoder()
+
+        // Resolve home timezone from profile
+        let profileService = ProfileService.shared
+        let homeCity = profileService.profile?.homeCity ?? ""
+        var homeTZ: TimeZone = .current
+        if !homeCity.isEmpty,
+           let placemarks = try? await geocoder.geocodeAddressString(homeCity),
+           let tz = placemarks.first?.timeZone {
+            homeTZ = tz
+        }
+
+        // Resolve and cache timezone for each day
+        for day in trip.days where day.timezoneIdentifier.isEmpty && !day.cityName.isEmpty {
+            if let placemarks = try? await geocoder.geocodeAddressString(day.cityName),
+               let tz = placemarks.first?.timeZone {
+                day.timezoneIdentifier = tz.identifier
+            }
+        }
+
+        // One-time fix: events were created in Moscow (UTC+3) with intended
+        // destination times, but stored as Moscow-local → UTC. Now in Tokyo (UTC+9),
+        // they display +6h too late. Shift all events back by 6 hours.
+        let fixKey = "timezoneFixApplied_v3_\(trip.id.uuidString)"
+        guard !UserDefaults.standard.bool(forKey: fixKey) else { return }
+
+        let shiftSeconds: TimeInterval = -6 * 3600 // Moscow→Tokyo offset
+        for day in trip.days {
+            for event in day.events {
+                event.startTime = event.startTime.addingTimeInterval(shiftSeconds)
+                event.endTime = event.endTime.addingTimeInterval(shiftSeconds)
+            }
+        }
+
+        try? trip.modelContext?.save()
+        UserDefaults.standard.set(true, forKey: fixKey)
+    }
+
     // MARK: - Helpers
 
     private var uniqueCities: [String] {
-        Array(Set(trip.days.map(\.cityName))).sorted()
+        Array(Set(trip.days.map(\.cityName).filter { !$0.isEmpty })).sorted()
     }
 
     private var tripDateRange: String {

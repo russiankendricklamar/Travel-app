@@ -8,7 +8,7 @@ enum AppTheme {
     static let templeGold = Color(hex: "D97706")
     static let bambooGreen = Color(hex: "16A34A")
     static var oceanBlue: Color { sakuraPink }
-    static var indigoPurple: Color { sakuraPink }
+    static let indigoPurple = Color(hex: "6366F1")
 
     // MARK: - Soft Accent Variants
     static let softPink = Color(hex: "FDF2F8")

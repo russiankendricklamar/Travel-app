@@ -12,10 +12,6 @@ final class GeminiService {
 
     var hasApiKey: Bool { true }
 
-    private var endpoint: String {
-        "\(Secrets.supabaseURL)/functions/v1/gemini-proxy"
-    }
-
     // MARK: - Summarize Wikipedia article
 
     func summarize(wikiText: String, placeName: String, category: String) async -> PlaceInfo? {
@@ -63,80 +59,57 @@ final class GeminiService {
     func rawRequest(prompt: String) async -> String? {
         lastError = nil
 
-        guard let url = URL(string: endpoint) else {
-            lastError = "Некорректный URL Gemini API"
-            return nil
+        let promptPreview = String(prompt.prefix(80)).replacingOccurrences(of: "\n", with: " ")
+        print("[GeminiService] 📤 Request: \"\(promptPreview)...\" (\(prompt.count) chars)")
+
+        for attempt in 1...3 {
+            do {
+                let startTime = CFAbsoluteTimeGetCurrent()
+                let data = try await SupabaseProxy.request(
+                    service: "gemini",
+                    params: [
+                        "prompt": prompt,
+                        "model": model,
+                        "temperature": "0.7",
+                        "maxOutputTokens": "8192"
+                    ]
+                )
+                let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+
+                guard let text = Self.parseGeminiResponse(data) else {
+                    lastError = Self.detectGeminiError(data) ?? "Неожиданный формат ответа Gemini"
+                    print("[GeminiService] ❌ Parse failed after \(String(format: "%.1f", elapsed))s: \(lastError ?? "")")
+                    let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
+                    print("[GeminiService] Response preview: \(preview)")
+                    return nil
+                }
+
+                print("[GeminiService] ✅ Response in \(String(format: "%.1f", elapsed))s, \(text.count) chars")
+                return text
+            } catch {
+                let msg = "\(error)"
+                if msg.contains("429") && attempt < 3 {
+                    let delay = attempt * 10
+                    print("[GeminiService] ⏳ 429 rate limited, retrying in \(delay)s (attempt \(attempt)/3)...")
+                    try? await Task.sleep(for: .seconds(delay))
+                    continue
+                }
+                let desc = error.localizedDescription
+                if desc.contains("timed out") || desc.contains("Timed out") {
+                    lastError = "Таймаут запроса к Gemini"
+                } else if desc.contains("not connected") || desc.contains("offline") {
+                    lastError = "Нет подключения к интернету"
+                } else if msg.contains("429") {
+                    lastError = "Лимит запросов AI исчерпан. Подождите минуту"
+                } else {
+                    lastError = "Ошибка Gemini: \(desc)"
+                }
+                print("[GeminiService] ❌ Request failed (attempt \(attempt)/3): \(msg)")
+                return nil
+            }
         }
 
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.timeoutInterval = 30
-
-        req.setValue(Secrets.supabaseAnonKey, forHTTPHeaderField: "apikey")
-        req.setValue("Bearer \(Secrets.supabaseAnonKey)", forHTTPHeaderField: "Authorization")
-
-        let body: [String: Any] = [
-            "contents": [
-                ["parts": [["text": prompt]]]
-            ],
-            "generationConfig": [
-                "temperature": 0.7,
-                "maxOutputTokens": 65536
-            ]
-        ]
-
-        do {
-            req.httpBody = try JSONSerialization.data(withJSONObject: body)
-            let (data, response) = try await URLSession.shared.data(for: req)
-
-            guard let http = response as? HTTPURLResponse else {
-                lastError = "Нет ответа от сервера"
-                return nil
-            }
-            guard (200...299).contains(http.statusCode) else {
-                let errorBody = String(data: data, encoding: .utf8) ?? ""
-                if http.statusCode == 400 {
-                    lastError = "Ошибка запроса (400). Проверьте API-ключ"
-                } else if http.statusCode == 403 {
-                    lastError = "Доступ запрещён (403). API-ключ недействителен"
-                } else if http.statusCode == 429 {
-                    lastError = "Превышен лимит запросов (429)"
-                } else {
-                    lastError = "Ошибка Gemini API: HTTP \(http.statusCode)"
-                }
-                return nil
-            }
-
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let candidates = json["candidates"] as? [[String: Any]],
-                  let content = candidates.first?["content"] as? [String: Any],
-                  let parts = content["parts"] as? [[String: Any]],
-                  let text = parts.first?["text"] as? String else {
-                let raw = String(data: data, encoding: .utf8) ?? ""
-                // Check for blocked/safety responses
-                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let candidates = json["candidates"] as? [[String: Any]],
-                   let reason = candidates.first?["finishReason"] as? String,
-                   reason == "SAFETY" {
-                    lastError = "Ответ заблокирован фильтром безопасности"
-                } else {
-                    lastError = "Неожиданный формат ответа Gemini"
-                }
-                return nil
-            }
-
-            return text
-        } catch let error as URLError where error.code == .timedOut {
-            lastError = "Таймаут запроса к Gemini"
-            return nil
-        } catch let error as URLError where error.code == .notConnectedToInternet {
-            lastError = "Нет подключения к интернету"
-            return nil
-        } catch {
-            lastError = "Ошибка сети: \(error.localizedDescription)"
-            return nil
-        }
+        return nil
     }
 
     // MARK: - Private
@@ -148,6 +121,34 @@ final class GeminiService {
 
         guard let text = await rawRequest(prompt: prompt) else { return nil }
         return parseResponse(text, source: source)
+    }
+
+    /// Parse Gemini response: single JSON object (non-streaming)
+    private static func parseGeminiResponse(_ data: Data) -> String? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let candidates = json["candidates"] as? [[String: Any]],
+              let content = candidates.first?["content"] as? [String: Any],
+              let parts = content["parts"] as? [[String: Any]],
+              let text = parts.first?["text"] as? String else {
+            return nil
+        }
+        return text
+    }
+
+    private static func detectGeminiError(_ data: Data) -> String? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        if let candidates = json["candidates"] as? [[String: Any]],
+           let reason = candidates.first?["finishReason"] as? String,
+           reason == "SAFETY" {
+            return "Ответ заблокирован фильтром безопасности"
+        }
+        if let error = json["error"] as? [String: Any],
+           let message = error["message"] as? String {
+            return "Gemini API: \(message)"
+        }
+        return nil
     }
 
     private func parseResponse(_ text: String, source: String) -> PlaceInfo {

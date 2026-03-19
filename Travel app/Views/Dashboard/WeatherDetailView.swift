@@ -10,24 +10,27 @@ struct WeatherDetailView: View {
     private var weather: WeatherService { WeatherService.shared }
 
     @State private var appeared = false
-    @State private var aiRecommendations: [String] = []
-    @State private var isLoadingAI = false
+    @State private var localCurrentWeather: WeatherInfo?
+    @State private var localHourly: [HourlyWeatherInfo] = []
+    @State private var localDaily: [WeatherInfo] = []
+    @State private var localTodayForecast: WeatherInfo?
+    @State private var localAQI: AirQualityInfo?
+    @State private var localAlerts: [WeatherAPIAlert] = []
+    @State private var localAllHourly: [HourlyWeatherInfo] = []
     @State private var isLoadingRadar = false
 
     @AppStorage("notif_weather") private var notifWeather = true
-    @AppStorage("notif_weather_morning_time") private var weatherMorningMinutes = 480
-    @AppStorage("notif_weather_evening_time") private var weatherEveningMinutes = 1260
 
     private var todayForecast: WeatherInfo? {
-        weather.forecast(for: Date(), at: coordinate)
+        localTodayForecast ?? weather.forecast(for: Date(), at: coordinate)
     }
 
     private var hourlyItems: [HourlyWeatherInfo] {
-        weather.hourlyForecast(for: Date(), at: coordinate)
+        localHourly.isEmpty ? weather.hourlyForecast(for: Date(), at: coordinate) : localHourly
     }
 
     private var upcomingForecasts: [WeatherInfo] {
-        weather.upcomingForecasts(at: coordinate, count: 10)
+        localDaily.isEmpty ? weather.upcomingForecasts(at: coordinate, count: 10) : localDaily
     }
 
 
@@ -35,21 +38,25 @@ struct WeatherDetailView: View {
         NavigationStack {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: AppTheme.spacingM) {
+                    // Weather alerts at top
+                    if !localAlerts.isEmpty {
+                        WeatherAlertBanner(alerts: localAlerts)
+                    }
+
                     currentWeatherHeader
 
                     if !hourlyItems.isEmpty {
                         hourlySection
                     }
 
-                    aiRecommendationsSection
+                    // AQI card (always visible)
+                    aqiSection
 
                     precipitationMapSection
 
                     if !upcomingForecasts.isEmpty {
                         dailyForecastSection
                     }
-
-                    weatherNotificationSection
 
                     Spacer(minLength: 40)
                 }
@@ -79,8 +86,37 @@ struct WeatherDetailView: View {
             .task {
                 guard !appeared else { return }
                 appeared = true
-                await weather.fetchDailyForecast(for: coordinate)
-                await loadAIRecommendations()
+
+                // 1. Show cached data immediately
+                if localCurrentWeather == nil {
+                    localCurrentWeather = weather.currentWeather
+                }
+                refreshLocalData()
+
+                // 2. Single fetch — returns all data directly (no cache dependency)
+                let detail = await weather.fetchFullDetail(for: coordinate)
+                if let current = detail.current {
+                    localCurrentWeather = current
+                }
+                if !detail.hourly.isEmpty {
+                    localHourly = detail.hourly
+                }
+                if !detail.daily.isEmpty {
+                    localDaily = detail.daily
+                }
+                if let today = detail.todayForecast {
+                    localTodayForecast = today
+                }
+                if let aqi = detail.aqi {
+                    localAQI = aqi
+                }
+                if !detail.alerts.isEmpty {
+                    localAlerts = detail.alerts
+                }
+                if !detail.allHourly.isEmpty {
+                    localAllHourly = detail.allHourly
+                }
+
             }
         }
     }
@@ -91,12 +127,24 @@ struct WeatherDetailView: View {
         VStack(spacing: AppTheme.spacingM) {
             // Top: city + temperature + condition
             VStack(spacing: AppTheme.spacingS) {
-                Text(cityName.uppercased())
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(3)
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Spacer()
+                    Text(cityName.uppercased())
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(3)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    // Notification toggle
+                    Button {
+                        notifWeather.toggle()
+                    } label: {
+                        Image(systemName: notifWeather ? "bell.fill" : "bell.slash")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(notifWeather ? AppTheme.sakuraPink : Color.gray.opacity(0.4))
+                    }
+                }
 
-                if let current = weather.currentWeather {
+                if let current = localCurrentWeather {
                     HStack(alignment: .center, spacing: AppTheme.spacingM) {
                         Image(systemName: current.sfSymbol)
                             .font(.system(size: 52))
@@ -138,38 +186,38 @@ struct WeatherDetailView: View {
                 }
             }
 
-            // Bottom: details grid
+            // Bottom: details stack
             if let today = todayForecast {
                 Divider().opacity(0.1)
 
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 10) {
-                    if let humidity = weather.currentWeather?.humidity {
-                        detailCard(icon: "humidity.fill", label: "Влажность", value: "\(humidity)%", color: AppTheme.sakuraPink)
+                VStack(spacing: 0) {
+                    if let humidity = localCurrentWeather?.humidity {
+                        detailRow(icon: "humidity.fill", label: "Влажность", value: "\(humidity)%", comment: humidityComment(humidity), color: AppTheme.sakuraPink)
                     }
 
-                    if let wind = weather.currentWeather?.windSpeed {
-                        detailCard(icon: "wind", label: "Ветер", value: "\(Int(wind)) м/с", color: AppTheme.sakuraPink)
+                    if let wind = localCurrentWeather?.windSpeed {
+                        detailRow(icon: "wind", label: "Ветер", value: "\(Int(wind)) км/ч", comment: windComment(wind), color: AppTheme.sakuraPink)
                     }
 
                     if let precip = today.precipitationProbability, precip > 0 {
-                        detailCard(icon: "drop.fill", label: "Осадки", value: "\(precip)%", color: AppTheme.sakuraPink)
+                        detailRow(icon: "drop.fill", label: "Осадки", value: "\(precip)%", comment: precipComment(precip), color: AppTheme.oceanBlue)
                     }
 
                     if let uv = today.uvIndexMax {
                         let level = UVIndexLevel(uvIndex: uv)
-                        detailCard(icon: "sun.max.fill", label: "УФ-индекс", value: "\(Int(uv)) — \(level.labelLocalized)", color: level.color)
+                        detailRow(icon: "sun.max.fill", label: "УФ-индекс", value: "\(Int(uv)) — \(level.labelLocalized)", comment: uvComment(uv), color: level.color)
                     }
 
-                    if let sunrise = today.sunrise {
-                        detailCard(icon: "sunrise.fill", label: "Рассвет", value: formatTime(sunrise), color: .orange)
+                    if let pressure = localCurrentWeather?.pressureMb {
+                        detailRow(icon: "gauge.medium", label: "Давление", value: "\(Int(pressure)) мб", comment: pressureComment(pressure), color: AppTheme.oceanBlue)
                     }
 
-                    if let sunset = today.sunset {
-                        detailCard(icon: "sunset.fill", label: "Закат", value: formatTime(sunset), color: AppTheme.indigoPurple)
+                    if let visibility = localCurrentWeather?.visibilityKm {
+                        detailRow(icon: "eye.fill", label: "Видимость", value: "\(Int(visibility)) км", comment: visibilityComment(visibility), color: .green)
+                    }
+
+                    if let sunrise = today.sunrise, let sunset = today.sunset {
+                        detailRow(icon: "sunrise.fill", label: "Рассвет / Закат", value: "\(formatTime(sunrise)) / \(formatTime(sunset))", comment: daylightComment(sunrise: sunrise, sunset: sunset), color: .orange)
                     }
                 }
             }
@@ -184,26 +232,80 @@ struct WeatherDetailView: View {
         )
     }
 
-    private func detailCard(icon: String, label: String, value: String, color: Color) -> some View {
-        VStack(spacing: 6) {
+    private func detailRow(icon: String, label: String, value: String, comment: String, color: Color) -> some View {
+        HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 18))
                 .foregroundStyle(color)
+                .frame(width: 28)
 
-            Text(label.uppercased())
-                .font(.system(size: 9, weight: .bold))
-                .tracking(1)
-                .foregroundStyle(.secondary)
-
-            Text(value)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.center)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(label.uppercased())
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(value)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                }
+                Text(comment)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(2)
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(color.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .padding(.vertical, 10)
+        .padding(.horizontal, 4)
+        .overlay(alignment: .bottom) {
+            Divider().opacity(0.06)
+        }
+    }
+
+    private func humidityComment(_ h: Int) -> String {
+        if h < 30 { return "Сухой воздух, пейте больше воды" }
+        if h < 60 { return "Комфортная влажность" }
+        if h < 80 { return "Повышенная влажность, может быть душно" }
+        return "Очень высокая влажность"
+    }
+
+    private func windComment(_ w: Double) -> String {
+        if w < 5 { return "Штиль, ветра почти нет" }
+        if w < 20 { return "Лёгкий ветер" }
+        if w < 40 { return "Умеренный ветер, держите головной убор" }
+        return "Сильный ветер, будьте осторожны"
+    }
+
+    private func precipComment(_ p: Int) -> String {
+        if p < 30 { return "Маловероятны осадки" }
+        if p < 60 { return "Возможен дождь, возьмите зонт на всякий случай" }
+        return "Высокая вероятность, зонт обязателен"
+    }
+
+    private func uvComment(_ uv: Double) -> String {
+        if uv < 3 { return "Низкий, защита не требуется" }
+        if uv < 6 { return "Средний, рекомендуется солнцезащитный крем" }
+        if uv < 8 { return "Высокий, крем и головной убор обязательны" }
+        return "Очень высокий, избегайте прямого солнца"
+    }
+
+    private func pressureComment(_ p: Double) -> String {
+        if p < 1000 { return "Пониженное, возможна усталость" }
+        if p < 1020 { return "Нормальное атмосферное давление" }
+        return "Повышенное давление"
+    }
+
+    private func visibilityComment(_ v: Double) -> String {
+        if v < 1 { return "Очень плохая, опасно для вождения" }
+        if v < 5 { return "Ограниченная, будьте внимательны" }
+        return "Хорошая видимость"
+    }
+
+    private func daylightComment(sunrise: Date, sunset: Date) -> String {
+        let hours = Int(sunset.timeIntervalSince(sunrise) / 3600)
+        let mins = Int(sunset.timeIntervalSince(sunrise).truncatingRemainder(dividingBy: 3600) / 60)
+        return "Световой день: \(hours) ч \(mins) мин"
     }
 
     // MARK: - Hourly Section
@@ -215,40 +317,35 @@ struct WeatherDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 0) {
                     ForEach(hourlyItems) { item in
-                        VStack(spacing: 6) {
+                        VStack(spacing: 5) {
                             Text(item.hourLabel)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(.secondary)
-
-                            Image(systemName: item.sfSymbol)
-                                .font(.system(size: 20))
-                                .symbolRenderingMode(.multicolor)
+                                .frame(height: 14)
 
                             Text("\(Int(item.temperature))°")
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
                                 .foregroundStyle(.primary)
+                                .frame(height: 18)
 
-                            if let feels = item.apparentTemperature {
-                                Text("\(Int(feels))°")
+                            Image(systemName: item.sfSymbol)
+                                .font(.system(size: 20))
+                                .symbolRenderingMode(.multicolor)
+                                .frame(height: 24)
+
+                            HStack(spacing: 2) {
+                                Image(systemName: "drop.fill")
+                                    .font(.system(size: 8))
+                                Text("\(item.precipitationProbability ?? 0)%")
                                     .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(.tertiary)
                             }
+                            .foregroundStyle(AppTheme.oceanBlue.opacity((item.precipitationProbability ?? 0) > 0 ? 1 : 0.3))
+                            .frame(height: 14)
 
-                            if let precip = item.precipitationProbability, precip > 0 {
-                                HStack(spacing: 2) {
-                                    Image(systemName: "drop.fill")
-                                        .font(.system(size: 8))
-                                    Text("\(precip)%")
-                                        .font(.system(size: 10, weight: .medium))
-                                }
-                                .foregroundStyle(AppTheme.oceanBlue)
-                            }
-
-                            if let uv = item.uvIndex, uv > 0 {
-                                Text("УФ \(Int(uv))")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(UVIndexLevel(uvIndex: uv).color)
-                            }
+                            Text("УФ \(Int(item.uvIndex ?? 0))")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(UVIndexLevel(uvIndex: item.uvIndex ?? 0).color.opacity((item.uvIndex ?? 0) > 0 ? 1 : 0.3))
+                                .frame(height: 12)
                         }
                         .frame(width: 56)
                         .padding(.vertical, 10)
@@ -266,115 +363,40 @@ struct WeatherDetailView: View {
         )
     }
 
-    // MARK: - AI Recommendations
 
-    private var aiRecommendationsSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                GlassSectionHeader(title: "РЕКОМЕНДАЦИИ", color: AppTheme.templeGold)
-                Spacer()
-                if !isLoadingAI && !aiRecommendations.isEmpty {
-                    Button {
-                        Task { await loadAIRecommendations() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(AppTheme.templeGold)
-                    }
-                    .padding(.trailing, AppTheme.spacingM)
-                }
-            }
-
-            if isLoadingAI {
-                HStack(spacing: AppTheme.spacingS) {
-                    ProgressView().scaleEffect(0.7)
-                    Text("Анализирую погоду...")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, AppTheme.spacingM)
-            } else if aiRecommendations.isEmpty {
-                Text("Не удалось получить рекомендации")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.bottom, AppTheme.spacingM)
-            } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(Array(aiRecommendations.enumerated()), id: \.offset) { _, text in
-                        HStack(alignment: .top, spacing: 10) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(AppTheme.templeGold)
-                                .frame(width: 20)
-                                .padding(.top, 1)
-
-                            Text(text)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.primary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-                .padding(.horizontal, AppTheme.spacingM)
-                .padding(.bottom, AppTheme.spacingM)
-            }
-        }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
-        )
+    private func refreshLocalData() {
+        localHourly = weather.hourlyForecast(for: Date(), at: coordinate)
+        localDaily = weather.upcomingForecasts(at: coordinate, count: 10)
+        localTodayForecast = weather.forecast(for: Date(), at: coordinate)
     }
 
-    private func loadAIRecommendations() async {
-        guard let current = weather.currentWeather else { return }
-        isLoadingAI = true
-        defer { isLoadingAI = false }
 
-        let today = todayForecast
-        var context = "Город: \(cityName). "
-        context += "Сейчас: \(current.conditionLocalized), \(Int(current.temperature))°C. "
-        if let feels = current.apparentTemperature {
-            context += "Ощущается как \(Int(feels))°. "
-        }
-        if let humidity = current.humidity { context += "Влажность: \(humidity)%. " }
-        if let wind = current.windSpeed { context += "Ветер: \(Int(wind)) м/с. " }
-        if let min = today?.temperatureMin, let max = today?.temperatureMax {
-            context += "Мин/макс за день: \(Int(min))°/\(Int(max))°. "
-        }
-        if let precip = today?.precipitationProbability, precip > 0 {
-            context += "Вероятность осадков: \(precip)%. "
-        }
-        if let uv = today?.uvIndexMax { context += "УФ-индекс: \(Int(uv)). " }
+    // MARK: - AQI Section (always visible)
 
-        let profileCtx = AIPromptHelper.profileContext()
+    private var aqiSection: some View {
+        Group {
+            if let aqi = localAQI {
+                AQICardView(aqi: aqi)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    GlassSectionHeader(title: "КАЧЕСТВО ВОЗДУХА", color: .green)
 
-        let prompt = """
-        \(context)
-        \(profileCtx)
-
-        Дай 4-5 коротких практических рекомендаций для туриста на сегодня, СТРОГО привязанных к этой погоде.
-        Каждая рекомендация должна объяснять ПОЧЕМУ именно из-за погоды: что надеть, нужен ли зонт/крем от солнца, какие активности подходят (открытые/закрытые), стоит ли гулять утром или вечером.
-        НЕ рекомендуй конкретные магазины, рестораны или достопримечательности — только советы по погоде и одежде.
-        Каждая рекомендация — одно предложение. Без нумерации. Каждая на новой строке. Русский язык.
-        """
-
-        if let text = await GeminiService.shared.rawRequest(prompt: prompt) {
-            aiRecommendations = text
-                .components(separatedBy: "\n")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .map { line in
-                    var clean = line
-                    // Strip leading bullets/dashes/numbers
-                    while let first = clean.first, "•·—–-*0123456789.)  ".contains(first) {
-                        clean.removeFirst()
+                    HStack(spacing: AppTheme.spacingS) {
+                        ProgressView().scaleEffect(0.7)
+                        Text("Загрузка данных...")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
                     }
-                    return clean.trimmingCharacters(in: .whitespaces)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, AppTheme.spacingL)
                 }
-                .filter { !$0.isEmpty }
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
+                        .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                )
+            }
         }
     }
 
@@ -535,104 +557,6 @@ struct WeatherDetailView: View {
         .frame(height: 4)
     }
 
-    // MARK: - Weather Notification Settings
-
-    private var weatherMorningTime: Binding<Date> {
-        Binding<Date>(
-            get: {
-                let h = weatherMorningMinutes / 60
-                let m = weatherMorningMinutes % 60
-                return Calendar.current.date(from: DateComponents(hour: h, minute: m)) ?? Date()
-            },
-            set: { newDate in
-                let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
-                weatherMorningMinutes = (comps.hour ?? 8) * 60 + (comps.minute ?? 0)
-            }
-        )
-    }
-
-    private var weatherEveningTime: Binding<Date> {
-        Binding<Date>(
-            get: {
-                let h = weatherEveningMinutes / 60
-                let m = weatherEveningMinutes % 60
-                return Calendar.current.date(from: DateComponents(hour: h, minute: m)) ?? Date()
-            },
-            set: { newDate in
-                let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
-                weatherEveningMinutes = (comps.hour ?? 21) * 60 + (comps.minute ?? 0)
-            }
-        )
-    }
-
-    private var weatherNotificationSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            GlassSectionHeader(title: "УВЕДОМЛЕНИЯ", color: AppTheme.oceanBlue)
-
-            VStack(spacing: 8) {
-                HStack(spacing: 12) {
-                    Image(systemName: "cloud.sun.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            LinearGradient(
-                                colors: [AppTheme.oceanBlue, AppTheme.oceanBlue.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Прогноз погоды")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.primary)
-                        Text("Утром и вечером")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    Toggle("", isOn: $notifWeather)
-                        .labelsHidden()
-                        .tint(AppTheme.sakuraPink)
-                }
-
-                if notifWeather {
-                    VStack(spacing: 6) {
-                        HStack {
-                            Text("Утро")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            DatePicker("", selection: weatherMorningTime, displayedComponents: .hourAndMinute)
-                                .labelsHidden()
-                                .tint(AppTheme.oceanBlue)
-                        }
-                        HStack {
-                            Text("Вечер")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            DatePicker("", selection: weatherEveningTime, displayedComponents: .hourAndMinute)
-                                .labelsHidden()
-                                .tint(AppTheme.oceanBlue)
-                        }
-                    }
-                    .padding(.leading, 46)
-                }
-            }
-            .padding(AppTheme.spacingM)
-        }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
-        )
-    }
 
     // MARK: - Helpers
 

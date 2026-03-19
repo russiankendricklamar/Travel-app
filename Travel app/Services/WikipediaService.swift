@@ -54,6 +54,7 @@ struct WikipediaService {
             let result = try JSONDecoder().decode(SearchResult.self, from: data)
             return result.query?.search?.first?.title
         } catch {
+            print("[WikipediaService] Search error for '\(query)' (\(language)): \(error)")
             return nil
         }
     }
@@ -66,6 +67,7 @@ struct WikipediaService {
             guard !extract.isEmpty else { return nil }
             return extract
         } catch {
+            print("[WikipediaService] Summary error for '\(title)' (\(language)): \(error)")
             return nil
         }
     }

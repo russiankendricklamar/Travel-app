@@ -3,6 +3,11 @@ import SwiftUI
 struct DashboardBudgetSection: View {
     let trip: Trip
     let budgetWidth: CGFloat
+    @State private var showSources = false
+
+    private var effectiveBudget: Double {
+        trip.effectiveBudget
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -18,11 +23,45 @@ struct DashboardBudgetSection: View {
                         .foregroundStyle(AppTheme.sakuraPink)
                 }
                 Spacer()
-                Text(CurrencyService.formatBase(trip.budget))
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
+                Button { showSources = true } label: {
+                    HStack(spacing: 4) {
+                        Text(CurrencyService.formatBase(effectiveBudget))
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                        if !trip.budgetSources.isEmpty {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
             }
             .padding(AppTheme.spacingM)
+
+            // Budget sources mini-row
+            if !trip.budgetSources.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(trip.budgetSources) { source in
+                            HStack(spacing: 4) {
+                                Image(systemName: source.icon)
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(AppTheme.templeGold)
+                                Text(CurrencyService.shared.format(source.amount, currency: source.currency))
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(AppTheme.templeGold.opacity(0.08))
+                            .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal, AppTheme.spacingM)
+                }
+                .padding(.bottom, 8)
+            }
 
             // Budget bar
             GeometryReader { geo in
@@ -100,6 +139,9 @@ struct DashboardBudgetSection: View {
                 .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 6)
+        .sheet(isPresented: $showSources) {
+            BudgetSourcesSheet(trip: trip)
+        }
     }
 
     private func categoryRow(item: (category: ExpenseCategory, total: Double), maxAmount: Double) -> some View {

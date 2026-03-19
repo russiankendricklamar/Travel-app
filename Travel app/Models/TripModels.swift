@@ -32,6 +32,7 @@ final class Trip: Syncable {
     var flightsJSON: String?
     var isCorporateTrip: Bool = false
     var countryFlags: String = ""
+    var budgetSourcesJSON: String?
     var updatedAt: Date = Date()
     var isDeleted: Bool = false
 
@@ -121,6 +122,35 @@ final class Trip: Syncable {
         }
     }
 
+    // MARK: - Budget Sources (multi-currency)
+
+    var budgetSources: [BudgetSource] {
+        get {
+            guard let json = budgetSourcesJSON, let data = json.data(using: .utf8) else { return [] }
+            return (try? JSONDecoder().decode([BudgetSource].self, from: data)) ?? []
+        }
+        set {
+            if newValue.isEmpty {
+                budgetSourcesJSON = nil
+            } else if let data = try? JSONEncoder().encode(newValue) {
+                budgetSourcesJSON = String(data: data, encoding: .utf8)
+            }
+        }
+    }
+
+    /// Total budget computed from sources (converted to base currency)
+    var computedBudget: Double {
+        let sources = budgetSources
+        guard !sources.isEmpty else { return budget }
+        let cs = CurrencyService.shared
+        return sources.reduce(0) { total, source in
+            if source.currency == cs.baseCurrency {
+                return total + source.amount
+            }
+            return total + cs.convert(source.amount, from: source.currency, to: cs.baseCurrency)
+        }
+    }
+
     // MARK: - Multi-Country Support
 
     /// Parsed array of countries from the comma-separated `country` field
@@ -146,15 +176,31 @@ final class Trip: Syncable {
         return "\(countryFlags) \(countriesDisplay)"
     }
 
+    /// Calendar in the destination's local timezone (uses first day with resolved TZ, falls back to device)
+    private var destinationCalendar: Calendar {
+        var cal = Calendar.current
+        if let tz = days.first(where: { $0.resolvedTimeZone != nil })?.resolvedTimeZone {
+            cal.timeZone = tz
+        }
+        return cal
+    }
+
     var totalDays: Int {
-        Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 0
+        let cal = destinationCalendar
+        let startDay = cal.startOfDay(for: startDate)
+        let endDay = cal.startOfDay(for: endDate)
+        return cal.dateComponents([.day], from: startDay, to: endDay).day ?? 0
     }
 
     var currentDay: Int {
+        let cal = destinationCalendar
         let now = Date()
         if now < startDate { return 0 }
         if now > endDate { return totalDays }
-        return (Calendar.current.dateComponents([.day], from: startDate, to: now).day ?? 0) + 1
+        // Compare start-of-day in destination timezone to avoid off-by-one from timezone shifts
+        let startDay = cal.startOfDay(for: startDate)
+        let todayDay = cal.startOfDay(for: now)
+        return (cal.dateComponents([.day], from: startDay, to: todayDay).day ?? 0) + 1
     }
 
     var isActive: Bool {
@@ -224,13 +270,17 @@ extension Trip {
         expenses.reduce(0) { $0 + $1.amount }
     }
 
+    var effectiveBudget: Double {
+        budgetSources.isEmpty ? budget : computedBudget
+    }
+
     var remainingBudget: Double {
-        budget - totalSpent
+        effectiveBudget - totalSpent
     }
 
     var budgetUsedPercent: Double {
-        guard budget > 0 else { return 0 }
-        return totalSpent / budget
+        guard effectiveBudget > 0 else { return 0 }
+        return totalSpent / effectiveBudget
     }
 
     var allPlaces: [Place] {
@@ -257,7 +307,7 @@ extension Trip {
     }
 
     var recentExpenses: [Expense] {
-        Array(expenses.sorted { $0.date > $1.date }.prefix(5))
+        Array(expenses.sorted { $0.updatedAt > $1.updatedAt }.prefix(5))
     }
 
     var todayDay: TripDay? {
@@ -341,6 +391,7 @@ final class TripDay: Syncable {
     var cityName: String
     var notes: String
     var sortOrder: Int = 0
+    var timezoneIdentifier: String = ""
     var updatedAt: Date = Date()
     var isDeleted: Bool = false
 
@@ -380,6 +431,12 @@ final class TripDay: Syncable {
         self.sortOrder = sortOrder
     }
 
+    /// Cached timezone resolved from cityName
+    var resolvedTimeZone: TimeZone? {
+        guard !timezoneIdentifier.isEmpty else { return nil }
+        return TimeZone(identifier: timezoneIdentifier)
+    }
+
     var sortedPlaces: [Place] {
         places.sorted { $0.sortOrder < $1.sortOrder }
     }
@@ -392,18 +449,28 @@ final class TripDay: Syncable {
         places.filter(\.isVisited).count
     }
 
+    /// Calendar in the day's local timezone (falls back to device timezone)
+    private var localCalendar: Calendar {
+        var cal = Calendar.current
+        if let tz = resolvedTimeZone {
+            cal.timeZone = tz
+        }
+        return cal
+    }
+
     var isToday: Bool {
-        Calendar.current.isDateInToday(date)
+        localCalendar.isDateInToday(date)
     }
 
     var isPast: Bool {
-        let calendar = Calendar.current
-        let dayEnd = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: date)!)
+        let cal = localCalendar
+        let dayEnd = cal.startOfDay(for: cal.date(byAdding: .day, value: 1, to: date)!)
         return Date() >= dayEnd
     }
 
     var isFuture: Bool {
-        Calendar.current.startOfDay(for: date) > Calendar.current.startOfDay(for: Date())
+        let cal = localCalendar
+        return cal.startOfDay(for: date) > cal.startOfDay(for: Date())
     }
 }
 
@@ -503,6 +570,9 @@ final class TripEvent: Syncable {
     var formattedTimeRange: String {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
+        if let tz = day?.resolvedTimeZone {
+            f.timeZone = tz
+        }
         return "\(f.string(from: startTime))–\(f.string(from: endTime))"
     }
 
@@ -556,6 +626,7 @@ final class TripEvent: Syncable {
 
 enum EventCategory: String, CaseIterable, Identifiable, Codable {
     case flight = "Перелёт"
+    case shinkansen = "Синкансен"
     case train = "Поезд"
     case bus = "Автобус"
     case f1 = "Формула 1"
@@ -568,14 +639,20 @@ enum EventCategory: String, CaseIterable, Identifiable, Codable {
 
     var isTransport: Bool {
         switch self {
-        case .flight, .train, .bus: return true
+        case .flight, .shinkansen, .train, .bus: return true
         default: return false
         }
+    }
+
+    /// Whether this is any kind of rail transport (train or shinkansen)
+    var isRail: Bool {
+        self == .train || self == .shinkansen
     }
 
     var systemImage: String {
         switch self {
         case .flight: return "airplane"
+        case .shinkansen: return "train.side.front.car"
         case .train: return "tram.fill"
         case .bus: return "bus.fill"
         case .f1: return "flag.checkered"
@@ -589,6 +666,7 @@ enum EventCategory: String, CaseIterable, Identifiable, Codable {
     var color: Color {
         switch self {
         case .flight: return AppTheme.oceanBlue
+        case .shinkansen: return AppTheme.oceanBlue
         case .train: return AppTheme.sakuraPink
         case .bus: return AppTheme.templeGold
         case .f1: return AppTheme.toriiRed
@@ -707,13 +785,44 @@ enum PlaceCategory: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+// MARK: - Budget Source
+
+struct BudgetSource: Codable, Identifiable, Equatable {
+    var id: UUID = UUID()
+    var name: String           // e.g. "Карта Тинькофф", "Наличные"
+    var currency: String       // e.g. "JPY", "USD", "RUB"
+    var amount: Double         // Amount in that currency
+    var icon: String           // SF Symbol e.g. "creditcard.fill"
+
+    enum SourceIcon: String, CaseIterable {
+        case card = "creditcard.fill"
+        case cash = "banknote.fill"
+        case savings = "building.columns.fill"
+        case wallet = "wallet.bifold.fill"
+        case gift = "gift.fill"
+
+        var label: String {
+            switch self {
+            case .card: return "Карта"
+            case .cash: return "Наличные"
+            case .savings: return "Счёт"
+            case .wallet: return "Кошелёк"
+            case .gift: return "Подарок"
+            }
+        }
+    }
+}
+
 // MARK: - Expense
 
 @Model
 final class Expense: Syncable {
     @Attribute(.unique) var id: UUID
     var title: String
-    var amount: Double
+    var amount: Double              // Converted to base currency
+    var originalAmount: Double = 0  // Amount in original currency
+    var originalCurrency: String = ""  // Currency code used at input
+    var exchangeRate: Double = 1.0  // Rate used: 1 originalCurrency = X baseCurrency
     var category: ExpenseCategory
     var date: Date
     var notes: String
@@ -731,7 +840,10 @@ final class Expense: Syncable {
         amount: Double,
         category: ExpenseCategory,
         date: Date,
-        notes: String = ""
+        notes: String = "",
+        originalAmount: Double = 0,
+        originalCurrency: String = "",
+        exchangeRate: Double = 1.0
     ) {
         self.id = id
         self.title = title
@@ -739,6 +851,9 @@ final class Expense: Syncable {
         self.category = category
         self.date = date
         self.notes = notes
+        self.originalAmount = originalAmount.isZero ? amount : originalAmount
+        self.originalCurrency = originalCurrency.isEmpty ? (UserDefaults.standard.string(forKey: "preferredCurrency") ?? "RUB") : originalCurrency
+        self.exchangeRate = exchangeRate
     }
 }
 
@@ -761,6 +876,50 @@ enum ExpenseCategory: String, CaseIterable, Identifiable, Codable {
         case .shopping: return "bag"
         case .other: return "ellipsis.circle"
         }
+    }
+
+    /// AI-категоризация по названию расхода (локальный keyword matching)
+    static func guess(from title: String) -> ExpenseCategory {
+        let t = title.lowercased()
+
+        let foodKeys = ["ресторан", "кафе", "кофе", "coffee", "обед", "ужин", "завтрак", "еда",
+                        "рамен", "суши", "пицца", "бургер", "макдональдс", "mcdonald", "starbucks",
+                        "старбакс", "бар", "паб", "pub", "food", "restaurant", "cafe", "lunch",
+                        "dinner", "breakfast", "булочная", "пекарня", "bakery", "фастфуд",
+                        "столовая", "буфет", "снек", "snack", "напиток", "drink", "сок", "чай",
+                        "пиво", "beer", "вино", "wine", "продукты", "grocery", "супермаркет",
+                        "market", "магнит", "пятёрочка", "перекрёсток", "convenience", "combini",
+                        "konbini", "izakaya", "ramen", "sushi", "bento", "matcha"]
+
+        let transportKeys = ["такси", "taxi", "uber", "яндекс", "метро", "metro", "subway",
+                             "автобус", "bus", "трамвай", "tram", "поезд", "train", "жд",
+                             "электричка", "бензин", "fuel", "gas", "парковка", "parking",
+                             "toll", "прокат", "rental", "каршеринг", "grab", "bolt",
+                             "suica", "pasmo", "ic card", "проездной", "билет на"]
+
+        let accommodationKeys = ["отель", "hotel", "хостел", "hostel", "airbnb", "booking",
+                                 "квартира", "apartment", "жильё", "гостиница", "номер",
+                                 "ночь", "night", "проживание", "stay", "lodge", "ryokan",
+                                 "capsule", "inn"]
+
+        let activityKeys = ["билет", "ticket", "музей", "museum", "парк", "park", "экскурсия",
+                           "tour", "аттракцион", "зоопарк", "zoo", "аквариум", "aquarium",
+                           "кино", "cinema", "movie", "театр", "theater", "концерт", "concert",
+                           "спа", "spa", "массаж", "massage", "онсэн", "onsen", "храм",
+                           "temple", "shrine", "вход", "entrance", "admission", "pass"]
+
+        let shoppingKeys = ["магазин", "shop", "store", "покупка", "purchase", "сувенир",
+                           "souvenir", "одежда", "clothes", "обувь", "shoes", "подарок", "gift",
+                           "аптека", "pharmacy", "электроника", "electronics", "uniqlo",
+                           "sim", "сим-карта", "чемодан", "сумка", "bag"]
+
+        if foodKeys.contains(where: { t.contains($0) }) { return .food }
+        if transportKeys.contains(where: { t.contains($0) }) { return .transport }
+        if accommodationKeys.contains(where: { t.contains($0) }) { return .accommodation }
+        if activityKeys.contains(where: { t.contains($0) }) { return .activities }
+        if shoppingKeys.contains(where: { t.contains($0) }) { return .shopping }
+
+        return .other
     }
 }
 

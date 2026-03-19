@@ -20,26 +20,38 @@ final class LiveActivityManager {
 
     func refreshActivities(trip: Trip) {
         guard isEnabled else {
+            print("[LiveActivity] Disabled by user setting")
             endAllActivities()
             return
         }
 
-        let now = Date()
-        let todayEvents = trip.sortedDays
-            .first { Calendar.current.isDateInToday($0.date) }?
-            .events
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            print("[LiveActivity] Activities not authorized by system")
+            return
+        }
+
+        let todayDay = trip.sortedDays.first(where: \.isToday)
+        let todayEvents = todayDay?.events
             .sorted { $0.startTime < $1.startTime } ?? []
 
         allEvents = todayEvents
 
+        print("[LiveActivity] Trip: \(trip.name), today: \(todayDay?.cityName ?? "none"), events: \(todayEvents.count)")
+        for e in todayEvents {
+            print("[LiveActivity]   \(e.title): \(e.startTime) → \(e.endTime), ongoing=\(e.isOngoing), future=\(e.isFuture)")
+        }
+
         // Find ongoing event or nearest upcoming event within 1 hour
         if let ongoing = todayEvents.first(where: { $0.isOngoing }) {
+            print("[LiveActivity] Starting for ongoing: \(ongoing.title)")
             startOrUpdateActivity(for: ongoing)
         } else if let upcoming = todayEvents.first(where: {
             $0.isFuture && ($0.timeUntilStart ?? .infinity) <= 3600
         }) {
+            print("[LiveActivity] Starting for upcoming: \(upcoming.title), in \(upcoming.timeUntilStart ?? 0)s")
             startOrUpdateActivity(for: upcoming)
         } else {
+            print("[LiveActivity] No matching events — ending activities")
             endAllActivities()
         }
     }
@@ -95,8 +107,9 @@ final class LiveActivityManager {
                 pushType: nil
             )
             startTimer()
+            print("[LiveActivity] ✅ Started activity for: \(event.title)")
         } catch {
-            print("[LiveActivity] Failed to start: \(error.localizedDescription)")
+            print("[LiveActivity] ❌ Failed to start: \(error)")
         }
     }
 

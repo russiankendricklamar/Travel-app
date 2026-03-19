@@ -139,6 +139,7 @@ final class TravelpayoutsService {
                 return (iata: dest, price: price, destination: destName)
             }
         } catch {
+            print("[TravelpayoutsService] Cheap destinations error: \(error)")
             return []
         }
     }

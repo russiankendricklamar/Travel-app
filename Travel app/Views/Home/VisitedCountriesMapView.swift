@@ -302,7 +302,7 @@ struct VisitedCountriesMapView: View {
     }
 
     private var trainOverlays: [MKPolyline] {
-        transportOverlays(for: .train, title: "train")
+        transportOverlays(for: .train, title: "train") + transportOverlays(for: .shinkansen, title: "train")
     }
 
     private var busOverlays: [MKPolyline] {

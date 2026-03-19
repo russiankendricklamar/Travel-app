@@ -1,7 +1,10 @@
 import SwiftUI
+import CoreLocation
 
 struct DashboardTodayScheduleSection: View {
     let trip: Trip
+
+    @State private var cityTimeZone: TimeZone?
 
     private var today: TripDay? {
         trip.todayDay
@@ -36,6 +39,20 @@ struct DashboardTodayScheduleSection: View {
                         .font(.system(size: 10, weight: .bold))
                         .tracking(1)
                         .foregroundStyle(.secondary)
+                }
+                .task {
+                    // Use cached timezone if available
+                    if let cached = today.resolvedTimeZone {
+                        cityTimeZone = cached
+                        return
+                    }
+                    guard !today.cityName.isEmpty else { return }
+                    let coder = CLGeocoder()
+                    if let placemarks = try? await coder.geocodeAddressString(today.cityName),
+                       let tz = placemarks.first?.timeZone {
+                        cityTimeZone = tz
+                        today.timezoneIdentifier = tz.identifier
+                    }
                 }
 
                 // Events timeline
@@ -225,6 +242,9 @@ struct DashboardTodayScheduleSection: View {
     private func formattedTime(_ date: Date) -> String {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
+        if let tz = cityTimeZone {
+            f.timeZone = tz
+        }
         return f.string(from: date)
     }
 

@@ -111,6 +111,9 @@ struct MainTabView: View {
                         trip.migrateSortOrdersIfNeeded()
                         GeofenceManager.shared.activate(for: trip, context: modelContext)
                     }
+                    .task {
+                        await NotificationManager.shared.scheduleAll(for: trip)
+                    }
 
                     SideMenuView(isOpen: $showSideMenu, trip: trip, onBack: {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -134,6 +137,9 @@ struct MainTabView: View {
                 Task { await SyncManager.shared.syncIfNeeded() }
                 if authManager.isSignedIn && profileService.profile == nil {
                     Task { await profileService.fetchProfile() }
+                }
+                if let trip = selectedTrip {
+                    LiveActivityManager.shared.refreshActivities(trip: trip)
                 }
             }
         }

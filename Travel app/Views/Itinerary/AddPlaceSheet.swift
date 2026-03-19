@@ -19,10 +19,10 @@ struct AddPlaceSheet: View {
     @State private var notes = ""
 
     // Search
-    @State private var searchQuery = ""
     @State private var searchResults: [PlaceRecommendation] = []
     @State private var searchTask: Task<Void, Never>?
     @State private var isSearching = false
+    @State private var selectedFromSearch = false
 
     // AI Info
     @State private var isLoadingAI = false
@@ -49,23 +49,28 @@ struct AddPlaceSheet: View {
                         color: AppTheme.sakuraPink
                     )
 
-                    // MARK: - Map Search
+                    // MARK: - Name + Search (unified)
                     if editing == nil {
-                        mapSearchSection
+                        nameSearchSection
+                    } else {
+                        GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
+                            TextField("Название места", text: $name)
+                                .textFieldStyle(GlassTextFieldStyle())
+                        }
                     }
 
-                    // MARK: - Manual Fields
-                    GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
-                        TextField("Название места", text: $name)
-                            .textFieldStyle(GlassTextFieldStyle())
-                    }
+                    // MARK: - Category
                     GlassFormField(label: "КАТЕГОРИЯ", color: AppTheme.oceanBlue) {
                         categoryPicker
                     }
+
+                    // MARK: - Address
                     GlassFormField(label: "АДРЕС", color: .secondary) {
                         TextField("Адрес", text: $address)
                             .textFieldStyle(GlassTextFieldStyle())
                     }
+
+                    // MARK: - Coordinates
                     HStack(spacing: AppTheme.spacingS) {
                         GlassFormField(label: "ШИРОТА", color: hasCoordinates ? AppTheme.bambooGreen : .secondary) {
                             TextField("35.7148", text: $latitude)
@@ -78,6 +83,7 @@ struct AddPlaceSheet: View {
                                 .textFieldStyle(GlassTextFieldStyle())
                         }
                     }
+
                     // MARK: - AI Info Button
                     if !name.trimmingCharacters(in: .whitespaces).isEmpty {
                         aiInfoSection
@@ -149,50 +155,50 @@ struct AddPlaceSheet: View {
         }
     }
 
-    // MARK: - Map Search Section
+    // MARK: - Unified Name + Search Section
 
-    private var mapSearchSection: some View {
-        VStack(spacing: AppTheme.spacingS) {
-            HStack(spacing: 8) {
-                Image(systemName: "map.fill")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(AppTheme.oceanBlue)
-                Text("ПОИСК НА КАРТЕ")
-                    .font(.system(size: 10, weight: .bold))
-                    .tracking(2)
-                    .foregroundStyle(AppTheme.oceanBlue)
-                Spacer()
-                if isSearching {
-                    ProgressView().scaleEffect(0.6)
-                }
-            }
-
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.tertiary)
-                TextField("Название, адрес или координаты...", text: $searchQuery)
-                    .font(.system(size: 14))
-                    .autocorrectionDisabled()
-                if !searchQuery.isEmpty {
-                    Button {
-                        searchQuery = ""
-                        searchResults = []
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.tertiary)
+    private var nameSearchSection: some View {
+        VStack(spacing: 0) {
+            // Name input with integrated search
+            GlassFormField(label: "НАЗВАНИЕ", color: AppTheme.sakuraPink) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.tertiary)
+                    TextField("Введите название или адрес...", text: $name)
+                        .font(.system(size: 14))
+                        .autocorrectionDisabled()
+                    if isSearching {
+                        ProgressView().scaleEffect(0.6)
+                    }
+                    if !name.isEmpty && !searchResults.isEmpty {
+                        Button {
+                            searchResults = []
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
+                .padding(12)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
+                        .stroke(
+                            !searchResults.isEmpty ? AppTheme.sakuraPink.opacity(0.3) : Color.white.opacity(0.15),
+                            lineWidth: 0.5
+                        )
+                )
             }
-            .padding(12)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                    .stroke(AppTheme.oceanBlue.opacity(0.2), lineWidth: 0.5)
-            )
-            .onChange(of: searchQuery) { _, newValue in
+            .onChange(of: name) { _, newValue in
+                // Don't search if we just selected from results
+                if selectedFromSearch {
+                    selectedFromSearch = false
+                    return
+                }
+
                 searchTask?.cancel()
                 let trimmed = newValue.trimmingCharacters(in: .whitespaces)
                 guard trimmed.count >= 2 else {
@@ -206,9 +212,13 @@ struct AddPlaceSheet: View {
                 }
             }
 
+            // Search results dropdown
             if !searchResults.isEmpty {
                 VStack(spacing: 0) {
-                    ForEach(Array(searchResults.prefix(5).enumerated()), id: \.offset) { _, rec in
+                    ForEach(Array(searchResults.prefix(5).enumerated()), id: \.offset) { index, rec in
+                        if index > 0 {
+                            Divider().opacity(0.3).padding(.horizontal, 12)
+                        }
                         Button {
                             selectResult(rec)
                         } label: {
@@ -217,22 +227,19 @@ struct AddPlaceSheet: View {
                         .buttonStyle(.plain)
                     }
                 }
+                .padding(.vertical, 4)
                 .background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
                 .overlay(
                     RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                        .stroke(AppTheme.sakuraPink.opacity(0.2), lineWidth: 0.5)
                 )
                 .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+                .padding(.top, 6)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(AppTheme.spacingM)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: CGFloat(AppTheme.radiusLarge)))
-        .overlay(
-            RoundedRectangle(cornerRadius: CGFloat(AppTheme.radiusLarge))
-                .stroke(AppTheme.oceanBlue.opacity(0.15), lineWidth: 0.5)
-        )
+        .animation(.easeInOut(duration: 0.2), value: searchResults.isEmpty)
     }
 
     private func searchResultRow(_ rec: PlaceRecommendation) -> some View {
@@ -337,7 +344,7 @@ struct AddPlaceSheet: View {
         isLoadingAI = false
     }
 
-    // MARK: - Smart Search Logic
+    // MARK: - Search Logic
 
     private func searchPlaces(query: String) async {
         isSearching = true
@@ -354,7 +361,6 @@ struct AddPlaceSheet: View {
         request.naturalLanguageQuery = query
         request.resultTypes = [.pointOfInterest, .address]
 
-        // Bind to the day's city region
         if let region = await dayRegion() {
             request.region = region
         }
@@ -362,14 +368,19 @@ struct AddPlaceSheet: View {
         do {
             let search = MKLocalSearch(request: request)
             let response = try await search.start()
+            // Guard against stale results (user cleared or changed input)
+            guard !Task.isCancelled else { return }
             let items = Array(response.mapItems.prefix(6))
-            searchResults = await AIMapSearchService.shared.enrichMapItems(items, userQuery: query)
+            let enriched = await AIMapSearchService.shared.enrichMapItems(items, userQuery: query)
+            guard !Task.isCancelled else { return }
+            searchResults = enriched
         } catch {
-            searchResults = []
+            if !Task.isCancelled {
+                searchResults = []
+            }
         }
     }
 
-    /// Parses "35.6762, 139.6503" or "35.6762 139.6503" into a coordinate.
     private func parseCoordinates(_ text: String) -> CLLocationCoordinate2D? {
         let cleaned = text
             .replacingOccurrences(of: ",", with: " ")
@@ -387,7 +398,6 @@ struct AddPlaceSheet: View {
         return CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
 
-    /// Searches for POIs near the given coordinate.
     private func searchNearCoordinate(_ coordinate: CLLocationCoordinate2D, query: String) async {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = ""
@@ -400,16 +410,19 @@ struct AddPlaceSheet: View {
         do {
             let search = MKLocalSearch(request: request)
             let response = try await search.start()
+            guard !Task.isCancelled else { return }
             let items = Array(response.mapItems.prefix(6))
-            searchResults = await AIMapSearchService.shared.enrichMapItems(items, userQuery: query)
+            let enriched = await AIMapSearchService.shared.enrichMapItems(items, userQuery: query)
+            guard !Task.isCancelled else { return }
+            searchResults = enriched
         } catch {
-            searchResults = []
+            if !Task.isCancelled {
+                searchResults = []
+            }
         }
     }
 
-    /// Returns a map region centered on the day's city.
     private func dayRegion() async -> MKCoordinateRegion? {
-        // Try to get coordinate from existing places
         if let firstPlace = day.places.first, firstPlace.latitude != 0 || firstPlace.longitude != 0 {
             return MKCoordinateRegion(
                 center: firstPlace.coordinate,
@@ -417,7 +430,6 @@ struct AddPlaceSheet: View {
             )
         }
 
-        // Geocode the day's city name
         let cityName = day.cityName
         guard !cityName.isEmpty else { return nil }
 
@@ -429,9 +441,7 @@ struct AddPlaceSheet: View {
                     span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
                 )
             }
-        } catch {
-            // Geocoding failed, search without region binding
-        }
+        } catch {}
 
         return nil
     }
@@ -439,6 +449,7 @@ struct AddPlaceSheet: View {
     // MARK: - Select Result
 
     private func selectResult(_ rec: PlaceRecommendation) {
+        selectedFromSearch = true
         name = rec.name
         address = rec.address
         latitude = String(format: "%.6f", rec.latitude)
@@ -451,7 +462,6 @@ struct AddPlaceSheet: View {
             notes = rec.description
         }
 
-        searchQuery = ""
         searchResults = []
     }
 

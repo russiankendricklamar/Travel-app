@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreLocation
 
 struct AddEventSheet: View {
     let day: TripDay
@@ -12,6 +13,7 @@ struct AddEventSheet: View {
     @State private var startTime = Date()
     @State private var endTime = Date()
     @State private var notes = ""
+    @State private var cityTimeZone: TimeZone?
 
     // Regular event location
     @State private var locationName = ""
@@ -83,12 +85,26 @@ struct AddEventSheet: View {
                             .datePickerStyle(.compact)
                             .labelsHidden()
                             .tint(AppTheme.sakuraPink)
+                            .environment(\.timeZone, cityTimeZone ?? .current)
                     }
                     GlassFormField(label: "КОНЕЦ", color: AppTheme.toriiRed) {
                         DatePicker("", selection: $endTime, displayedComponents: [.date, .hourAndMinute])
                             .datePickerStyle(.compact)
                             .labelsHidden()
                             .tint(AppTheme.sakuraPink)
+                            .environment(\.timeZone, cityTimeZone ?? .current)
+                    }
+
+                    if let tz = cityTimeZone, tz != .current {
+                        HStack(spacing: 6) {
+                            Image(systemName: "clock.badge.exclamationmark")
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppTheme.templeGold)
+                            Text("Время указывается по \(day.cityName)")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(AppTheme.templeGold)
+                        }
+                        .padding(.horizontal, AppTheme.spacingM)
                     }
                     GlassFormField(label: "ЗАМЕТКИ", color: .secondary) {
                         TextField("Дополнительные детали...", text: $notes)
@@ -118,6 +134,20 @@ struct AddEventSheet: View {
                     .disabled(!isValid)
                 }
             }
+            .task {
+                // Use cached timezone if available
+                if let cached = day.resolvedTimeZone {
+                    cityTimeZone = cached
+                    return
+                }
+                guard !day.cityName.isEmpty else { return }
+                let coder = CLGeocoder()
+                if let placemarks = try? await coder.geocodeAddressString(day.cityName),
+                   let tz = placemarks.first?.timeZone {
+                    cityTimeZone = tz
+                    day.timezoneIdentifier = tz.identifier
+                }
+            }
             .onAppear {
                 if let e = editing {
                     title = e.title
@@ -137,11 +167,15 @@ struct AddEventSheet: View {
                         longitude = e.longitude
                     }
                 } else {
-                    var comps = Calendar.current.dateComponents([.year, .month, .day], from: day.date)
+                    // Use destination timezone for default times
+                    let tz = day.resolvedTimeZone ?? cityTimeZone ?? .current
+                    var cal = Calendar.current
+                    cal.timeZone = tz
+                    var comps = cal.dateComponents([.year, .month, .day], from: day.date)
                     comps.hour = 9
-                    startTime = Calendar.current.date(from: comps) ?? Date()
+                    startTime = cal.date(from: comps) ?? Date()
                     comps.hour = 10
-                    endTime = Calendar.current.date(from: comps) ?? Date()
+                    endTime = cal.date(from: comps) ?? Date()
                 }
             }
             .onChange(of: category) { oldValue, newValue in

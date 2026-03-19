@@ -4,6 +4,9 @@ import SwiftData
 struct AddExpenseSheet: View {
     let trip: Trip
     var editing: Expense?
+    var prefillTitle: String?
+    var prefillCategory: ExpenseCategory?
+    var prefillAmount: Double?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
@@ -13,6 +16,10 @@ struct AddExpenseSheet: View {
     @State private var date = Date()
     @State private var notes = ""
     @State private var inputCurrency = UserDefaults.standard.string(forKey: "preferredCurrency") ?? "RUB"
+    @State private var historicalRate: Double?
+    @State private var isFetchingRate = false
+    @State private var categoryAutoSet = false
+    @State private var showReceiptScanner = false
 
     private var currency: CurrencyService { CurrencyService.shared }
 
@@ -29,6 +36,10 @@ struct AddExpenseSheet: View {
     private var convertedBase: Double? {
         guard let amount = Double(amountText), amount > 0 else { return nil }
         if inputCurrency == baseCurrency { return amount }
+        // Prefer historical rate if available
+        if let rate = historicalRate {
+            return amount * rate
+        }
         let result = currency.convert(amount, from: inputCurrency, to: baseCurrency)
         return result > 0 ? result : nil
     }
@@ -48,17 +59,34 @@ struct AddExpenseSheet: View {
                     GlassFormField(label: "СУММА (\(inputCurrency))", color: AppTheme.templeGold) {
                         VStack(spacing: AppTheme.spacingS) {
                             TextField(inputCurrency == "RUB" ? "5000" : "10.00", text: $amountText)
-                                .keyboardType((inputCurrency == "RUB" || inputCurrency == "JPY") ? .numberPad : .decimalPad)
+                                .keyboardType(inputCurrency == "JPY" ? .numberPad : .decimalPad)
                                 .textFieldStyle(GlassTextFieldStyle())
 
                             currencySelector
 
-                            if inputCurrency != baseCurrency, let base = convertedBase {
+                            if inputCurrency != baseCurrency {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "arrow.right")
-                                        .font(.system(size: 10))
-                                    Text("\u{2248} \(currency.format(base, currency: baseCurrency))")
-                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    if isFetchingRate {
+                                        ProgressView()
+                                            .scaleEffect(0.6)
+                                        Text("Загрузка курса...")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundStyle(.secondary)
+                                    } else if let base = convertedBase {
+                                        Image(systemName: historicalRate != nil ? "checkmark.circle.fill" : "arrow.right")
+                                            .font(.system(size: 10))
+                                        Text("\u{2248} \(currency.format(base, currency: baseCurrency))")
+                                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        if historicalRate != nil {
+                                            Text("НКЦ")
+                                                .font(.system(size: 8, weight: .bold))
+                                                .tracking(0.5)
+                                                .padding(.horizontal, 4)
+                                                .padding(.vertical, 2)
+                                                .background(AppTheme.templeGold.opacity(0.2))
+                                                .clipShape(Capsule())
+                                        }
+                                    }
                                 }
                                 .foregroundStyle(AppTheme.templeGold)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -110,13 +138,22 @@ struct AddExpenseSheet: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { saveExpense() } label: {
-                        Text("СОХРАНИТЬ")
-                            .font(.system(size: 11, weight: .bold))
-                            .tracking(1)
-                            .foregroundStyle(isValid ? AppTheme.sakuraPink : .secondary)
+                    HStack(spacing: 12) {
+                        if editing == nil {
+                            Button { showReceiptScanner = true } label: {
+                                Image(systemName: "doc.text.viewfinder")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(AppTheme.templeGold)
+                            }
+                        }
+                        Button { saveExpense() } label: {
+                            Text("СОХРАНИТЬ")
+                                .font(.system(size: 11, weight: .bold))
+                                .tracking(1)
+                                .foregroundStyle(isValid ? AppTheme.sakuraPink : .secondary)
+                        }
+                        .disabled(!isValid)
                     }
-                    .disabled(!isValid)
                 }
             }
             .onAppear {
@@ -127,10 +164,43 @@ struct AddExpenseSheet: View {
                     date = e.date
                     notes = e.notes
                     inputCurrency = baseCurrency
+                } else {
+                    if let t = prefillTitle { title = t }
+                    if let c = prefillCategory { category = c; categoryAutoSet = true }
+                    if let a = prefillAmount {
+                        amountText = a.truncatingRemainder(dividingBy: 1) == 0
+                            ? String(format: "%.0f", a) : String(format: "%.2f", a)
+                    }
                 }
             }
             .task {
                 await currency.fetchRates()
+                await fetchHistoricalRateIfNeeded()
+            }
+            .onChange(of: title) { _, newTitle in
+                guard editing == nil, !categoryAutoSet || category == .other else { return }
+                let guessed = ExpenseCategory.guess(from: newTitle)
+                if guessed != .other {
+                    withAnimation(.spring(response: 0.3)) { category = guessed }
+                    categoryAutoSet = true
+                }
+            }
+            .onChange(of: date) { _, _ in
+                Task { await fetchHistoricalRateIfNeeded() }
+            }
+            .onChange(of: inputCurrency) { _, _ in
+                historicalRate = nil
+                Task { await fetchHistoricalRateIfNeeded() }
+            }
+            .sheet(isPresented: $showReceiptScanner) {
+                ReceiptScannerSheet { scanned in
+                    title = scanned.title
+                    amountText = String(format: scanned.amount.truncatingRemainder(dividingBy: 1) == 0 ? "%.0f" : "%.2f", scanned.amount)
+                    category = scanned.category
+                    date = scanned.date
+                    inputCurrency = scanned.currency
+                    categoryAutoSet = true
+                }
             }
         }
     }
@@ -205,23 +275,45 @@ struct AddExpenseSheet: View {
         }
     }
 
+    // MARK: - Historical Rate
+
+    private func fetchHistoricalRateIfNeeded() async {
+        guard inputCurrency != baseCurrency else {
+            historicalRate = nil
+            return
+        }
+        isFetchingRate = true
+        let rate = await currency.fetchHistoricalRate(from: inputCurrency, to: baseCurrency, date: date)
+        historicalRate = rate
+        isFetchingRate = false
+    }
+
     // MARK: - Save
 
     private func saveExpense() {
         guard let amount = Double(amountText), amount > 0 else { return }
 
-        // Convert to base currency if needed
         let baseAmount: Double
+        let rate: Double
         if inputCurrency == baseCurrency {
             baseAmount = amount
+            rate = 1.0
+        } else if let histRate = historicalRate, histRate > 0 {
+            // Use historical (НКЦ) rate at transaction date
+            baseAmount = amount * histRate
+            rate = histRate
         } else {
             baseAmount = currency.convert(amount, from: inputCurrency, to: baseCurrency)
             guard baseAmount > 0 else { return }
+            rate = baseAmount / amount
         }
 
         if let e = editing {
             e.title = title.trimmingCharacters(in: .whitespaces)
             e.amount = baseAmount
+            e.originalAmount = amount
+            e.originalCurrency = inputCurrency
+            e.exchangeRate = rate
             e.category = category
             e.date = date
             e.notes = notes.trimmingCharacters(in: .whitespaces)
@@ -231,7 +323,10 @@ struct AddExpenseSheet: View {
                 amount: baseAmount,
                 category: category,
                 date: date,
-                notes: notes.trimmingCharacters(in: .whitespaces)
+                notes: notes.trimmingCharacters(in: .whitespaces),
+                originalAmount: amount,
+                originalCurrency: inputCurrency,
+                exchangeRate: rate
             )
             trip.expenses.append(expense)
         }

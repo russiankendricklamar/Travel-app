@@ -108,6 +108,7 @@ final class AirLabsService {
             liveCacheDates[cleaned] = Date()
             return position
         } catch {
+            print("[AirLabsService] Live position error: \(error)")
             return nil
         }
     }
@@ -132,6 +133,7 @@ final class AirLabsService {
             }
             return FlightData(fromSchedule: entry)
         } catch {
+            print("[AirLabsService] Schedules error: \(error)")
             return nil
         }
     }
@@ -146,6 +148,7 @@ final class AirLabsService {
             guard let entries = decoded.response, let entry = entries.first else { return nil }
             return FlightData(fromRoute: entry, tripDate: date)
         } catch {
+            print("[AirLabsService] Routes error: \(error)")
             return nil
         }
     }

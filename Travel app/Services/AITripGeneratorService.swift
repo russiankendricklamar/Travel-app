@@ -100,6 +100,7 @@ final class AITripGeneratorService {
         budget: Double?,
         profileContext: String
     ) async -> [DestinationSuggestion] {
+        print("[AITripGenerator] 🌍 Suggesting destinations...")
         let dateInfo: String
         if let dates {
             let fmt = DateFormatter()
@@ -128,9 +129,15 @@ final class AITripGeneratorService {
         [{"country":"Турция","flag":"🇹🇷","description":"Краткое описание почему стоит ехать","estimatedCost":"~50000 руб","iataCode":"IST","bestFor":"пляж, культура"}]
         """
 
-        guard let response = await GeminiService.shared.rawRequest(prompt: prompt) else { return [] }
+        print("[AITripGenerator] 📤 Sending destination suggest prompt (\(prompt.count) chars)...")
+        guard let response = await GeminiService.shared.rawRequest(prompt: prompt) else {
+            print("[AITripGenerator] ❌ Gemini failed for destination suggestions")
+            return []
+        }
 
-        return parseDestinationSuggestions(response)
+        let suggestions = parseDestinationSuggestions(response)
+        print("[AITripGenerator] ✅ Got \(suggestions.count) destination suggestions")
+        return suggestions
     }
 
     // MARK: - Generate Full Trip
@@ -149,66 +156,41 @@ final class AITripGeneratorService {
         let budgetStr = input.budget.map { "\(Int($0)) \(input.currency)" } ?? "без ограничений"
 
         // Phase 1: AI generates itinerary
+        print("[AITripGenerator] 🗓️ Generating trip: \(input.destination), \(days) days, budget: \(budgetStr), styles: \(stylesStr)")
         generationPhase = "Планируем маршрут..."
 
         let prompt = """
-        Составь подробный план путешествия.
-        Направление: \(input.destination)
-        Даты: \(startStr) — \(endStr) (\(days) дней)
-        Бюджет: \(budgetStr)
-        Стиль: \(stylesStr)
-
-        \(profileContext)
-
-        Ответь СТРОГО в JSON формате, без markdown:
-        {
-          "days": [
-            {
-              "dayNumber": 1,
-              "city": "Название города",
-              "places": [
-                {
-                  "name": "Название места",
-                  "category": "attraction|restaurant|museum|park|shopping|beach|temple|viewpoint|cafe|market",
-                  "latitude": 41.0082,
-                  "longitude": 28.9784,
-                  "timeToSpend": "2ч",
-                  "description": "Краткое описание на 1-2 предложения"
-                }
-              ]
-            }
-          ],
-          "suggestedFlights": [
-            {"from": "\(input.originIata)", "to": "IST", "date": "\(startStr)"},
-            {"from": "IST", "to": "\(input.originIata)", "date": "\(endStr)"}
-          ],
-          "cities": ["Istanbul"]
-        }
-
-        Правила:
-        - 3-5 мест на день, разнообразные категории
-        - Реалистичные координаты
-        - Учитывай логистику: места в одном городе рядом друг с другом
-        - Если несколько городов — логичный порядок переездов
+        План поездки: \(input.destination), \(startStr)–\(endStr) (\(days)дн), бюджет \(budgetStr), стиль: \(stylesStr).\(profileContext)
+        JSON без markdown: {"days":[{"dayNumber":1,"city":"City","places":[{"name":"Place","category":"attraction","latitude":0.0,"longitude":0.0,"timeToSpend":"2ч","description":"Кратко"}]}],"suggestedFlights":[{"from":"\(input.originIata)","to":"XXX","date":"\(startStr)"},{"from":"XXX","to":"\(input.originIata)","date":"\(endStr)"}],"cities":["City"]}
+        3-4 места/день. Категории: attraction,restaurant,museum,park,shopping,beach,temple,viewpoint,cafe,market. Реальные координаты.
         """
 
+        print("[AITripGenerator] 📤 Sending itinerary prompt (\(prompt.count) chars)...")
         guard let aiResponse = await GeminiService.shared.rawRequest(prompt: prompt) else {
-            lastError = "AI не ответил"
+            lastError = GeminiService.shared.lastError ?? "AI не ответил"
+            print("[AITripGenerator] ❌ Phase 1 failed: \(lastError ?? "")")
             return nil
         }
+        print("[AITripGenerator] 📥 AI itinerary response: \(aiResponse.count) chars")
 
         guard let parsed = parseAIResponse(aiResponse) else {
             lastError = "Не удалось распарсить ответ AI"
+            print("[AITripGenerator] ❌ Failed to parse itinerary JSON")
             return nil
         }
+        print("[AITripGenerator] ✅ Phase 1 complete: \(parsed.days.count) days, \(parsed.cities.count) cities, \(parsed.suggestedFlights.count) flights")
 
         // Phase 2: Search flights in parallel
         generationPhase = "Ищем билеты..."
+        print("[AITripGenerator] ✈️ Phase 2: Searching flights...")
         let flights = await searchFlightsForTrip(parsed: parsed, startStr: startStr, endStr: endStr, input: input)
+        print("[AITripGenerator] ✈️ Found \(flights.count) flight offers")
 
         // Phase 3: Search hotels in parallel
         generationPhase = "Подбираем жильё..."
+        print("[AITripGenerator] 🏨 Phase 3: Searching hotels...")
         let hotels = await searchHotelsForTrip(parsed: parsed, startStr: startStr, endStr: endStr)
+        print("[AITripGenerator] 🏨 Found \(hotels.count) hotel offers")
 
         // Combine
         generationPhase = "Готово!"

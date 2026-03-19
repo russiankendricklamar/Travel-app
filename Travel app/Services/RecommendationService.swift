@@ -24,7 +24,10 @@ final class RecommendationService {
         let categoriesKey = categories.sorted().joined(separator: ",")
         let cacheKey = "\(provider.rawValue):\(city.lowercased())|\(categoriesKey)"
 
+        print("[RecommendationService] 🔍 Fetching recommendations for '\(city)', categories: \(categoriesKey)")
+
         if let cached = cache[cacheKey] {
+            print("[RecommendationService] ✅ Cache hit: \(cached.count) recommendations")
             recommendations = cached
             return
         }
@@ -35,6 +38,7 @@ final class RecommendationService {
 
         guard hasApiKey else {
             lastError = "Добавьте API-ключ в Настройках"
+            print("[RecommendationService] ❌ No API key")
             return
         }
 
@@ -77,20 +81,25 @@ final class RecommendationService {
             }
         }
 
+        print("[RecommendationService] 📤 Sending prompt to Gemini (\(prompt.count) chars)...")
         let rawContent = await GeminiService.shared.rawRequest(prompt: prompt)
 
         guard let content = rawContent else {
             let geminiError = GeminiService.shared.lastError ?? "Не удалось получить рекомендации"
             lastError = geminiError
+            print("[RecommendationService] ❌ Gemini error: \(geminiError)")
             return
         }
 
+        print("[RecommendationService] 📥 AI response: \(content.count) chars")
         if let parsed = parseRecommendations(from: content) {
+            print("[RecommendationService] ✅ Parsed \(parsed.count) recommendations")
             recommendations = parsed
             cache[cacheKey] = parsed
             AICacheManager.shared.set(key: aiCacheKey, response: content, tripID: tripID)
         } else {
             lastError = "Ошибка разбора ответа ИИ"
+            print("[RecommendationService] ❌ Failed to parse AI response: \(content.prefix(200))")
         }
     }
 
@@ -121,6 +130,7 @@ final class RecommendationService {
             let items = try JSONDecoder().decode([PlaceRecommendation].self, from: data)
             return items
         } catch {
+            print("[RecommendationService] JSON parse error: \(error)")
             return nil
         }
     }

@@ -31,7 +31,7 @@ struct WizardStepDates: View {
             }
             .padding(AppTheme.spacingM)
         }
-        .onAppear { loadSeasonHint() }
+        .task(id: destination) { loadSeasonHint() }
         .onChange(of: startDate) { _, _ in loadSeasonHint() }
     }
 

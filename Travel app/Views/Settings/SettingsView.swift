@@ -21,7 +21,7 @@ struct SettingsView: View {
 
     // Notification times (stored as hour * 60 + minute)
     @AppStorage("notif_morning_time") private var morningTimeMinutes = 480   // 8:00
-    @AppStorage("notif_event_lead") private var eventLeadMinutes = 30       // 30 min before
+    @AppStorage("notif_event_leads") private var eventLeadMinutesStr = "30"  // comma-separated
     @AppStorage("notif_weather_morning_time") private var weatherMorningMinutes = 480  // 8:00
     @AppStorage("notif_weather_evening_time") private var weatherEveningMinutes = 1260 // 21:00
 
@@ -65,6 +65,7 @@ struct SettingsView: View {
     @State private var showAuthSheet = false
 
     private let authManager = AuthManager.shared
+    private let syncManager = SyncManager.shared
 
     private var selectedPalette: ColorPalette {
         ColorPalette(rawValue: palette) ?? .sakura
@@ -75,12 +76,10 @@ struct SettingsView: View {
             ScrollView {
                 VStack(spacing: AppTheme.spacingL) {
                     accountSection
+                    exchangeRatesSection
                     paletteSection
                     notificationSection
-                    currencySection
-                    exchangeRatesSection
                     languageSection
-                    aiProviderSection
                     dataSection
                 }
                 .padding(AppTheme.spacingM)
@@ -222,6 +221,9 @@ struct SettingsView: View {
                     .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
                 }
 
+                // Sync row
+                syncRow
+
                 // Sign out button
                 Button {
                     showSignOutConfirmation = true
@@ -297,6 +299,63 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
                 .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
         )
+    }
+
+    private var syncRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(
+                    LinearGradient(
+                        colors: [AppTheme.oceanBlue, AppTheme.oceanBlue.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(syncStatusText)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                if let last = syncManager.lastSyncDate {
+                    Text("\(last, style: .relative) назад")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if syncManager.state == .syncing {
+                ProgressView().scaleEffect(0.7)
+            } else {
+                // Sync status dot
+                Circle()
+                    .fill(syncManager.lastSyncDate != nil ? AppTheme.bambooGreen : .secondary)
+                    .frame(width: 8, height: 8)
+            }
+        }
+        .padding(10)
+        .background(.thinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .onTapGesture {
+            guard syncManager.state != .syncing else { return }
+            Task { await syncManager.forceSync() }
+        }
+    }
+
+    private var syncStatusText: String {
+        switch syncManager.state {
+        case .idle:
+            return syncManager.lastSyncDate != nil ? String(localized: "Синхронизировано") : String(localized: "Синхронизация")
+        case .syncing:
+            return String(localized: "Синхронизация...")
+        case .error:
+            return String(localized: "Ошибка синхронизации")
+        }
     }
 
     // MARK: - Palette Section
@@ -381,13 +440,7 @@ struct SettingsView: View {
                 isOn: $notifMorning,
                 time: morningTime
             )
-            notifToggleWithPicker(
-                title: "Напоминания о событиях",
-                icon: "clock.fill",
-                color: AppTheme.sakuraPink,
-                isOn: $notifEvent,
-                leadMinutes: $eventLeadMinutes
-            )
+            eventReminderSection
             notifToggle(
                 title: "Уведомления о местах",
                 subtitle: "Когда вы рядом с запланированным местом",
@@ -455,80 +508,268 @@ struct SettingsView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
     }
 
+    @State private var isEditingMorningTime = false
+
     private func notifToggleWithTime(title: LocalizedStringKey, icon: String, color: Color, isOn: Binding<Bool>, time: Binding<Date>) -> some View {
         VStack(spacing: 0) {
-            notifToggle(title: title, subtitle: "\(formatTimeMinutes(time.wrappedValue))", icon: icon, color: color, isOn: isOn)
-            if isOn.wrappedValue {
-                DatePicker("", selection: time, displayedComponents: .hourAndMinute)
-                    .datePickerStyle(.wheel)
+            // Row: icon + text (tappable) + toggle (independent)
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(
+                        LinearGradient(
+                            colors: [color, color.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text("\(formatTimeMinutes(time.wrappedValue))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard isOn.wrappedValue else { return }
+                    withAnimation(.spring(response: 0.3)) {
+                        isEditingMorningTime.toggle()
+                    }
+                }
+
+                Spacer()
+
+                if isOn.wrappedValue && !isEditingMorningTime {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                }
+
+                Toggle("", isOn: isOn)
                     .labelsHidden()
-                    .frame(height: 100)
-                    .clipped()
-                    .padding(.horizontal, 10)
+                    .tint(AppTheme.sakuraPink)
+            }
+            .padding(10)
+            .background(.thinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+
+            if isOn.wrappedValue && isEditingMorningTime {
+                VStack(spacing: 8) {
+                    DatePicker("", selection: time, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                        .frame(height: 120)
+                        .clipped()
+
+                    Button {
+                        withAnimation(.spring(response: 0.3)) {
+                            isEditingMorningTime = false
+                        }
+                    } label: {
+                        Text("Готово")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 8)
+                            .background(color)
+                            .clipShape(Capsule())
+                    }
+                }
+                .padding(10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
 
-    @State private var showCustomLeadPicker = false
-    @State private var customLeadValue = ""
+    @State private var isAddingReminder = false
+    @State private var newReminderHours = 0
+    @State private var newReminderMinutes = 30
 
-    private func notifToggleWithPicker(title: LocalizedStringKey, icon: String, color: Color, isOn: Binding<Bool>, leadMinutes: Binding<Int>) -> some View {
-        let presets = [60, 120]
-        let isCustom = !presets.contains(leadMinutes.wrappedValue)
-        let subtitleText = leadMinutes.wrappedValue >= 60
-            ? "За \(leadMinutes.wrappedValue / 60) ч до начала"
-            : "За \(leadMinutes.wrappedValue) мин до начала"
+    private var eventLeadMinutes: [Int] {
+        eventLeadMinutesStr.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }.sorted()
+    }
 
-        return VStack(spacing: 0) {
-            notifToggle(title: title, subtitle: "\(subtitleText)", icon: icon, color: color, isOn: isOn)
-            if isOn.wrappedValue {
-                HStack(spacing: 8) {
-                    ForEach(presets, id: \.self) { mins in
-                        let selected = leadMinutes.wrappedValue == mins
+    private func addEventLead(_ minutes: Int) {
+        var leads = eventLeadMinutes
+        guard !leads.contains(minutes), minutes > 0 else { return }
+        leads.append(minutes)
+        leads.sort()
+        eventLeadMinutesStr = leads.map(String.init).joined(separator: ",")
+    }
+
+    private func removeEventLead(_ minutes: Int) {
+        let leads = eventLeadMinutes.filter { $0 != minutes }
+        eventLeadMinutesStr = leads.isEmpty ? "" : leads.map(String.init).joined(separator: ",")
+    }
+
+    private func formatLead(_ mins: Int) -> String {
+        let h = mins / 60
+        let m = mins % 60
+        if h > 0 && m > 0 { return "\(h)ч \(m)мин" }
+        if h > 0 { return "\(h)ч" }
+        return "\(m)мин"
+    }
+
+    private var eventReminderSubtitle: String {
+        let leads = eventLeadMinutes
+        if leads.isEmpty { return "Нет напоминаний" }
+        return leads.map { "за \(formatLead($0))" }.joined(separator: ", ")
+    }
+
+    @State private var isEventReminderExpanded = false
+
+    private var eventReminderSection: some View {
+        VStack(spacing: 0) {
+            // Row: icon + text (tappable to expand) + toggle (independent)
+            HStack(spacing: 12) {
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(
+                        LinearGradient(
+                            colors: [AppTheme.sakuraPink, AppTheme.sakuraPink.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Напоминания о событиях")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(eventReminderSubtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard notifEvent else { return }
+                    withAnimation(.spring(response: 0.3)) {
+                        isEventReminderExpanded.toggle()
+                        if !isEventReminderExpanded { isAddingReminder = false }
+                    }
+                }
+
+                Spacer()
+
+                if notifEvent && !isEventReminderExpanded {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                }
+
+                Toggle("", isOn: $notifEvent)
+                    .labelsHidden()
+                    .tint(AppTheme.sakuraPink)
+            }
+            .padding(10)
+            .background(.thinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+
+            // Expanded content
+            if notifEvent && isEventReminderExpanded {
+                VStack(spacing: 8) {
+                    // Existing reminder chips
+                    FlowLayout(spacing: 8) {
+                        ForEach(eventLeadMinutes, id: \.self) { mins in
+                            HStack(spacing: 4) {
+                                Text(formatLead(mins))
+                                    .font(.system(size: 12, weight: .bold))
+                                Button {
+                                    withAnimation(.spring(response: 0.3)) {
+                                        removeEventLead(mins)
+                                    }
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 9, weight: .bold))
+                                }
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(AppTheme.sakuraPink)
+                            .clipShape(Capsule())
+                        }
+
+                        // Add button
                         Button {
-                            withAnimation(.spring(response: 0.3)) { leadMinutes.wrappedValue = mins }
+                            withAnimation(.spring(response: 0.3)) {
+                                isAddingReminder.toggle()
+                            }
                         } label: {
-                            Text(mins >= 60 ? "\(mins / 60) ч" : "\(mins) мин")
-                                .font(.system(size: 12, weight: .bold))
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .foregroundStyle(selected ? .white : .secondary)
-                                .background(selected ? color : .clear)
-                                .background { if !selected { Color.clear.background(.ultraThinMaterial) } }
-                                .clipShape(Capsule())
-                                .overlay(Capsule().stroke(selected ? color.opacity(0.5) : Color.white.opacity(0.2), lineWidth: 0.5))
+                            HStack(spacing: 4) {
+                                Image(systemName: isAddingReminder ? "chevron.up" : "plus")
+                                    .font(.system(size: 10, weight: .bold))
+                                if !isAddingReminder {
+                                    Text("Добавить")
+                                        .font(.system(size: 12, weight: .bold))
+                                }
+                            }
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
                         }
                     }
-                    Button {
-                        customLeadValue = "\(leadMinutes.wrappedValue)"
-                        showCustomLeadPicker = true
-                    } label: {
-                        Text(isCustom ? "\(leadMinutes.wrappedValue) мин" : "Своё")
-                            .font(.system(size: 12, weight: .bold))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .foregroundStyle(isCustom ? .white : .secondary)
-                            .background(isCustom ? color : .clear)
-                            .background { if !isCustom { Color.clear.background(.ultraThinMaterial) } }
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(isCustom ? color.opacity(0.5) : Color.white.opacity(0.2), lineWidth: 0.5))
+
+                    // Timer-style picker
+                    if isAddingReminder {
+                        VStack(spacing: 8) {
+                            HStack(spacing: 0) {
+                                Picker("Часы", selection: $newReminderHours) {
+                                    ForEach(0..<24, id: \.self) { h in
+                                        Text("\(h) ч").tag(h)
+                                    }
+                                }
+                                .pickerStyle(.wheel)
+                                .frame(width: 100, height: 100)
+                                .clipped()
+
+                                Picker("Минуты", selection: $newReminderMinutes) {
+                                    ForEach(Array(stride(from: 0, through: 55, by: 5)), id: \.self) { m in
+                                        Text("\(m) мин").tag(m)
+                                    }
+                                }
+                                .pickerStyle(.wheel)
+                                .frame(width: 120, height: 100)
+                                .clipped()
+                            }
+
+                            Button {
+                                let total = newReminderHours * 60 + newReminderMinutes
+                                withAnimation(.spring(response: 0.3)) {
+                                    addEventLead(total)
+                                    isAddingReminder = false
+                                    newReminderHours = 0
+                                    newReminderMinutes = 30
+                                }
+                            } label: {
+                                Text("Добавить")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, 8)
+                                    .background(AppTheme.sakuraPink)
+                                    .clipShape(Capsule())
+                            }
+                            .disabled(newReminderHours == 0 && newReminderMinutes == 0)
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
-                    Spacer()
                 }
                 .padding(10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
-        }
-        .alert("Своё время", isPresented: $showCustomLeadPicker) {
-            TextField("Минуты", text: $customLeadValue)
-                .keyboardType(.numberPad)
-            Button("Сохранить") {
-                if let val = Int(customLeadValue), val > 0 {
-                    leadMinutes.wrappedValue = val
-                }
-            }
-            Button("Отмена", role: .cancel) {}
-        } message: {
-            Text("Введите количество минут до начала события")
         }
     }
 
@@ -566,88 +807,29 @@ struct SettingsView: View {
         return String(format: "%d:%02d", comps.hour ?? 0, comps.minute ?? 0)
     }
 
-    // MARK: - Currency Section
-
-    private var currencySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("ВАЛЮТА", icon: "banknote.fill")
-
-            HStack(spacing: 8) {
-                ForEach(CurrencyService.supportedCurrencies, id: \.self) { code in
-                    currencyButton(code)
-                }
-            }
-
-            Text("Базовая валюта для хранения и отображения")
-                .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
-                .padding(.horizontal, 4)
-        }
-        .padding(AppTheme.spacingM)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
-    }
-
-    private func currencyButton(_ code: String) -> some View {
-        let isSelected = currency == code
-        let symbols = CurrencyService.symbols
-        return Button {
-            withAnimation(.spring(response: 0.3)) { currency = code }
-            CurrencyService.shared.invalidateCache()
-            Task { await CurrencyService.shared.fetchRates() }
-        } label: {
-            VStack(spacing: 4) {
-                Text(symbols[code] ?? code)
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundStyle(isSelected ? .white : .primary)
-                Text(code)
-                    .font(.system(size: 9, weight: .bold))
-                    .tracking(1)
-                    .foregroundStyle(isSelected ? .white.opacity(0.8) : .secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(isSelected ? AppTheme.sakuraPink : Color.clear)
-            .background(.thinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.radiusMedium)
-                    .stroke(isSelected ? AppTheme.sakuraPink : Color.white.opacity(0.15), lineWidth: isSelected ? 1.5 : 0.5)
-            )
-        }
-    }
-
     // MARK: - Exchange Rates Section
 
     private var exchangeRatesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("КУРСЫ ВАЛЮТ", icon: "arrow.left.arrow.right")
-
-            Toggle(isOn: $useCustomRates) {
-                HStack(spacing: 8) {
-                    Image(systemName: useCustomRates ? "hand.draw.fill" : "antenna.radiowaves.left.and.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(AppTheme.templeGold)
-                    Text(useCustomRates ? "Свои курсы" : "Онлайн курсы")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.primary)
-                }
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                sectionLabel("КУРСЫ ВАЛЮТ", icon: "arrow.left.arrow.right")
+                Spacer()
+                Toggle("", isOn: $useCustomRates)
+                    .labelsHidden()
+                    .tint(AppTheme.templeGold)
+                    .scaleEffect(0.8)
+                Text(useCustomRates ? "Свои" : "НКЦ")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.5)
+                    .foregroundStyle(.tertiary)
             }
-            .tint(AppTheme.sakuraPink)
-            .padding(10)
-            .background(.thinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
 
             if useCustomRates {
                 ForEach(nonBaseCurrencies, id: \.self) { code in
                     customRateRow(code, binding: customRateBinding(for: code))
                 }
             } else {
-                apiRatesView
+                compactApiRatesView
             }
         }
         .padding(AppTheme.spacingM)
@@ -702,51 +884,66 @@ struct SettingsView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
     }
 
-    private var apiRatesView: some View {
+    private var compactApiRatesView: some View {
         let svc = CurrencyService.shared
-        return VStack(spacing: 6) {
-            ForEach(nonBaseCurrencies, id: \.self) { code in
-                let basePerUnit = svc.basePerUnit(of: code)
-                HStack {
-                    Text("1 \(code)")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Text(basePerUnit > 0 ? "\(CurrencyService.baseCurrencySymbol)\(String(format: "%.2f", basePerUnit))" : "—")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(AppTheme.templeGold)
+        return VStack(spacing: 4) {
+            // Compact rate grid: 2 per row
+            let pairs = nonBaseCurrencies
+            ForEach(0..<(pairs.count + 1) / 2, id: \.self) { row in
+                HStack(spacing: 8) {
+                    ForEach(0..<2, id: \.self) { col in
+                        let idx = row * 2 + col
+                        if idx < pairs.count {
+                            let code = pairs[idx]
+                            let basePerUnit = svc.basePerUnit(of: code)
+                            HStack(spacing: 4) {
+                                Text(code)
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 30, alignment: .leading)
+                                Text(basePerUnit > 0 ? "\(CurrencyService.baseCurrencySymbol)\(basePerUnit < 1 ? String(format: "%.3f", basePerUnit) : String(format: "%.2f", basePerUnit))" : "—")
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(AppTheme.templeGold)
+                                Spacer()
+                            }
+                            .frame(maxWidth: .infinity)
+                        } else {
+                            Spacer().frame(maxWidth: .infinity)
+                        }
+                    }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
             }
 
-            HStack {
+            // Status row
+            HStack(spacing: 6) {
+                if svc.isLoading {
+                    ProgressView().scaleEffect(0.5)
+                } else {
+                    Circle()
+                        .fill(svc.lastUpdated != nil ? AppTheme.bambooGreen : AppTheme.toriiRed)
+                        .frame(width: 5, height: 5)
+                }
                 if let updated = svc.lastUpdated {
-                    Text("Обновлено: \(updated, style: .relative) назад")
-                        .font(.system(size: 10))
+                    Text("НКЦ · \(updated, style: .relative)")
+                        .font(.system(size: 9))
                         .foregroundStyle(.tertiary)
+                } else if let err = svc.errorMessage {
+                    Text(err)
+                        .font(.system(size: 9))
+                        .foregroundStyle(AppTheme.toriiRed)
                 }
                 Spacer()
                 Button {
-                    Task {
-                        svc.invalidateCache()
-                        await svc.fetchRates()
-                    }
+                    Task { await svc.fetchRates(force: true) }
                 } label: {
-                    HStack(spacing: 4) {
-                        if svc.isLoading {
-                            ProgressView().scaleEffect(0.6)
-                        }
-                        Text("Обновить")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .foregroundStyle(AppTheme.templeGold)
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppTheme.templeGold)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.top, 4)
+            .padding(.top, 2)
         }
-        .padding(.vertical, 8)
+        .padding(8)
         .background(.thinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
     }
@@ -775,54 +972,6 @@ struct SettingsView: View {
             Text("Перезапустите приложение для смены языка")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.tertiary)
-        }
-        .padding(AppTheme.spacingM)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.radiusLarge)
-                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-        )
-    }
-
-    // MARK: - AI Provider Section
-
-    private var aiProviderSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("СЕРВИСЫ", icon: "cloud.fill")
-
-            HStack(spacing: 12) {
-                Image(systemName: "checkmark.shield.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 34, height: 34)
-                    .background(
-                        LinearGradient(
-                            colors: [AppTheme.bambooGreen, AppTheme.bambooGreen.opacity(0.7)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Облачный прокси")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary)
-                    Text("AI, авиабилеты, погода — всё через Supabase")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "cloud.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(AppTheme.bambooGreen)
-            }
-            .padding(10)
-            .background(.thinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
         }
         .padding(AppTheme.spacingM)
         .background(.ultraThinMaterial)

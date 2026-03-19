@@ -6,6 +6,7 @@ final class PackingListAIService {
     private init() {}
 
     func generateSuggestions(for trip: Trip) async -> [(name: String, category: PackingCategory)] {
+        print("[PackingListAI] 🧳 Generating suggestions for trip to \(trip.countriesDisplay)")
         let duration = Calendar.current.dateComponents([.day], from: trip.startDate, to: trip.endDate).day ?? 7
         let placeTypes = Set(trip.allPlaces.map(\.category.rawValue)).joined(separator: ", ")
         let hasFlights = trip.flightNumber != nil
@@ -41,14 +42,21 @@ final class PackingListAIService {
 
         let aiCacheKey = "ai:packing:\(trip.id.uuidString)"
         if let cached = AICacheManager.shared.get(key: aiCacheKey) {
-            return parseSuggestions(cached)
+            let items = parseSuggestions(cached)
+            print("[PackingListAI] ✅ Cache hit: \(items.count) items")
+            return items
         }
 
+        print("[PackingListAI] 📤 Sending prompt to Gemini (\(prompt.count) chars)...")
         guard let text = await GeminiService.shared.rawRequest(prompt: prompt) else {
+            print("[PackingListAI] ❌ Gemini failed, using defaults")
             return defaultSuggestions(duration: duration)
         }
+        print("[PackingListAI] 📥 AI response: \(text.count) chars")
         AICacheManager.shared.set(key: aiCacheKey, response: text, tripID: trip.id)
-        return parseSuggestions(text)
+        let items = parseSuggestions(text)
+        print("[PackingListAI] ✅ Parsed \(items.count) packing items")
+        return items
     }
 
     private func parseSuggestions(_ text: String) -> [(name: String, category: PackingCategory)] {

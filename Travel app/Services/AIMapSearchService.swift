@@ -27,6 +27,7 @@ final class AIMapSearchService {
     func search(query: String, city: String, nearCoordinate: CLLocationCoordinate2D?, mapRegion: MKCoordinateRegion? = nil, tripID: UUID? = nil) async {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+        print("[AIMapSearch] 🔍 Search: '\(trimmed)' in \(city)")
 
         let regionKey: String
         if let region = mapRegion {
@@ -47,14 +48,18 @@ final class AIMapSearchService {
         clarificationMessage = nil
         defer { isLoading = false }
 
+        print("[AIMapSearch] 🗺️ Searching Apple Maps...")
         let mapItems = await findPlacesOnAppleMaps(query: trimmed, region: mapRegion, near: nearCoordinate)
 
         guard !mapItems.isEmpty else {
             lastError = "Ничего не найдено на карте"
+            print("[AIMapSearch] ❌ No results from Apple Maps")
             return
         }
+        print("[AIMapSearch] 📍 Apple Maps found \(mapItems.count) places")
 
         let recommendations = await enrichMapItems(mapItems, userQuery: trimmed, tripID: tripID)
+        print("[AIMapSearch] ✅ Final results: \(recommendations.count) enriched places")
 
         results = recommendations
         cache[cacheKey] = recommendations
@@ -114,6 +119,7 @@ final class AIMapSearchService {
             let response = try await search.start()
             return Array(response.mapItems.prefix(6))
         } catch {
+            print("[AIMapSearchService] Apple Maps search failed for '\(query)': \(error)")
             return []
         }
     }
@@ -276,6 +282,7 @@ final class AIMapSearchService {
         do {
             return try JSONDecoder().decode(AIEnrichmentResponse.self, from: data)
         } catch {
+            print("[AIMapSearchService] JSON parse error: \(error)")
             return nil
         }
     }

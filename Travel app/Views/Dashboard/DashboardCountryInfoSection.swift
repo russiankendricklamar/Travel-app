@@ -33,9 +33,15 @@ struct DashboardCountryInfoSection: View {
                 )
                 .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 6)
             } else if isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(AppTheme.spacingM)
+                VStack(spacing: AppTheme.spacingS) {
+                    ProgressView()
+                    Text("Загрузка информации...")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 120)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusLarge))
             }
         }
         .task {

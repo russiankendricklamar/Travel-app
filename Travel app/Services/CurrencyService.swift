@@ -1,6 +1,6 @@
 import Foundation
 
-@Observable
+@MainActor @Observable
 final class CurrencyService {
     static let shared = CurrencyService()
 
@@ -9,7 +9,7 @@ final class CurrencyService {
         "JPY": "\u{00A5}",
         "USD": "$",
         "RUB": "\u{20BD}",
-        "CNY": "\u{5143}",
+        "CNY": "\u{00A5}",
         "EUR": "\u{20AC}"
     ]
 
@@ -34,15 +34,18 @@ final class CurrencyService {
         symbols[shared.baseCurrency] ?? shared.baseCurrency
     }
 
-    // API rates: how much 1 base costs in each currency
+    // rates: 1 base = X target
     var rates: [String: Double] = [:]
     var isLoading = false
     var errorMessage: String?
     var lastUpdated: Date?
+    var isAutoRefreshActive = false
 
     private var lastFetchDate: Date?
-    private let cacheInterval: TimeInterval = 60 * 60 // 1 hour
-    // Fallback rates per base currency (1 base = X target)
+    private var refreshTimer: Timer?
+    private let refreshInterval: TimeInterval = 5 * 60
+
+    // Fallback rates: 1 base = X target
     private static let fallbackMatrix: [String: [String: Double]] = [
         "RUB": ["JPY": 1.7, "USD": 0.011, "CNY": 0.082, "EUR": 0.010],
         "USD": ["RUB": 88.0, "JPY": 150.0, "CNY": 7.2, "EUR": 0.92],
@@ -56,7 +59,7 @@ final class CurrencyService {
     }
 
     private init() {
-        rates = Self.fallbackMatrix["RUB"] ?? [:]
+        rates = Self.fallbackMatrix[baseCurrency] ?? Self.fallbackMatrix["RUB"] ?? [:]
     }
 
     // MARK: - Settings
@@ -65,7 +68,6 @@ final class CurrencyService {
         UserDefaults.standard.bool(forKey: "useCustomRates")
     }
 
-    // Custom rates stored as "1 currency = X baseCurrency"
     func customRateBasePerUnit(of currency: String) -> Double {
         UserDefaults.standard.double(forKey: "customRate_\(currency)")
     }
@@ -88,7 +90,6 @@ final class CurrencyService {
 
     // MARK: - Conversion
 
-    /// Convert amount from one currency to another
     func convert(_ amount: Double, from: String, to: String) -> Double {
         if from == to { return amount }
 
@@ -103,7 +104,6 @@ final class CurrencyService {
             guard rate > 0 else { return 0 }
             return amount / rate
         } else {
-            // cross: from -> base -> to
             let rateFrom = currentRates[from] ?? 0
             guard rateFrom > 0 else { return 0 }
             let baseAmount = amount / rateFrom
@@ -112,18 +112,17 @@ final class CurrencyService {
         }
     }
 
-    /// Format amount with currency symbol
     func format(_ amount: Double, currency: String) -> String {
         let symbol = Self.symbols[currency] ?? currency
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.groupingSeparator = " "
-        formatter.maximumFractionDigits = (currency == "JPY" || currency == "RUB") ? 0 : 2
+        let isWholeAmount = amount.truncatingRemainder(dividingBy: 1) == 0
+        formatter.maximumFractionDigits = currency == "JPY" ? 0 : (isWholeAmount ? 0 : 2)
         let formatted = formatter.string(from: NSNumber(value: amount)) ?? "0"
         return "\(symbol)\(formatted)"
     }
 
-    /// Convenience: format amount in base currency
     static func formatBase(_ amount: Double) -> String {
         shared.format(amount, currency: shared.baseCurrency)
     }
@@ -135,46 +134,125 @@ final class CurrencyService {
         return 1.0 / rate
     }
 
-    // MARK: - Fetch
+    // MARK: - Auto-Refresh
 
-    func fetchRates() async {
-        if let lastDate = lastFetchDate,
-           Date().timeIntervalSince(lastDate) < cacheInterval {
+    func startAutoRefresh() {
+        guard refreshTimer == nil else { return }
+        isAutoRefreshActive = true
+
+        Task { await fetchRates(force: false) }
+
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.fetchRates(force: true)
+            }
+        }
+    }
+
+    func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        isAutoRefreshActive = false
+    }
+
+    func handleScenePhase(active: Bool) {
+        if active {
+            if refreshTimer == nil {
+                startAutoRefresh()
+            } else {
+                Task { await fetchRates(force: false) }
+            }
+        } else {
+            stopAutoRefresh()
+        }
+    }
+
+    // MARK: - Fetch (НКО НКЦ / MOEX via Edge Function)
+
+    private var isFetching = false
+
+    func fetchRates(force: Bool = false) async {
+        if !force, let lastDate = lastFetchDate,
+           Date().timeIntervalSince(lastDate) < refreshInterval {
             return
         }
 
+        guard !isFetching else { return }
+        isFetching = true
         isLoading = true
         errorMessage = nil
 
+        let base = baseCurrency
+        let targets = Self.supportedCurrencies.filter { $0 != base }
+
         do {
-            let data = try await SupabaseProxy.request(service: "currency", action: "rates", params: ["base": baseCurrency])
+            let data = try await SupabaseProxy.request(
+                service: "moex_rates",
+                params: [
+                    "base": base,
+                    "targets": targets.joined(separator: ",")
+                ]
+            )
 
-            let decoded = try JSONDecoder().decode(ExchangeRateResponse.self, from: data)
-            for code in Self.supportedCurrencies where code != baseCurrency {
-                if let rate = decoded.rates[code] {
-                    rates[code] = rate
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let ratesDict = json["rates"] as? [String: Double],
+               !ratesDict.isEmpty {
+                // MOEX НКЦ returns: 1 unit of target = X base
+                // We store: 1 base = X target (inverted)
+                for (code, basePerUnit) in ratesDict where basePerUnit > 0 {
+                    rates[code] = 1.0 / basePerUnit
                 }
+                lastFetchDate = Date()
+                lastUpdated = Date()
+                errorMessage = nil
+                print("[CurrencyService] MOEX НКЦ rates updated: \(ratesDict.mapValues { String(format: "%.4f", $0) })")
+            } else {
+                errorMessage = "Не удалось загрузить курсы НКЦ"
+                if lastFetchDate == nil { rates = fallbackRates }
             }
-
-            lastFetchDate = Date()
-            lastUpdated = Date()
         } catch {
-            errorMessage = "Не удалось загрузить курсы"
-            rates = fallbackRates
+            print("[CurrencyService] Fetch error: \(error)")
+            errorMessage = "Ошибка загрузки курсов"
+            if lastFetchDate == nil { rates = fallbackRates }
         }
 
         isLoading = false
+        isFetching = false
     }
 
     func invalidateCache() {
         lastFetchDate = nil
-        rates = fallbackRates
     }
-}
 
-// MARK: - API Response
+    // MARK: - Historical Rate
 
-private struct ExchangeRateResponse: Codable {
-    let result: String
-    let rates: [String: Double]
+    private var historicalRateCache: [String: Double] = [:]
+
+    func fetchHistoricalRate(from: String, to: String, date: Date) async -> Double? {
+        let cacheKey = "\(from)_\(to)_\(ISO8601DateFormatter().string(from: date))"
+        if let cached = historicalRateCache[cacheKey] { return cached }
+
+        do {
+            let data = try await SupabaseProxy.request(
+                service: "moex_rates",
+                params: ["from": from, "to": to, "amount": "1"]
+            )
+
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let rate = json["rate"] as? Double, rate > 0 {
+                historicalRateCache[cacheKey] = rate
+                return rate
+            }
+        } catch {
+            print("[CurrencyService] Historical rate error: \(error)")
+        }
+
+        if let r = rates[from], r > 0 { return r }
+        if let r = rates[to], r > 0 { return 1.0 / r }
+        return nil
+    }
+
+    func convertWithRate(_ amount: Double, rate: Double) -> Double {
+        amount * rate
+    }
 }

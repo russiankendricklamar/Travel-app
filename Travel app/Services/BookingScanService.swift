@@ -23,8 +23,11 @@ final class BookingScanService {
     // MARK: - Scan Image (OCR + AI)
 
     func scanImage(_ image: UIImage) async throws -> [ScannedFlight] {
+        print("[BookingScan] 📷 Scanning image (\(Int(image.size.width))x\(Int(image.size.height)))...")
         let text = try await recognizeText(from: image)
+        print("[BookingScan] 📝 OCR result: \(text.count) chars")
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("[BookingScan] ❌ No text found in image")
             throw ScanError.noTextFound
         }
         return try await parseFlights(from: text)
@@ -86,6 +89,7 @@ final class BookingScanService {
     // MARK: - Scan Text (AI only)
 
     func scanText(_ text: String) async throws -> [ScannedFlight] {
+        print("[BookingScan] 📝 Scanning text input (\(text.count) chars)...")
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw ScanError.emptyInput
@@ -126,6 +130,7 @@ final class BookingScanService {
     // MARK: - AI Flight Extraction
 
     private func parseFlights(from text: String) async throws -> [ScannedFlight] {
+        print("[BookingScan] 🤖 Sending to Gemini for flight extraction (\(min(text.count, 4000)) chars)...")
         let prompt = """
         Извлеки все рейсы из текста. Только JSON:
         [{"number":"SU260","date":"2025-04-15T10:30","from":"SVO","to":"NRT"}]
@@ -137,10 +142,14 @@ final class BookingScanService {
         """
 
         guard let raw = await GeminiService.shared.rawRequest(prompt: prompt) else {
+            print("[BookingScan] ❌ Gemini unavailable")
             throw ScanError.aiUnavailable
         }
 
-        return parseJSON(raw)
+        print("[BookingScan] 📥 AI response: \(raw.count) chars")
+        let flights = parseJSON(raw)
+        print("[BookingScan] ✅ Extracted \(flights.count) flights: \(flights.map(\.number).joined(separator: ", "))")
+        return flights
     }
 
     // MARK: - JSON Parsing

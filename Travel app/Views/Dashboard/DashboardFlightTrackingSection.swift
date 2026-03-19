@@ -2,19 +2,78 @@ import SwiftUI
 
 struct DashboardFlightTrackingSection: View {
     let trip: Trip
+    var flights: [TripFlight]?
+
+    private var displayFlights: [TripFlight] {
+        flights ?? trip.flights
+    }
+
+    @State private var currentIndex: Int = 0
+    @State private var dragOffset: CGFloat = 0
 
     var body: some View {
-        if trip.flights.count == 1 {
-            DashboardFlightCard(trip: trip, flight: trip.flights[0])
-        } else {
-            TabView {
-                ForEach(trip.flights) { flight in
-                    DashboardFlightCard(trip: trip, flight: flight)
+        if displayFlights.count == 1 {
+            DashboardFlightCard(trip: trip, flight: displayFlights[0])
+        } else if displayFlights.count > 1 {
+            VStack(spacing: 10) {
+                ZStack {
+                    ForEach(Array(displayFlights.enumerated().reversed()), id: \.element.id) { index, flight in
+                        let relativeIndex = index - currentIndex
+                        if relativeIndex >= 0 && relativeIndex <= 2 {
+                            DashboardFlightCard(trip: trip, flight: flight)
+                                .scaleEffect(cardScale(for: relativeIndex))
+                                .offset(y: cardOffset(for: relativeIndex))
+                                .offset(x: relativeIndex == 0 ? dragOffset : 0)
+                                .opacity(cardOpacity(for: relativeIndex))
+                                .rotationEffect(.degrees(relativeIndex == 0 ? Double(dragOffset) / 20 : 0))
+                                .zIndex(Double(displayFlights.count - relativeIndex))
+                                .allowsHitTesting(relativeIndex == 0)
+                        }
+                    }
+                }
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            dragOffset = value.translation.width
+                        }
+                        .onEnded { value in
+                            let threshold: CGFloat = 80
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                                if value.translation.width < -threshold, currentIndex < displayFlights.count - 1 {
+                                    currentIndex += 1
+                                } else if value.translation.width > threshold, currentIndex > 0 {
+                                    currentIndex -= 1
+                                }
+                                dragOffset = 0
+                            }
+                        }
+                )
+
+                // Page dots
+                HStack(spacing: 6) {
+                    ForEach(0..<displayFlights.count, id: \.self) { index in
+                        Circle()
+                            .fill(index == currentIndex ? AppTheme.oceanBlue : AppTheme.oceanBlue.opacity(0.25))
+                            .frame(width: index == currentIndex ? 8 : 6, height: index == currentIndex ? 8 : 6)
+                            .animation(.easeInOut(duration: 0.2), value: currentIndex)
+                    }
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 260)
         }
+    }
+
+    // MARK: - Card Stack Transforms
+
+    private func cardScale(for relativeIndex: Int) -> CGFloat {
+        1.0 - CGFloat(relativeIndex) * 0.05
+    }
+
+    private func cardOffset(for relativeIndex: Int) -> CGFloat {
+        CGFloat(relativeIndex) * 10
+    }
+
+    private func cardOpacity(for relativeIndex: Int) -> Double {
+        1.0 - Double(relativeIndex) * 0.2
     }
 }
 
@@ -227,6 +286,7 @@ private struct DashboardFlightCard: View {
 
             Spacer().frame(height: 16)
         }
+        .frame(minHeight: 240)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusXL))
         .overlay(

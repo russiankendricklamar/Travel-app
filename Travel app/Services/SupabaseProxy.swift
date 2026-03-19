@@ -18,7 +18,7 @@ enum SupabaseProxy {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(Secrets.supabaseAnonKey, forHTTPHeaderField: "apikey")
-        req.timeoutInterval = 20
+        req.timeoutInterval = service == "gemini" ? 60 : 30
 
         let body: [String: Any] = [
             "service": service,
@@ -32,6 +32,8 @@ enum SupabaseProxy {
         guard let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let preview = String(data: data.prefix(500), encoding: .utf8) ?? ""
+            print("[SupabaseProxy] HTTP \(code) for \(service)/\(action): \(preview)")
             throw ProxyError.httpError(code)
         }
 

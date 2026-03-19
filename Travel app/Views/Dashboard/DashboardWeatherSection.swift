@@ -8,11 +8,12 @@ struct DashboardWeatherSection: View {
     private var location: LocationManager { LocationManager.shared }
 
     @State private var appeared = false
-    @State private var cityWeathers: [(String, WeatherInfo)] = []
+    @State private var cityWeathers: [(String, WeatherInfo?)] = []
     @State private var showCitiesPanel = false
     @State private var showWeatherDetail = false
     @State private var selectedCityName: String?
     @State private var fetchedCoordinate: CLLocationCoordinate2D?
+    @State private var selectedCityWeather: WeatherInfo?
 
     private var displayedCityName: String? {
         selectedCityName ?? weatherCityName
@@ -23,13 +24,16 @@ struct DashboardWeatherSection: View {
             header
             Divider().opacity(0.15).padding(.horizontal, AppTheme.spacingM)
 
-            if let error = weather.errorMessage {
-                errorView(error)
-            } else if let current = weather.currentWeather {
-                currentWeatherView(current)
-            } else {
-                loadingView
+            Group {
+                if let error = weather.errorMessage, selectedCityWeather == nil {
+                    errorView(error)
+                } else if let current = selectedCityWeather ?? weather.currentWeather {
+                    currentWeatherView(current)
+                } else {
+                    loadingView
+                }
             }
+            .frame(minHeight: 180)
         }
         .overlay(alignment: .trailing) {
             if showCitiesPanel {
@@ -46,7 +50,7 @@ struct DashboardWeatherSection: View {
         .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 6)
         .contentShape(Rectangle())
         .onTapGesture {
-            if weather.currentWeather != nil, fetchedCoordinate != nil {
+            if (selectedCityWeather ?? weather.currentWeather) != nil, fetchedCoordinate != nil {
                 showWeatherDetail = true
             }
         }
@@ -91,14 +95,19 @@ struct DashboardWeatherSection: View {
                 ProgressView()
                     .scaleEffect(0.7)
             }
-            if cityWeathers.count > 1 {
+            if allTripCities.count > 1 {
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                         showCitiesPanel.toggle()
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text("\(cityWeathers.count)")
+                        let loadedCount = cityWeathers.filter { $0.1 != nil }.count
+                        if let currentTemp = (selectedCityWeather ?? weather.currentWeather)?.temperature {
+                            Text("\(Int(currentTemp))°")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                        }
+                        Text("\(loadedCount)/\(allTripCities.count)")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                         Image(systemName: "building.2.fill")
                             .font(.system(size: 11, weight: .bold))
@@ -111,7 +120,8 @@ struct DashboardWeatherSection: View {
                 }
             }
         }
-        .padding(AppTheme.spacingM)
+        .padding(.horizontal, AppTheme.spacingM)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Current Weather
@@ -144,21 +154,20 @@ struct DashboardWeatherSection: View {
             // Today min/max + UV
             todayForecastRow
 
-            // Details row (humidity, wind)
+            // Details row (humidity, wind, pressure, visibility, AQI, alerts)
             detailsRow(current)
 
-            // 7-day forecast strip
+            // 7-day forecast strip (today + 6 upcoming)
             if let coord = resolvedCoordinate {
-                let upcoming = weather.upcomingForecasts(at: coord)
-                if !upcoming.isEmpty {
+                let today = weather.forecast(for: Date(), at: coord)
+                let upcoming = weather.upcomingForecasts(at: coord, count: 6)
+                let allDays = [today].compactMap { $0 } + upcoming
+                if !allDays.isEmpty {
                     Divider().opacity(0.1)
-                    WeatherForecastStrip(forecasts: upcoming)
+                    WeatherForecastStrip(forecasts: allDays)
                         .padding(.vertical, 4)
                 }
             }
-
-            // Recommendations
-            recommendationsSection
 
         }
         .padding(.horizontal, AppTheme.spacingM)
@@ -221,26 +230,6 @@ struct DashboardWeatherSection: View {
             .clipShape(Capsule())
     }
 
-    // MARK: - Recommendations
-
-    private var recommendationsSection: some View {
-        Group {
-            let today = todayForecast
-            let current = weather.currentWeather
-            let recs = WeatherRecommendation.recommendations(
-                precip: today?.precipitationProbability,
-                uv: today?.uvIndexMax,
-                temp: today?.temperatureMax ?? current?.temperature,
-                code: today?.weatherCode ?? current?.weatherCode,
-                windSpeed: current?.windSpeed
-            )
-            if !recs.isEmpty {
-                Divider().opacity(0.1)
-                WeatherRecommendationsRow(recommendations: recs)
-                    .padding(.vertical, 2)
-            }
-        }
-    }
 
     // MARK: - Cities Side Panel
 
@@ -283,16 +272,20 @@ struct DashboardWeatherSection: View {
             VStack(spacing: AppTheme.spacingS) {
                 ForEach(cityWeathers, id: \.0) { city, info in
                     Button {
-                        selectCity(city)
+                        if info != nil { selectCity(city) }
                     } label: {
-                        CityWeatherCard(cityName: city, weather: info)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: CGFloat(AppTheme.radiusMedium))
-                                    .stroke(
-                                        selectedCityName == city ? AppTheme.oceanBlue : .clear,
-                                        lineWidth: 1.5
-                                    )
-                            )
+                        if let info {
+                            CityWeatherCard(cityName: city, weather: info)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: CGFloat(AppTheme.radiusMedium))
+                                        .stroke(
+                                            selectedCityName == city ? AppTheme.oceanBlue : .clear,
+                                            lineWidth: 1.5
+                                        )
+                                )
+                        } else {
+                            CityWeatherCardLoading(cityName: city)
+                        }
                     }
                     .buttonStyle(.plain)
                 }
@@ -308,9 +301,18 @@ struct DashboardWeatherSection: View {
             showCitiesPanel = false
         }
         Task {
-            if let coord = await weather.resolveCoordinate(forCity: city) {
-                fetchedCoordinate = coord
-                await weather.fetchWeather(for: coord)
+            // Prefer trip coordinates (instant), fall back to geocoding
+            let coord: CLLocationCoordinate2D?
+            if let tripCoord = coordinateFromTrip(forCity: city) {
+                coord = tripCoord
+            } else {
+                coord = await weather.resolveCoordinate(forCity: city)
+            }
+            guard let coord else { return }
+            fetchedCoordinate = coord
+            // Single API call — fetchCurrentWeather also caches daily+hourly
+            if let info = await weather.fetchCurrentWeather(for: coord) {
+                selectedCityWeather = info
             }
         }
     }
@@ -318,12 +320,56 @@ struct DashboardWeatherSection: View {
     // MARK: - Details Row
 
     private func detailsRow(_ current: WeatherInfo) -> some View {
-        HStack(spacing: 0) {
-            if let humidity = current.humidity {
-                detailItem(icon: "humidity.fill", value: "\(humidity)%")
+        VStack(spacing: 6) {
+            HStack(spacing: 0) {
+                if let humidity = current.humidity {
+                    detailItem(icon: "humidity.fill", value: "\(humidity)%")
+                }
+                if let wind = current.windSpeed {
+                    detailItem(icon: "wind", value: "\(Int(wind)) м/с")
+                }
+                if let pressure = current.pressureMb {
+                    detailItem(icon: "gauge.medium", value: "\(Int(pressure)) мб")
+                }
+                if let vis = current.visibilityKm {
+                    detailItem(icon: "eye.fill", value: "\(Int(vis)) км")
+                }
             }
-            if let wind = current.windSpeed {
-                detailItem(icon: "wind", value: "\(Int(wind)) м/с")
+
+            // AQI pill + alerts badge
+            HStack(spacing: 8) {
+                if let coord = fetchedCoordinate, let aqi = weather.airQuality(at: coord) {
+                    HStack(spacing: 4) {
+                        Image(systemName: aqi.sfSymbol)
+                            .font(.system(size: 10, weight: .bold))
+                        Text("AQI \(aqi.epaIndex) — \(aqi.levelLocalized)")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(aqi.color)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(aqi.color.opacity(0.12))
+                    .clipShape(Capsule())
+                }
+
+                if let coord = fetchedCoordinate {
+                    let alerts = weather.weatherAlerts(at: coord)
+                    if !alerts.isEmpty {
+                        HStack(spacing: 3) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 9, weight: .bold))
+                            Text("\(alerts.count)")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(alerts.first?.severityColor ?? .orange)
+                        .clipShape(Capsule())
+                    }
+                }
+
+                Spacer()
             }
         }
     }
@@ -376,15 +422,33 @@ struct DashboardWeatherSection: View {
     }
 
     // MARK: - Resolved Coordinate (for forecast strip)
-
+    // Always use fetchedCoordinate — it matches the key under which daily data is cached
     private var resolvedCoordinate: CLLocationCoordinate2D? {
-        if trip.isActive, let current = location.currentLocation {
-            return current
-        }
-        return fetchedCoordinate
+        fetchedCoordinate
     }
 
     // MARK: - Load Weather
+
+    private var allTripCities: [String] {
+        // Preserve trip order (first appearance), not alphabetical
+        var seen = Set<String>()
+        return trip.sortedDays.compactMap { day in
+            let city = day.cityName
+            guard !city.isEmpty, !seen.contains(city) else { return nil }
+            seen.insert(city)
+            return city
+        }
+    }
+
+    /// Get coordinate for a city from trip places (no geocoding needed)
+    private func coordinateFromTrip(forCity city: String) -> CLLocationCoordinate2D? {
+        for day in trip.sortedDays where day.cityName == city {
+            if let place = day.places.first {
+                return place.coordinate
+            }
+        }
+        return nil
+    }
 
     private var weatherCityName: String? {
         if let activeDay = trip.activeDay {
@@ -394,39 +458,76 @@ struct DashboardWeatherSection: View {
     }
 
     private func loadWeather() async {
+        let cities = allTripCities
+        print("[Weather] loadWeather START cities=\(cities)")
+
+        // Immediately show all cities with nil weather (loading state)
+        if cities.count > 1 {
+            cityWeathers = cities.map { ($0, nil) }
+        }
+
+        // Load weather for the primary city first (shown in main card)
         let coordinate: CLLocationCoordinate2D
+        let source: String
 
         if trip.isActive, let current = location.currentLocation {
             coordinate = current
+            source = "GPS"
+        } else if let city = weatherCityName,
+                  let coord = coordinateFromTrip(forCity: city) {
+            coordinate = coord
+            source = "tripPlace(\(city))"
         } else if let city = weatherCityName,
                   let resolved = await weather.resolveCoordinate(forCity: city) {
             coordinate = resolved
+            source = "geocode(\(city))"
         } else if let firstPlace = trip.sortedDays.first?.places.first {
             coordinate = firstPlace.coordinate
+            source = "firstPlace"
         } else {
+            print("[Weather] loadWeather ABORT — no coordinate found")
             return
         }
 
+        print("[Weather] primary city via \(source) lat=\(coordinate.latitude) lon=\(coordinate.longitude)")
         fetchedCoordinate = coordinate
         await weather.fetchWeather(for: coordinate)
 
-        // Multi-city: fetch weather for each unique city
-        let uniqueCities = Array(Set(trip.sortedDays.map(\.cityName))).sorted()
-        if uniqueCities.count > 1 {
-            var results: [(String, WeatherInfo)] = []
-            for city in uniqueCities {
-                if let cityCoord = await weather.resolveCoordinate(forCity: city) {
-                    await weather.fetchDailyForecast(for: cityCoord)
-                    if let info = weather.forecast(for: Date(), at: cityCoord) {
-                        results.append((city, info))
-                    } else if let current = weather.currentWeather,
-                              city == weatherCityName {
-                        // Fallback: use current weather for the main city
-                        results.append((city, current))
+        // Load weather for all cities in parallel
+        if cities.count > 1 {
+            let results = await withTaskGroup(of: (String, WeatherInfo?).self, returning: [(String, WeatherInfo?)].self) { group in
+                for city in cities {
+                    group.addTask {
+                        let cityCoord: CLLocationCoordinate2D?
+                        if let tripCoord = await self.coordinateFromTrip(forCity: city) {
+                            cityCoord = tripCoord
+                        } else {
+                            cityCoord = await self.weather.resolveCoordinate(forCity: city)
+                        }
+                        guard let coord = cityCoord else {
+                            print("[Weather] city '\(city)' SKIP — no coordinate")
+                            return (city, nil)
+                        }
+                        let info = await self.weather.fetchCurrentWeather(for: coord)
+                        print("[Weather] city '\(city)' \(info != nil ? "OK temp=\(Int(info!.temperature))°" : "FAILED")")
+                        return (city, info)
                     }
                 }
+                var collected: [(String, WeatherInfo?)] = []
+                for await result in group {
+                    collected.append(result)
+                }
+                return collected
             }
-            cityWeathers = results
+            // Preserve original city order
+            for city in cities {
+                if let result = results.first(where: { $0.0 == city }),
+                   let idx = cityWeathers.firstIndex(where: { $0.0 == city }) {
+                    cityWeathers[idx] = result
+                }
+            }
         }
+        let loaded = cityWeathers.filter { $0.1 != nil }.count
+        print("[Weather] loadWeather DONE \(loaded)/\(cities.count) cities loaded")
     }
 }

@@ -467,7 +467,7 @@ struct TravelStatsView: View {
     }
 
     private var trainKm: Double {
-        transportKm(for: .train)
+        transportKm(for: .train) + transportKm(for: .shinkansen)
     }
 
     private var busKm: Double {

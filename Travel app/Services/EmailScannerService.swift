@@ -60,20 +60,27 @@ final class EmailScannerService {
     // MARK: - Full Flow
 
     func scan(provider: Provider) async {
+        print("[EmailScanner] 📧 Starting scan with \(provider.label)...")
         state = .authorizing
         do {
+            print("[EmailScanner] 🔐 Authorizing...")
             let authCode = try await authorize(provider: provider)
+            print("[EmailScanner] 🔐 Auth code received, exchanging token...")
             let accessToken = try await exchangeToken(provider: provider, code: authCode)
+            print("[EmailScanner] ✅ Token received, searching emails...")
             state = .searching
             foundEmails = try await fetchEmails(provider: provider, token: accessToken)
+            print("[EmailScanner] 📬 Found \(foundEmails.count) booking emails")
             if foundEmails.isEmpty {
                 state = .error("Письма с бронированиями не найдены")
                 return
             }
             state = .selectEmails
         } catch is CancellationError {
+            print("[EmailScanner] ⏹ Cancelled by user")
             state = .idle
         } catch {
+            print("[EmailScanner] ❌ Error: \(error.localizedDescription)")
             state = .error(error.localizedDescription)
         }
     }
@@ -81,11 +88,17 @@ final class EmailScannerService {
     func parseSelectedEmails() async {
         let selected = foundEmails.filter(\.isSelected)
         guard !selected.isEmpty else { return }
+        print("[EmailScanner] 🤖 Parsing \(selected.count) selected emails with AI...")
         state = .parsing
         do {
             scannedBookings = try await parseEmails(selected)
+            print("[EmailScanner] ✅ Extracted \(scannedBookings.count) bookings")
+            for b in scannedBookings {
+                print("[EmailScanner]   📋 \(b.type.rawValue): \(b.title) \(b.subtitle ?? "")")
+            }
             state = scannedBookings.isEmpty ? .error("Не удалось распознать бронирования") : .results
         } catch {
+            print("[EmailScanner] ❌ Parse error: \(error.localizedDescription)")
             state = .error(error.localizedDescription)
         }
     }

@@ -73,8 +73,10 @@ final class PlaceInfoService {
         city: String? = nil,
         tripID: UUID? = nil
     ) async -> PlaceInfo? {
+        print("[PlaceInfoService] 🔍 Fetching info for '\(placeName)' (category: \(category), city: \(city ?? "nil"))")
         let cacheKey = "\(provider.rawValue):\(category):\(placeName.lowercased())"
         if let cached = cache[cacheKey] {
+            print("[PlaceInfoService] ✅ Cache hit: \(cached.sections.count) sections")
             return cached
         }
 
@@ -92,9 +94,13 @@ final class PlaceInfoService {
         let placeCategory = PlaceCategory(rawValue: category)
 
         // Step 1: Try Wikipedia context
+        print("[PlaceInfoService] 📚 Fetching Wikipedia context...")
         var wikiContext = ""
         if let wiki = await WikipediaService.fetchExtract(for: placeName) {
             wikiContext = "\n\nКонтекст из Wikipedia:\n\(wiki.text.prefix(2500))"
+            print("[PlaceInfoService] 📚 Wikipedia found: \(wiki.text.count) chars")
+        } else {
+            print("[PlaceInfoService] 📚 No Wikipedia article found")
         }
 
         let prompt = buildPrompt(
@@ -111,14 +117,18 @@ final class PlaceInfoService {
             return info
         }
 
+        print("[PlaceInfoService] 📤 Sending prompt to Gemini (\(prompt.count) chars)...")
         let rawContent = await GeminiService.shared.rawRequest(prompt: prompt)
 
         guard let content = rawContent else {
             lastError = GeminiService.shared.lastError ?? "Не удалось получить информацию"
+            print("[PlaceInfoService] ❌ Gemini error: \(lastError ?? "")")
             return nil
         }
 
+        print("[PlaceInfoService] 📥 AI response: \(content.count) chars")
         let info = parseResponse(content, category: placeCategory, source: wikiContext.isEmpty ? provider.label : "Wikipedia + \(provider.label)")
+        print("[PlaceInfoService] ✅ Parsed \(info.sections.count) sections: \(info.sections.map(\.title).joined(separator: ", "))")
         cache[cacheKey] = info
         AICacheManager.shared.set(key: aiCacheKey, response: content, tripID: tripID)
         return info

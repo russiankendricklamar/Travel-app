@@ -13,12 +13,18 @@ struct Travel_appApp: App {
 
     private let authManager = AuthManager.shared
     private let supabase = SupabaseManager.shared
+    private let sharedModelContainer: ModelContainer
 
     init() {
         Secrets.migrateFromAppStorage()
         OfflineCacheManager.shared.startMonitoring()
         // Force-init Supabase client eagerly
         _ = supabase.client
+
+        // Create shared model container and pass to SyncManager
+        let container = try! ModelContainer(for: Trip.self, TripPhoto.self, JournalEntry.self, BucketListItem.self, PackingItem.self, OfflineMapCache.self)
+        self.sharedModelContainer = container
+        SyncManager.shared.modelContainer = container
         // Corporate mode disabled
         // if AppMode.current == .corporate {
         //     let current = ColorPalette.current
@@ -58,10 +64,14 @@ struct Travel_appApp: App {
                     if authManager.isSignedIn {
                         await SyncManager.shared.syncIfNeeded()
                     }
-                    await CurrencyService.shared.fetchRates()
+                    CurrencyService.shared.startAutoRefresh()
+
+                    // Resume GPS tracking if it was active before app was killed
+                    let context = sharedModelContainer.mainContext
+                    LocationManager.shared.resumeTrackingIfNeeded(context: context)
                 }
         }
-        .modelContainer(for: [Trip.self, TripPhoto.self, JournalEntry.self, BucketListItem.self, PackingItem.self, OfflineMapCache.self])
+        .modelContainer(sharedModelContainer)
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if oldPhase == .background && newPhase == .active {
                 authManager.lockIfNeeded()
@@ -70,6 +80,10 @@ struct Travel_appApp: App {
                 Task {
                     await SyncManager.shared.syncIfNeeded()
                 }
+                CurrencyService.shared.handleScenePhase(active: true)
+            }
+            if newPhase == .background {
+                CurrencyService.shared.handleScenePhase(active: false)
             }
         }
     }

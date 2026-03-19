@@ -47,6 +47,7 @@ final class CountryInfoService {
             cache[key] = info
             return info
         } catch {
+            print("[CountryInfoService] Error for '\(country)': \(error)")
             return nil
         }
     }

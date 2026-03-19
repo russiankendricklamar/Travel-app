@@ -13,7 +13,7 @@ struct SideMenuView: View {
     @State private var offlineProgress: Double = 0
     @State private var showEditCountries = false
     @State private var showProfileDetail = false
-    @State private var showSecureVault = false
+    @State private var showFlights = false
     @AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue
     // @AppStorage("appMode") private var appMode: String = AppMode.personal.rawValue
     @Environment(\.modelContext) private var modelContext
@@ -58,12 +58,12 @@ struct SideMenuView: View {
                                 showPackingList = true
                             }
 
-                            menuButton(icon: "ticket.fill", title: "Билеты") {
-                                showTickets = true
+                            menuButton(icon: "airplane", title: "Рейсы") {
+                                showFlights = true
                             }
 
-                            menuButton(icon: "lock.shield.fill", title: "Документы") {
-                                showSecureVault = true
+                            menuButton(icon: "ticket.fill", title: "Билеты") {
+                                showTickets = true
                             }
 
                             menuButton(icon: "sparkles", title: "ИИ Рекомендации") {
@@ -129,11 +129,13 @@ struct SideMenuView: View {
                 TicketsListView(trip: trip)
             }
         }
+        .sheet(isPresented: $showFlights) {
+            NavigationStack {
+                FlightsListView(trip: trip)
+            }
+        }
         .sheet(isPresented: $showEditCountries) {
             EditCountriesSheet(trip: trip)
-        }
-        .sheet(isPresented: $showSecureVault) {
-            SecureVaultView()
         }
         .sheet(isPresented: $showProfileDetail) {
             ProfileDetailView()
@@ -430,6 +432,9 @@ struct SideMenuView: View {
                 .padding(.horizontal, AppTheme.spacingL)
             }
 
+            // Currency rates
+            currencyRatesCard
+
             // Status indicators row
             HStack(spacing: 12) {
                 // Online/Offline
@@ -458,6 +463,55 @@ struct SideMenuView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.bottom, AppTheme.spacingM)
+        }
+    }
+
+    private var currencyRatesCard: some View {
+        let svc = CurrencyService.shared
+        let base = svc.baseCurrency
+        let codes = CurrencyService.supportedCurrencies.filter { $0 != base }
+        let symbol = CurrencyService.baseCurrencySymbol
+
+        return VStack(spacing: 4) {
+            HStack(spacing: 0) {
+                ForEach(codes, id: \.self) { code in
+                    let rate = svc.basePerUnit(of: code)
+                    VStack(spacing: 1) {
+                        Text(code)
+                            .font(.system(size: 8, weight: .bold))
+                            .tracking(0.5)
+                            .foregroundStyle(.tertiary)
+                        Text(rate > 0 ? "\(symbol)\(Self.formatRate(rate))" : "—")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+
+            HStack(spacing: 4) {
+                if svc.isLoading {
+                    ProgressView().scaleEffect(0.4)
+                }
+                if let updated = svc.lastUpdated {
+                    Text("НКЦ · \(updated, style: .relative)")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.quaternary)
+                }
+            }
+        }
+        .padding(.horizontal, AppTheme.spacingM)
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+        .padding(.horizontal, AppTheme.spacingM)
+    }
+
+    private static func formatRate(_ value: Double) -> String {
+        if value < 1 {
+            return String(format: "%.3f", value)
+        } else {
+            return String(format: "%.2f", value)
         }
     }
 

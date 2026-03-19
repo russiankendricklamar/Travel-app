@@ -1,4 +1,5 @@
 import Foundation
+import MapKit
 
 struct PlaceRecommendation: Identifiable, Codable {
     let id: UUID
@@ -118,6 +119,54 @@ struct PlaceRecommendation: Identifiable, Codable {
         default:
             return "mappin"
         }
+    }
+
+    /// Convert MKMapItem to PlaceRecommendation for DayPickerSheet
+    static func from(mapItem item: MKMapItem) -> PlaceRecommendation {
+        let coord = item.placemark.coordinate
+        let addr = [item.placemark.thoroughfare, item.placemark.subThoroughfare, item.placemark.locality]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+
+        let category: String
+        if let cats = item.pointOfInterestCategory {
+            switch cats {
+            case .restaurant, .cafe, .bakery, .brewery, .foodMarket:
+                category = "еда"
+            case .museum:
+                category = "музей"
+            case .park, .nationalPark:
+                category = "парк"
+            case .store:
+                category = "шопинг"
+            case .hotel:
+                category = "жильё"
+            case .airport:
+                category = "аэропорт"
+            case .publicTransport:
+                category = "транспорт"
+            case .beach:
+                category = "природа"
+            case .theater:
+                category = "культура"
+            case .stadium:
+                category = "стадион"
+            default:
+                category = "достопримечательность"
+            }
+        } else {
+            category = "достопримечательность"
+        }
+
+        return PlaceRecommendation(
+            name: item.name ?? "Без названия",
+            description: "",
+            category: category,
+            estimatedTime: "1ч",
+            address: addr,
+            latitude: coord.latitude,
+            longitude: coord.longitude
+        )
     }
 
     var placeCategory: PlaceCategory {

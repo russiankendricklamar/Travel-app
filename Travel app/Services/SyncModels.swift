@@ -161,6 +161,9 @@ struct ExpenseDTO: Codable {
     let category: String
     let date: String?
     let notes: String
+    let originalAmount: Double?
+    let originalCurrency: String?
+    let exchangeRate: Double?
     let updatedAt: String
     let isDeleted: Bool
 
@@ -169,6 +172,9 @@ struct ExpenseDTO: Codable {
         case userId = "user_id"
         case tripId = "trip_id"
         case title, amount, category, date, notes
+        case originalAmount = "original_amount"
+        case originalCurrency = "original_currency"
+        case exchangeRate = "exchange_rate"
         case updatedAt = "updated_at"
         case isDeleted = "is_deleted"
     }

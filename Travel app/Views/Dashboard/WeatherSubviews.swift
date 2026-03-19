@@ -114,6 +114,36 @@ struct CityWeatherCard: View {
     }
 }
 
+struct CityWeatherCardLoading: View {
+    let cityName: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(cityName)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+
+            HStack(spacing: 6) {
+                ProgressView()
+                    .scaleEffect(0.6)
+                    .frame(width: 18, height: 18)
+                Text("Загрузка...")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: CGFloat(AppTheme.radiusMedium)))
+        .overlay(
+            RoundedRectangle(cornerRadius: CGFloat(AppTheme.radiusMedium))
+                .stroke(AppTheme.oceanBlue.opacity(0.1), lineWidth: 0.5)
+        )
+    }
+}
+
 // MARK: - Hourly Forecast Strip (for DayWeatherSection)
 
 struct HourlyForecastStrip: View {

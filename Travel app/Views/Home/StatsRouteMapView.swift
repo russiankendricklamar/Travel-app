@@ -66,7 +66,7 @@ struct StatsRouteMapView: View {
     // MARK: - Async Route Loading
 
     private func loadTransportRoutes() async {
-        let trainEndpoints = transportEndpoints(for: .train)
+        let trainEndpoints = transportEndpoints(for: .train) + transportEndpoints(for: .shinkansen)
         let busEndpoints = transportEndpoints(for: .bus)
 
         async let trains = resolveRoutes(trainEndpoints)
