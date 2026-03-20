@@ -301,7 +301,7 @@ struct TripMapView: View {
         case .routeInfo:
             MapRouteContent(vm: vm)
         case .navigation:
-            MapRouteContent(vm: vm)
+            NavigationSheetContent(vm: vm)
         }
     }
 

@@ -44,6 +44,29 @@ struct MapRouteContent: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                 }
+
+                // Start navigation button
+                Button {
+                    Task { await vm.startNavigation() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("НАЧАТЬ НАВИГАЦИЮ")
+                            .font(.system(size: 15, weight: .semibold))
+                            .tracking(1)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppTheme.radiusMedium, style: .continuous)
+                            .fill(AppTheme.sakuraPink)
+                    )
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .disabled(vm.navigationSteps.isEmpty && vm.isCalculatingRoute)
             }
             .padding(.bottom, 20)
         }
