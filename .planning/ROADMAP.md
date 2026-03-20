@@ -60,10 +60,11 @@ Plans:
   1. When a route is requested, 2-3 alternative routes are displayed as selectable cards with ETA and distance
   2. User can switch between transport modes (walk, drive, transit, bicycle) and see ETA for all modes simultaneously
   3. Selecting an alternative route updates the map polyline and step list immediately
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — Edge Function + RoutingService multi-route return + MapViewModel state extension
+- [ ] 03-02-PLAN.md — RouteAlternativeCard component + carousel wiring in MapRouteContent + visual verification
 
 ### Phase 4: Offline Routes
 **Goal**: User can navigate pre-cached routes without internet connection
@@ -88,5 +89,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Navigation Engine | 3/3 | Complete   | 2026-03-20 |
 | 2. Navigation UI | 1/2 | In Progress|  |
-| 3. Route Selection | 0/? | Not started | - |
+| 3. Route Selection | 0/2 | Not started | - |
 | 4. Offline Routes | 0/? | Not started | - |
