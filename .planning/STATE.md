@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-03-20T06:01:40.929Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-03-20T06:09:57.252Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -48,6 +48,7 @@ Plan: 1 of 3
 *Updated after each plan completion*
 | Phase 01 P02 | 3 | 1 tasks | 1 files |
 | Phase 01 P01 | 8 | 2 tasks | 3 files |
+| Phase 01 P03 | 15 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,8 @@ Recent decisions affecting current work:
 - [Phase 01]: 0.5s asyncAfter in AVSpeechSynthesizerDelegate didFinish to prevent error 560030580 on synchronous audio session deactivation
 - [Phase 01]: NavigationStep uses isTransit bool to distinguish MKDirections steps (false) from Google transit steps (true) for future NavigationEngine routing logic
 - [Phase 01]: cycling maps to MKDirections .walking since MKDirections has no cycling type — acceptable approximation for step-by-step instructions
+- [Phase 01]: [weak self] in onLocationUpdate captures self?.navigationEngine (stored property), not local variable that goes out of scope
+- [Phase 01]: startNavigation() is async to await step fetch inline — prevents silent no-op race condition
 
 ### Pending Todos
 
@@ -74,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T06:01:23.943Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-03-20T06:09:46.312Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None

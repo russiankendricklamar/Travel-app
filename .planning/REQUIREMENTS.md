@@ -14,10 +14,10 @@
 
 ### Навигация
 
-- [ ] **NAV-01**: Активный режим навигации с auto-pan карты и heading lock
+- [x] **NAV-01**: Активный режим навигации с auto-pan карты и heading lock
 - [x] **NAV-02**: Голосовые подсказки через AVSpeechSynthesizer (язык устройства, включая русский)
-- [ ] **NAV-03**: Детекция отклонения от маршрута (>30м) с автоматическим перестроением
-- [ ] **NAV-04**: Дебаунс перестроения маршрута (минимум 8с между запросами)
+- [x] **NAV-03**: Детекция отклонения от маршрута (>30м) с автоматическим перестроением
+- [x] **NAV-04**: Дебаунс перестроения маршрута (минимум 8с между запросами)
 - [x] **NAV-05**: Корректная работа GPS в фоне (allowsBackgroundLocationUpdates + UIBackgroundModes plist)
 - [ ] **NAV-06**: Кнопка "Начать навигацию" в UI маршрута
 
@@ -70,10 +70,10 @@
 | ROUTE-02 | Phase 3 | Pending |
 | ROUTE-03 | Phase 3 | Pending |
 | ROUTE-04 | Phase 1 | Complete |
-| NAV-01 | Phase 1 | Pending |
+| NAV-01 | Phase 1 | Complete |
 | NAV-02 | Phase 1 | Complete |
-| NAV-03 | Phase 1 | Pending |
-| NAV-04 | Phase 1 | Pending |
+| NAV-03 | Phase 1 | Complete |
+| NAV-04 | Phase 1 | Complete |
 | NAV-05 | Phase 1 | Complete |
 | NAV-06 | Phase 2 | Pending |
 | UI-01 | Phase 2 | Pending |
