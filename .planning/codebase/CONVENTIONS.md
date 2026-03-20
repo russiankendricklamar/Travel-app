@@ -1,286 +1,278 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-02-28
+**Analysis Date:** 2026-03-20
 
 ## Naming Patterns
 
 **Files:**
-- PascalCase for all Swift files: `DashboardView.swift`, `TripStore.swift`, `TripModels.swift`
-- Feature-based grouping: Views organized by feature (`Dashboard/`, `Expenses/`, `Itinerary/`, `Journal/`, `Map/`)
-- Component files grouped in `Components/` directory: `StatCard.swift`, `DarkTextFieldStyle`
+- View files: PascalCase ending in `View` (e.g., `DashboardView.swift`, `TripsListView.swift`)
+- Service files: PascalCase ending in `Service` (e.g., `CurrencyService.swift`, `AuthManager.swift`)
+- Manager files: PascalCase ending in `Manager` (e.g., `AuthManager.swift`, `OfflineCacheManager.swift`)
+- Model files: Grouped logically (e.g., `TripModels.swift` contains Trip, TripDay, TripEvent, Place, Expense)
+- Test files: `[TargetName]Tests.swift` (e.g., `KeychainHelperTests.swift`, `CurrencyServiceTests.swift`)
+- Helper/Component files: PascalCase (e.g., `KeychainHelper.swift`, `GlassComponents.swift`)
 
-**Functions:**
-- camelCase for all functions and methods: `formatYen()`, `togglePlaceVisited()`, `saveExpense()`
-- Private helper functions with underscore prefix avoided; use `private` keyword: `private func animateIn()`
-- Verb-first naming for action functions: `togglePlaceVisited()`, `addExpense()`, `deleteExpense()`, `ratePlace()`
+**Functions and Methods:**
+- camelCase with descriptive verbs (e.g., `fetchRates()`, `convertWithRate()`, `handleScenePhase()`)
+- Boolean returns/properties use `is`, `has`, `can` prefix (e.g., `isActive`, `hasProfile`, `canEvaluatePolicy()`)
+- Private utility functions prefixed with underscore or marked `private` (e.g., `private var fallbackRates`)
+- Computed properties use nouns without prefix (e.g., `totalDays`, `currentDay`, `selectedTrip`)
 
-**Variables & Properties:**
-- camelCase for all variable names: `selectedTab`, `heroScale`, `budgetWidth`, `counterValue`
-- Private state variables prefixed with `private`: `@State private var appeared`, `@State private var showingAddSheet`
-- Computed properties use descriptive names: `totalSpent`, `remainingBudget`, `budgetUsedPercent`, `placesVisitedCount`
-- Environment values use `@Environment(\.dismiss) private var dismiss`
+**Variables and Properties:**
+- camelCase for local variables and properties (e.g., `selectedTripID`, `showSideMenu`, `modelContext`)
+- Boolean properties use `is`, `has`, `can` prefix (e.g., `isSignedIn`, `isBiometricEnabled`, `hasApiKey`)
+- Constants in services use `static let` (e.g., `CurrencyService.supportedCurrencies`, `KeychainHelper.service`)
+- AppStorage keys use camelCase (e.g., `@AppStorage("colorPalette")`, `@AppStorage("appLanguage")`)
 
-**Types & Structs:**
-- PascalCase for all struct and enum names: `Trip`, `TripDay`, `Place`, `Expense`, `JournalEntry`, `TripStore`
-- Enum cases use camelCase: `.amazing`, `.happy`, `.neutral`, `.tired`, `.frustrated`
-- Raw values for enums are in Russian (localized): `"Храм"`, `"Еда"`, `"Жильё"`
-- Optional Int for ratings: `rating: Int?`
-
-**Constants:**
-- PascalCase for theme constants: `AppTheme.toriiRed`, `AppTheme.bambooGreen`
-- Semantic constants defined in `AppTheme`: `primary`, `success`, `warning`, `info`
+**Types:**
+- Enums: PascalCase (e.g., `Tab`, `TripPhase`, `EventCategory`, `PlaceCategory`, `ExpenseCategory`)
+- Structs: PascalCase (e.g., `TripFlight`, `PlaceInfo`, `ScannedBooking`, `BudgetSource`)
+- Classes: PascalCase with semantic suffix (e.g., `AuthManager`, `CurrencyService`, `Trip` @Model)
+- Protocol names: PascalCase, often with `able` suffix (e.g., `Syncable`)
 
 ## Code Style
 
 **Formatting:**
-- No explicit formatter configured (inferred from code patterns)
-- Consistent spacing: 4-space indentation observed
-- Line wrapping: Long lines kept under 100 characters where possible
-- View hierarchy indented for clarity
+- Xcode native formatter (no explicit linting config detected)
+- 4-space indentation (standard Swift)
+- Spacing: consistent 2-4px padding/spacing constants via `AppTheme.spacingM` etc.
 
 **Linting:**
-- No explicit linting tool configured
-- Follows Swift coding style guidelines implicitly
+- No .eslintrc, swiftlint.yml, or similar detected
+- Type safety enforced by Swift compiler
+- No explicit linter configuration
 
-**View Organization:**
-- Each SwiftUI view uses `MARK: -` comments to organize sections
-- Example from `DashboardView.swift`: `// MARK: - Hero`, `// MARK: - Red Banner`, `// MARK: - Stats`, `// MARK: - Budget`
-- Private computed properties grouped after main `body`
-- Helper functions at bottom of file
-
-**View Structure Pattern:**
-```swift
-struct ViewName: View {
-    // MARK: - Dependencies (first)
-    let store: TripStore
-
-    // MARK: - State
-    @State private var state = value
-
-    // MARK: - Computed Properties
-    private var computed: Type {
-        // implementation
-    }
-
-    // MARK: - Body
-    var body: some View {
-        // UI hierarchy
-    }
-
-    // MARK: - Section Name
-    private var sectionName: some View {
-        // implementation
-    }
-
-    private func helperFunction() {
-        // implementation
-    }
-}
-```
+**Mark Comments:**
+- Used for section organization: `// MARK: - Section Name`
+- Examples: `// MARK: - Trip Flight`, `// MARK: - Flights (multi-flight support)`, `// MARK: - Conversion`
+- Nested marks for subsections: `// MARK: - State`, `// MARK: - Init`, `// MARK: - Scene Phase`
 
 ## Import Organization
 
 **Order:**
-1. Foundation (implicit)
-2. SwiftUI (always first explicit import)
-3. Framework imports (MapKit, CoreLocation)
-4. Observation framework for state management
+1. Foundation imports (`import Foundation`, `import CoreLocation`, etc.)
+2. Apple frameworks (`import SwiftUI`, `import SwiftData`, `import UserNotifications`)
+3. Third-party frameworks (`import Supabase`, `import AuthenticationServices`)
+4. Conditional imports (`@testable import Travel_app` in tests only)
 
-**Examples from codebase:**
+**Examples:**
 ```swift
-import SwiftUI          // Always first
-import MapKit           // Domain-specific frameworks
+// Services pattern
+import Foundation
+import SwiftData
+
+// Views pattern
+import SwiftUI
+import MapKit
 import CoreLocation
-import Observation      // State management
+
+// Tests pattern
+import XCTest
+@testable import Travel_app
 ```
 
-**No path aliases used** - relative imports from same module.
+**Path Aliases:**
+- No explicit path aliases detected
+- Relative imports from same module (e.g., Views import Models directly)
+- All code within single module: `Travel_app`
 
 ## Error Handling
 
-**Input Validation:**
-- Form validation before saving: `private var isValid: Bool` computed property in `AddExpenseSheet`
-- Guard statements for optional unwrapping: `guard let dayIndex = days.firstIndex(where: { $0.id == dayId })`
-- Nil-coalescing with defaults: `Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 0`
-
 **Patterns:**
-```swift
-// In AddExpenseSheet.swift - computed validation
-private var isValid: Bool {
-    !title.trimmingCharacters(in: .whitespaces).isEmpty
-        && Double(amountText) != nil
-        && Double(amountText)! > 0
-}
-
-// Guard with early return
-guard let amount = Double(amountText), amount > 0 else { return }
-
-// Optional unwrap in model
-guard totalDays > 0 else { return 0 }
-return Double(currentDay) / Double(totalDays)
-```
-
-**No thrown errors** - app uses optional returns and validation instead.
+- `try?` for optional results: `try? context.save()`, `try? await fetchRates()`
+- `try!` only for deterministic code: `ModelContainer(..., configurations: config)` in preview setup
+- `guard let` with nil coalescing in services: `errorMessage ?? "Неожиданный формат ответа"`
+- Explicit `catch` blocks with error description:
+  ```swift
+  do {
+    let data = try await SupabaseProxy.request(...)
+    // process
+  } catch {
+    lastError = "Ошибка загрузки курсов"
+    if lastFetchDate == nil { rates = fallbackRates }
+  }
+  ```
+- Fallback values for API failures: `fallbackRates` in CurrencyService, `fallbackMatrix`
+- Error types conform to `LocalizedError` protocol with `errorDescription` computed property
+  ```swift
+  enum SomeError: LocalizedError {
+    var errorDescription: String? { "User-friendly message" }
+  }
+  ```
+- Print statements for logging errors (not production logging framework):
+  ```swift
+  print("[ServiceName] Error: \(error)")
+  ```
 
 ## Logging
 
-**Framework:** console prints not used - logging removed from production code
+**Framework:** No dedicated logging framework; uses `print()` for debug output
 
 **Patterns:**
-- No logging statements observed in codebase
-- Silent failures with guard statements returning early
+- Prefixed logs: `print("[ServiceName] Operation: result")`
+- Error logs: `print("[CurrencyService] Fetch error: \(error)")`
+- Operation logs: `print("[GeminiService] 📤 Request: \"\(promptPreview)...\" (\(prompt.count) chars)")`
+- Emoji prefixes for clarity: 📤 (outgoing), ❌ (error), 📜 (info)
+- No console.log statements in production code (hooks catch stray prints)
 
 ## Comments
 
 **When to Comment:**
-- Section separators using `// MARK: -` pattern
-- Comments mark logical view sections and computed properties
-- Minimal inline comments; code is self-documenting
+- Section markers: `// MARK: - [Section Name]`
+- Algorithm explanation: When logic is non-obvious (e.g., timezone handling in Trip)
+- API/Protocol conformance notes: `// MARK: - Syncable` before protocol methods
+- Intentional workarounds: `// Corporate mode disabled` (inline explanation of commented code)
+- Complex computed properties rarely commented (self-documenting names used)
 
-**MARK Format:**
-```swift
-// MARK: - Section Name
-```
-Used consistently throughout for:
-- Model types: `// MARK: - Trip`, `// MARK: - Expense`
-- View sections: `// MARK: - Hero`, `// MARK: - Budget`
-- Reusable components: `// MARK: - Progress Ring`
-
-**Documentation:**
-- No JSDoc/TSDoc (Swift doesn't use this pattern)
-- No detailed function documentation comments observed
+**JSDoc/TSDoc:**
+- Swift documentation comments not consistently used
+- Nil docstrings; code clarity via naming preferred
+- No formal documentation generation detected
 
 ## Function Design
 
 **Size:**
-- Small focused functions: most helpers 5-25 lines
-- View layout helpers broken into small computed properties
-- Example: `bannerStat()` is 12 lines, `formField()` is 7 lines, `animateCounter()` is 18 lines
+- Typical: 10-30 lines for service methods
+- Large: Up to 50 lines for UI layout methods
+- Computed properties: Often 5-15 lines, some reach 50+ (e.g., `flights` computed property in Trip)
+- No strict line limit enforced; readability prioritized
 
 **Parameters:**
-- Closures used for ViewBuilder in form fields: `@ViewBuilder content: () -> Content`
-- Optional closures for callbacks: `var onRate: ((Int) -> Void)?`
-- No parameter validation beyond guard checks
+- Labelled parameters for clarity: `convert(_ amount: Double, from: String, to: String)`
+- Default parameters in init methods: `isVisited: Bool = false`, `rating: Int? = nil`
+- Single unnamed parameter for value operands: `convert(_ amount:...)`, `format(_ amount:...)`
+- @ViewBuilder for closures in components: `GlassFormField` uses `@ViewBuilder let content`
 
 **Return Values:**
-- Some View types returned from computed properties
-- Boolean flags for validation (`isValid`, `isActive`)
-- Arrays and computed aggregates: `expensesByCategory`, `allPlaces`, `placesVisitedCount`
+- Computed properties for derived data: `totalDays`, `currentDay`, `remainingBudget`
+- Optional returns for fallible operations: `PlaceInfo?`, `Double?` for rates
+- Tuple returns for grouped results: `[(category: ExpenseCategory, total: Double)]` for expenses by category
+- Void methods for mutations (rare; immutability patterns preferred)
 
 ## Module Design
 
 **Exports:**
-- All main structures public (no explicit `public` keyword; defaults to internal in app target)
-- Views and ViewModels follow standard SwiftUI patterns
+- All public types in shared modules (Services, Models)
+- View components: public by default (no explicit private until needed)
+- Singleton pattern for services: `static let shared` (e.g., CurrencyService.shared, AuthManager.shared)
+- Observable services: `@Observable` macro on shared instances
 
 **Barrel Files:**
-- No barrel/index files used
-- Each file imports what it needs independently
-- Views import `AppTheme` and `TripStore` explicitly
+- No barrel file pattern observed
+- Models grouped by domain: `TripModels.swift` (Trip + TripDay + TripEvent + Place + Expense + enums)
+- Related components in single file: `GlassComponents.swift` (GlassTextFieldStyle + GlassFormField + GlassSectionHeader)
 
-**Code Organization by Layer:**
-- `Models/` - Data structures and enums (`TripModels.swift`, `SampleData.swift`)
-- `ViewModels/` - State management (`TripStore.swift` with @Observable)
-- `Views/` - SwiftUI components organized by feature
-- `Theme/` - Design system (`AppTheme.swift` with extensions)
-- `Components/` - Reusable UI components (`StatCard.swift`)
+## SwiftUI State Management
 
-## State Management
+**@State Pattern:**
+- Local view state only: `@State private var showSideMenu = false`
+- Used for UI interactions: tab selection, sheet visibility, form values
+- Private access (not exposed to parent)
 
-**Pattern:** `@Observable` macro from Observation framework (iOS 17+)
+**@Binding Pattern:**
+- Sheet/modal presentation parameters: `@Binding var isPresented`
+- Form field bindings: `TextField("...", text: $formValue)`
 
+**@Observable Pattern:**
+- Service singletons: `@Observable final class CurrencyService`, `@Observable final class AuthManager`
+- @MainActor enforced on UI-touching services: `@MainActor @Observable final class GeminiService`
+- Accessed via `let service = ServiceName.shared` in views
+
+**@Query Pattern:**
+- SwiftData queries in views: `@Query var trips: [Trip]`
+- No parameters in simple queries; filtering done via computed properties
+- Environment injection: `@Environment(\.modelContext) private var modelContext`
+
+**@AppStorage Pattern:**
+- User preferences: palette, language, currency, biometric settings
+- Key names: camelCase strings (e.g., "colorPalette", "appLanguage", "preferredCurrency")
+- Initialization with default values: `@AppStorage("colorPalette") private var palette: String = ColorPalette.sakura.rawValue`
+
+## Data Model Patterns
+
+**@Model (SwiftData):**
+- Marked with `@Model final class` for SwiftData persistence
+- UUID primary keys: `@Attribute(.unique) var id: UUID`
+- Relationship declarations: `@Relationship(deleteRule: .cascade, inverse: \RelatedModel.field)`
+- Soft deletes: `var isDeleted: Bool = false` (used for sync, not actual deletion)
+- Timestamp tracking: `var updatedAt: Date = Date()`
+
+**Codable/Syncable:**
+- Models conform to `Syncable` protocol for cloud sync
+- JSON serialization for complex fields: flights stored as `flightsJSON: String`, decoded to `[TripFlight]`
+- Fallback parsing: guard let with nil-coalescing in computed properties
+
+**Enums:**
+- Conform to `Codable` for API serialization
+- Conform to `CaseIterable` for iteration (ExpenseCategory.allCases)
+- Conform to `Identifiable` for SwiftUI lists: `var id: String { rawValue }`
+- String-based rawValue for localized labels: `case flight = "Перелёт"`
+
+## String Localization
+
+**Pattern:**
+- `String(localized: "Russian text")` for all user-facing strings
+- Russian UI language primary
+- Localization keys are inline strings (not separate .strings files detected)
+- Fallback language: English (not fully localized but supported via appLanguage setting)
+
+**Usage:**
 ```swift
-@Observable
-final class TripStore {
-    // Public properties automatically tracked
-    var trip: Trip
-    var days: [TripDay]
-    var expenses: [Expense]
-    var journalEntries: [JournalEntry]
-
-    // Computed properties for derived data
-    var totalSpent: Double { ... }
-
-    // Methods modify state directly
-    func addExpense(_ expense: Expense) {
-        expenses.append(expense)
-    }
-}
+Text(String(localized: "СЕЙЧАС"))
+case .active: return String(localized: "В путешествии")
 ```
 
-**Local State:** `@State` for view-local ephemeral state only
+**Scope:**
+- Button labels, error messages, enum display names
+- Section headers and titles
+- Not used for technical logs or debug strings
 
-**Environment:** `@Environment(\.dismiss)` for system environment values
+## Type Safety & Optionals
 
-## Data Mutation Patterns
+**Optional Handling:**
+- Guard-let extraction for required values: `guard let day = try? context.fetch(descriptor).first`
+- Nil-coalescing for defaults: `placeName ?? "Unknown"`
+- Optional chaining: `day?.resolvedTimeZone`
+- Forced unwrap (!) only in guaranteed-safe contexts: preview setup, unit tests
 
-**Immutable Model Updates:**
-When updating nested models, SwiftUI patterns are observed:
+**Computed Property Guards:**
+- Early return with nil: `guard !timezoneIdentifier.isEmpty else { return nil }`
+- Multiple optional checks: `guard let lat = latitude, let lon = longitude else { return nil }`
 
-```swift
-func togglePlaceVisited(dayId: UUID, placeId: UUID) {
-    guard let dayIndex = days.firstIndex(where: { $0.id == dayId }),
-          let placeIndex = days[dayIndex].places.firstIndex(where: { $0.id == placeId }) else {
-        return
-    }
-    days[dayIndex].places[placeIndex] = {
-        var place = days[dayIndex].places[placeIndex]
-        place.isVisited.toggle()
-        return place
-    }()
-}
+## File Organization
+
+**Typical Service File Structure:**
+```
+1. Imports
+2. @MainActor/@Observable declarations
+3. Class/struct definition with static properties
+4. Stored properties grouped by MARK
+5. Initialization (init, private init)
+6. Public methods grouped by MARK
+7. Private helper methods
 ```
 
-Pattern: Create temporary mutable copy, modify, reassign.
-
-## Formatting Numbers & Dates
-
-**Number Formatting:**
-```swift
-private func formatYen(_ amount: Double) -> String {
-    let formatter = NumberFormatter()
-    formatter.numberStyle = .decimal
-    formatter.groupingSeparator = " "
-    let formatted = formatter.string(from: NSNumber(value: Int(amount))) ?? "0"
-    return "\u{00A5}\(formatted)"
-}
+**Typical View File Structure:**
+```
+1. Imports
+2. struct ViewName: View declarations
+3. @State/@Binding properties
+4. Environment properties
+5. Computed properties (filtered data, derived state)
+6. var body: some View { }
+7. Private subviews as separate structs or @ViewBuilder methods
 ```
 
-**Date Formatting:**
-```swift
-private let dateFormatter: DateFormatter = {
-    let f = DateFormatter()
-    f.locale = Locale(identifier: "ru_RU")
-    f.dateFormat = "EEE, d MMM"
-    return f
-}()
+**Test File Structure:**
 ```
-
-Lazy-initialized formatters to avoid recreation.
-
-## Design System
-
-**Theme System:** Centralized in `AppTheme` enum with computed properties
-
-**Color Palette:**
-- Background: Pure black (`#000000`) for brutalist aesthetic
-- Accents: Japan-themed colors (`toriiRed`, `sakuraPink`, `templeGold`, `bambooGreen`, `oceanBlue`)
-- Text: High contrast whites and grays
-
-**Spacing System:**
-- Defined constants: `spacingXS` (4pt) through `spacingXL` (32pt)
-- Applied consistently: `AppTheme.spacingM` for standard padding
-
-**Brutalist Styling:**
-- Zero border radius: `radiusSmall: CGFloat = 0`
-- Rectangular boxes: No rounded corners
-- Hard borders: `borderWidth: CGFloat = 2`
-
-**View Modifiers:**
-- `.cardStyle()` - Card background with border
-- `.surfaceStyle()` - Surface background with border
-- `.accentCardStyle()` - Accent border variant
+1. Imports (XCTest, @testable)
+2. final class TestNameTests: XCTestCase
+3. Setup properties (testKey, etc.)
+4. tearDown() method
+5. Test methods (func testXxx())
+6. Helper methods (private func makeTrip(), etc.)
+```
 
 ---
 
-*Convention analysis: 2026-02-28*
+*Convention analysis: 2026-03-20*

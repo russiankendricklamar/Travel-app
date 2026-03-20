@@ -1,226 +1,333 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-02-28
+**Analysis Date:** 2026-03-20
 
 ## Tech Debt
 
-**No Data Persistence:**
-- Issue: All data (trips, expenses, journal entries, itinerary) exists only in memory. Data is completely lost when app is closed.
-- Files: `Travel app/ViewModels/TripStore.swift`, `Travel app/Travel_appApp.swift`
-- Impact: App cannot be used for actual trip planning. Data loss is catastrophic for the use case.
-- Fix approach: Implement CoreData or Codable + FileManager for persistence. Store trip data to device and restore on app launch.
+**SwiftData Model Container Initialization:**
+- Issue: Force-unwrapping `try!` in `Travel_appApp.swift:25` with no error recovery
+- Files: `Travel app/Travel_appApp.swift`
+- Impact: App crashes immediately on launch if model container fails to initialize. No migration strategy for schema changes.
+- Fix approach: Replace `try!` with proper error handling and graceful degradation. Implement versioned migrations for schema updates.
 
-**Sample Data Only:**
-- Issue: App initializes with hardcoded sample data from `SampleData.build()`. No way to create new trips or edit the hardcoded trip.
-- Files: `Travel app/Models/SampleData.swift`, `Travel app/ViewModels/TripStore.swift` (lines 64-70)
-- Impact: App is a read-only demo. Users cannot plan their own trips.
-- Fix approach: Remove sample data dependency. Implement trip creation flow with user input for trip details (name, dates, budget, destination).
+**Supabase Secrets in Source Code:**
+- Issue: Anon key hardcoded in `Secrets.swift:6` (public by design but still sensitive)
+- Files: `Travel app/Config/Secrets.swift`
+- Impact: Key is readable in binary/git history. Compromised if key is rotated, must rebuild app.
+- Fix approach: Move to dynamic configuration via `Info.plist` or environment, rotate key immediately.
 
-**Unused ContentView:**
-- Issue: `ContentView.swift` exists but is never used. App starts with `MainTabView` from `Travel_appApp.swift`.
-- Files: `Travel app/ContentView.swift`
-- Impact: Code clutter, confusing entry point.
-- Fix approach: Delete unused file.
+**Print Statements in Production Code:**
+- Issue: 40+ `print()` debug statements throughout services (BookingScanService, SupabaseProxy, PlaceInfoService, etc.)
+- Files: `Travel app/Services/BookingScanService.swift`, `Travel app/Services/SupabaseProxy.swift`, `Travel app/Services/PlaceInfoService.swift`, `Travel app/Services/EmailScannerService.swift`, `Travel app/Services/AIMapSearchService.swift`, `Travel app/Services/AITripGeneratorService.swift`, and 15+ more
+- Impact: Performance overhead, privacy leak (sensitive data logged), confuses debugging, clutters output.
+- Fix approach: Replace with proper logging framework (os.log or similar) with configurable levels. Remove all `print()` statements.
+
+**Unimplemented Apple Sign In:**
+- Issue: TODO comment in `Views/Auth/AuthView.swift:106` - Apple Sign In not implemented
+- Files: `Travel app/Views/Auth/AuthView.swift`
+- Impact: Missing critical iOS auth method. Users expect Apple Sign In as standard.
+- Fix approach: Implement full Apple Sign In flow with Supabase integration.
+
+**Large File Complexity:**
+- Issue: Multiple files exceed 1000 lines (FlightDetailView 1142, SettingsView 1059, ProfileDetailView 1047, TripModels 948, SyncManager 889)
+- Files: `Travel app/Views/Dashboard/FlightDetailView.swift`, `Travel app/Views/Settings/SettingsView.swift`, `Travel app/Views/Profile/ProfileDetailView.swift`, `Travel app/Models/TripModels.swift`, `Travel app/Services/SyncManager.swift`
+- Impact: Difficult to maintain, hard to test, increased cognitive load, prone to bugs
+- Fix approach: Split files into focused, smaller modules (max 400-600 lines each). Extract view components and service helpers.
+
+**AI Cache Manager Missing Eviction on Memory Pressure:**
+- Issue: Cache stores 200+ entries in-memory, only evicts on TTL (7 days)
+- Files: `Travel app/Services/AICacheManager.swift`
+- Impact: Unbounded memory growth if app runs for weeks. No response to memory warnings.
+- Fix approach: Add `didReceiveMemoryWarning` listener, implement aggressive eviction, add active memory monitoring.
 
 ## Known Bugs
 
-**Timer Memory Leak in DashboardView:**
-- Symptoms: Day counter animation creates repeating Timer that may not be properly cleaned up.
-- Files: `Travel app/Views/Dashboard/DashboardView.swift` (lines 61-73, `animateCounter()`)
-- Trigger: Every time DashboardView appears (onAppear)
-- Current behavior: Uses `Timer.scheduledTimer(withTimeInterval:repeats:block:)` without storing reference for cancellation
-- Workaround: None - timer will fire indefinitely even after view dismissal
-- Fix approach: Store Timer as @State variable and invalidate in onDisappear. Use async/await with Task and sleep instead.
+**SyncManager Potential Race Condition:**
+- Symptoms: Sync state shows "syncing" but completes silently; manual refresh doesn't always work
+- Files: `Travel app/Services/SyncManager.swift`, lines 70-117
+- Trigger: Rapid calls to `syncIfNeeded()` before first sync completes; offline→online transition
+- Root Cause: `lastSyncAttempt` updated before actual sync starts; no concurrent sync guard
+- Workaround: Manual sync button visible to user; debounce window is 60s
+- Fix: Add atomic `isSyncing` guard, queue pending syncs, proper error state cleanup
 
-**Force Unwrap in Trip Date Calculations:**
-- Symptoms: App crashes if date components fail
-- Files: `Travel app/Models/SampleData.swift` (lines 15-20), multiple Calendar.date calls with force unwrap `!`
-- Trigger: Could happen if Calendar logic fails (edge case but possible across timezones)
-- Fix approach: Use optional binding or guard statements instead of force unwrapping.
+**LocationManager Missing @MainActor:**
+- Symptoms: Race conditions when updating tracking state from background location callbacks
+- Files: `Travel app/Services/LocationManager.swift`, lines 6-200
+- Root Cause: `@Observable` with mutable state (isTracking, currentLocation) accessed from `CLLocationManagerDelegate` callbacks off main thread
+- Impact: Potential data corruption, Live Activity update failures
+- Fix: Mark class `@MainActor`, wrap all location updates with `@MainActor` context
 
-**Hardcoded City Names in Map View:**
-- Symptoms: Zoom functionality uses hardcoded city names that don't match sample data exactly or may become inconsistent
-- Files: `Travel app/Views/Map/TripMapView.swift` (lines 55-70, zoom buttons for "Токио", "Киото", "Осака")
-- Trigger: If sample data cities change, buttons silently fail to zoom to anything
-- Fix approach: Derive zoom locations from actual day data dynamically instead of hardcoding.
+**EmailScannerService OAuth Token Leakage:**
+- Symptoms: Access token printed to console during OAuth flow
+- Files: `Travel app/Services/EmailScannerService.swift`, lines 63-101
+- Trigger: Every email scan via Gmail/Yandex
+- Impact: Token visible in device logs, potential interception if logs are backed up
+- Fix: Remove all token logging, use opaque identifiers only
 
-**No Input Validation for Expense Amounts:**
-- Symptoms: App accepts expense with amount 0, though UI validation checks for > 0
-- Files: `Travel app/Views/Expenses/AddExpenseSheet.swift` (lines 123-124), `Travel app/ViewModels/TripStore.swift` (line 87)
-- Trigger: If validation is bypassed programmatically
-- Fix approach: Add model-level validation in Expense creation and store.addExpense().
+**CurrencyService Infinite Timer:**
+- Symptoms: Timer reference stored but not invalidated on deinit
+- Files: `Travel app/Services/CurrencyService.swift`, line 145
+- Root Cause: `refreshTimer` property recreated but old timer never invalidated
+- Impact: Memory leak, 15-second timer fires indefinitely in background
+- Fix: Add `deinit`, invalidate timer, ensure single timer instance
+
+**SwiftData Concurrent Access in SyncManager:**
+- Symptoms: "Cannot update model context while marked as deleted" during pulls
+- Files: `Travel app/Services/SyncManager.swift`, lines 437-480
+- Trigger: Sync starts while user is editing models; relationship lookups fail
+- Root Cause: Pull operations fetch all models, then iterate without locking; user edits concurrently
+- Fix: Use FetchDescriptor with proper isolation, batch updates, lock context during pulls
 
 ## Security Considerations
 
-**No Authentication/Authorization:**
-- Risk: App is local-only with no multi-user or cloud sync, so limited exposure. However, if data is synced in future, no auth exists.
-- Files: `Travel app/ViewModels/TripStore.swift`, `Travel app/Travel_appApp.swift`
-- Current mitigation: App is local-only, so no network exposure.
-- Recommendations: Design with user authentication in mind for future cloud features. Don't store sensitive trip data (addresses, coordinates) unencrypted if syncing to cloud.
+**OAuth Redirect URI Validation Missing:**
+- Risk: Malicious apps could intercept OAuth callbacks if redirect URI not properly validated
+- Files: `Travel app/Views/Auth/AuthView.swift`, `Travel app/Services/SupabaseAuthService.swift`
+- Current mitigation: `SupabaseAuthService.oauthCallbackScheme` hardcoded in app
+- Recommendations:
+  1. Validate EXACT redirect URI in Edge Function before token exchange
+  2. Use PKCE (Proof Key for Code Exchange) for additional security
+  3. Store state parameter, validate on callback
+  4. Log all OAuth attempts to Supabase logs
 
-**Hardcoded Locale in Date Formatters:**
-- Risk: Multiple hardcoded Russian locale identifiers assume all users are Russian-speaking.
-- Files: `Travel app/Views/Dashboard/DashboardView.swift` (line 128), `Travel app/Views/Itinerary/ItineraryView.swift` (line 8), `Travel app/Views/Itinerary/DayDetailView.swift` (line 9), `Travel app/Views/Journal/JournalView.swift` (line 13)
-- Current mitigation: None - strings are in Russian throughout UI.
-- Recommendations: Use Locale.current instead of hardcoded "ru_RU". Store trip names and place names in both English and Japanese for global compatibility.
+**Keychain Migration Incomplete:**
+- Risk: Old API keys may still exist in Keychain alongside new system, confusion on which is active
+- Files: `Travel app/Config/Secrets.swift`, lines 36-51
+- Current mitigation: Two migrations (v2, v3) with UserDefaults flags
+- Recommendations:
+  1. Third migration to audit all Keychain entries, remove stale ones
+  2. Add logging of what keys were deleted
+  3. Validate no duplicate keys exist after migration
 
-**No Rate Limiting on Data Modifications:**
-- Risk: Users can spam add/delete operations without throttling.
-- Files: `Travel app/ViewModels/TripStore.swift`, all add/delete methods
-- Current mitigation: None
-- Recommendations: Add debouncing/throttling if data syncs to backend in future. Log all mutations for audit trail.
+**Google API Key in Info.plist:**
+- Risk: Google Places API key may be readable from binary
+- Files: Referenced in `Secrets.swift` via `infoPlistValue()`
+- Current mitigation: Server-side proxy via SupabaseProxy
+- Recommendations:
+  1. Verify Info.plist secrets are code-stripped in release builds
+  2. Consider removing from Info.plist entirely, load from secure backend only
+  3. Document that all API keys should be server-side
+
+**User Data Export Missing:**
+- Risk: No way to export user data (GDPR requirement)
+- Files: None - feature missing
+- Impact: Legal exposure, fails data portability requirement
+- Recommendations:
+  1. Implement "Export My Data" button in Settings
+  2. Generate JSON dump of all user models via Supabase
+  3. Include photos, journal, trips, expenses, all sync-able models
 
 ## Performance Bottlenecks
 
-**Dashboard Counter Animation Unbounded:**
-- Problem: Timer increments counter with `max(1, target / 20)` step, but this can create hundreds of Timer fires for large day numbers.
-- Files: `Travel app/Views/Dashboard/DashboardView.swift` (lines 61-73)
-- Cause: Linear step calculation with fixed interval doesn't scale to large numbers efficiently
-- Improvement path: Use CADisplayLink or SwiftUI's animation instead of Timer. Or implement exponential backoff in step calculation.
+**VisitedCountriesMapView Large Mapping Dictionary:**
+- Problem: Hardcoded 200+ country names in static dictionary; N*M lookup for each country
+- Files: `Travel app/Views/Home/VisitedCountriesMapView.swift`, lines 7-120+
+- Current capacity: ~200 countries, O(1) lookup but large binary
+- Scaling path: Move to lazy-loaded JSON asset; consider trie structure for fuzzy matching
+- Optimization: Cache lookup results, implement country autocomplete
 
-**All Places Flattened in Every Computed Property:**
-- Problem: `TripStore.allPlaces` uses `days.flatMap(\.places)` every time it's accessed. Called multiple times per view render.
-- Files: `Travel app/ViewModels/TripStore.swift` (lines 30-32, 34-35, 38-40)
-- Cause: No caching of computed properties. flatMap is O(n) for places count.
-- Improvement path: Cache allPlaces and invalidate when days change. Or use lazy evaluation.
+**PlaceInfoService Sync AI Requests:**
+- Problem: `fetchPlaceInfo()` makes sequential Wikipedia + Gemini calls
+- Files: `Travel app/Services/PlaceInfoService.swift`, lines 97-125
+- Current capacity: 5-10 places per trip comfortably; N places slow exponentially
+- Scaling path: Parallel requests via `async let`, batch Wikipedia calls, implement request coalescing
+- Optimization: Cache full place info, reuse enriched data across trip
 
-**Map Rendering All Places at Once:**
-- Problem: TripMapView renders Annotation for every place without lazy loading or clustering.
-- Files: `Travel app/Views/Map/TripMapView.swift` (lines 23-32)
-- Cause: No pagination or map clustering for dense areas (Tokio has many places)
-- Improvement path: Use MapKit clustering API or paginate map markers. Pre-filter to current day or visible region.
+**AirLabsService Double Fetch Attempt:**
+- Problem: `fetchFlight()` tries live schedules THEN routes sequentially
+- Files: `Travel app/Services/AirLabsService.swift`, lines 61-72
+- Current capacity: Single flight lookup ok; 20+ flights stalls UI
+- Scaling path: Parallel fetch attempts, implement timeout, fallback queue
+- Optimization: Cache routes globally, pre-fetch known carriers
 
-**DashboardView Layout Complexity:**
-- Problem: Massive view with 391 lines, complex layout with nested ForEach and GeometryReader for every expense category bar.
-- Files: `Travel app/Views/Dashboard/DashboardView.swift`
-- Cause: All UI in single view instead of extracted subviews
-- Improvement path: Extract sections into separate views (HeroSection, BudgetSection, ExpenseRow, etc). Each under 150 lines.
-
-**No Search or Filtering in Lists:**
-- Problem: JournalView and ExpensesView render all entries without search capability. Large lists will scroll slowly.
-- Files: `Travel app/Views/Journal/JournalView.swift`, `Travel app/Views/Expenses/ExpensesView.swift`
-- Cause: No filtering or search state
-- Improvement path: Add @State var searchText and filter sortedEntries by title/category before rendering.
+**DayDetailView Relationship Traversal:**
+- Problem: Each view loads full trip, all days, all places (N+M complexity)
+- Files: `Travel app/Views/Itinerary/DayDetailView.swift`, uses trip.days
+- Current capacity: 10 days × 10 places acceptable; 30+ days causes lag
+- Scaling path: Use @Query with specific predicate for active day only
+- Optimization: Pagination, lazy loading, limit to 50 events per view
 
 ## Fragile Areas
 
-**Place/Day/Expense Mutation Logic:**
-- Files: `Travel app/ViewModels/TripStore.swift` (lines 74-116)
-- Why fragile: Multiple nested index lookups with guard statements that fail silently if IDs don't match. Complex array mutation logic with var reassignment.
-- Safe modification: Always return early with clear error logging. Consider using @Binding or refactor to immutable update patterns.
-- Test coverage: No tests visible. Logic relies on UI never passing invalid IDs.
+**SyncModels DTO Optionality Mismatches:**
+- Files: `Travel app/Services/SyncModels.swift`
+- Why fragile: DTOs have different optionality than models (e.g., `PlaceDTO.rating: String?` but `Place.rating: Int`). Conversions assume values present.
+- Safe modification: Add validation in decoder, use nil coalescing with defaults, document DTO contracts
+- Test coverage: Gaps in sync error paths; missing tests for partial/malformed DTO responses
 
-**Date Calculations in Models:**
-- Files: `Travel app/Models/TripModels.swift` (lines 16-35)
-- Why fragile: Trip.currentDay and Trip.progress rely on Calendar.dateComponents which can fail silently or produce off-by-one errors across timezones/DST.
-- Safe modification: Add unit tests for edge cases (start of trip, end of trip, timezone changes, DST transitions). Document timezone assumptions.
-- Test coverage: None visible. Calculations are only checked manually in dashboard.
+**TripFlight Multi-Encoding Scheme:**
+- Files: `Travel app/Models/TripModels.swift`, lines 83-123
+- Why fragile: Flights stored as both single (flightNumber, flightDate) AND array (flightsJSON). Update logic must keep both in sync.
+- Safe modification: Deprecate single fields, migrate all code to array only, add migration script
+- Test coverage: No tests for edge cases (empty array, null JSON, mixed formats)
 
-**Category and Mood Enums Localization:**
-- Files: `Travel app/Models/TripModels.swift` (PlaceCategory enum, ExpenseCategory enum, Mood enum - all use Russian rawValue)
-- Why fragile: Localization is in enum rawValues, not in a localizable.strings file. If app ever needs English/Japanese, these must be refactored.
-- Safe modification: Move all user-facing strings to Localizable.strings. Keep enum rawValues as identifiers (en_temple, en_shrine).
-- Test coverage: No tests. String changes could break saved data.
+**SwiftData Cascade Deletes:**
+- Files: `Travel app/Models/TripModels.swift` - 10 relationships with `deleteRule: .cascade`
+- Why fragile: Deleting trip cascades to 10+ child models. No validation that cascade target relations are set.
+- Safe modification: Verify all cascade targets are present before delete, add undo capability, log cascades
+- Test coverage: Missing cascade integration tests
 
-**Sample Data Hardcoded Coordinates:**
-- Files: `Travel app/Models/SampleData.swift` (many CLLocationCoordinate2D initializations)
-- Why fragile: Coordinates are hardcoded. If a place closes or location changes, data becomes stale. No way to update without code change.
-- Safe modification: Move to JSON configuration file or API. Consider using CoreLocation to validate coordinates at startup.
-- Test coverage: None. No validation that coordinates are within Japan boundaries.
-
-**NumberFormatter in Multiple Views:**
-- Files: `Travel app/Views/Dashboard/DashboardView.swift` (lines 12-18), `Travel app/Views/Expenses/ExpensesView.swift` (lines 11-21)
-- Why fragile: Yen formatting duplicated in multiple views. If formatting changes, all must be updated.
-- Safe modification: Extract to a shared utility function in AppTheme or a separate Formatters module.
-- Test coverage: No tests. Formatting edge cases (negative amounts, very large amounts) untested.
+**AuthManager Session Persistence:**
+- Files: `Travel app/Services/AuthManager.swift`, `Travel app/Services/SupabaseAuthService.swift`
+- Why fragile: Session restored asynchronously on app launch; views render before auth state known. Race condition possible.
+- Safe modification: Block UI until session check completes, show splash screen, use @State to gate content
+- Test coverage: Missing tests for slow network auth restoration
 
 ## Scaling Limits
 
-**In-Memory Data Structure:**
-- Current capacity: Can hold hundreds of days/places/expenses without issue
-- Limit: If trip has 10,000+ places (not realistic) or app runs for weeks without restart, memory could accumulate
-- Scaling path: Implement pagination in views. Archive old data. Use CoreData with lazy relationships.
+**Supabase Row Level Security (RLS) Performance:**
+- Current capacity: ~1000 queries/second per user acceptable; 10000+ queries hit RLS bottleneck
+- Limit: RLS policies evaluated on EVERY select; complex policies (e.g., checking multiple trips) scale badly
+- Scaling path:
+  1. Move trip ownership check to indexed column
+  2. Implement materialized views for common queries
+  3. Use Supabase read replicas for heavy read traffic
+  4. Cache user's trip list locally, refresh every 5 min
 
-**Map Annotations Without Clustering:**
-- Current capacity: ~30-50 visible annotations before UI lag
-- Limit: 200+ places on map becomes unusable
-- Scaling path: Implement MapKit clustering. Or paginate to show only current day/nearby days.
+**Live Activity Concurrent Limit:**
+- Current capacity: 1 active Live Activity per app
+- Limit: iOS allows max 10 Live Activities system-wide; multiple trips tracking would fail
+- Scaling path:
+  1. For multi-trip: cycle between trips (show 1 at a time)
+  2. Implement scheduled activity transitions
+  3. Consider notification-based updates instead of Live Activity
 
-**Flat Array Searches:**
-- Current capacity: 50+ expenses/entries searches O(n) per filter
-- Limit: 1000+ entries becomes slow to filter/sort
-- Scaling path: Add indices. Use @Query with Core Data instead of manual arrays.
+**Photo Storage 100MB Limit (Free Tier):**
+- Current capacity: ~100 photos at 1MB each, or 500 at 200KB
+- Limit: Supabase free tier `trip-photos` bucket capped at 100GB; photos not compressed
+- Scaling path:
+  1. Implement on-device thumbnail generation (HEIC → JPEG 100KB)
+  2. Upload thumbnails to sync, store full-res locally only
+  3. Implement photo archival (delete from Supabase after 90 days)
+  4. Use Supabase CDN with image transformation API
+
+**JSON Serialization of Flights Array:**
+- Current capacity: 20+ flights per trip ok; 100+ flights causes encoding/decoding lag
+- Limit: Entire flights array re-encoded on any change; no delta updates
+- Scaling path:
+  1. Split flights into separate Supabase table with trip foreign key
+  2. Sync individual flight inserts, not entire array
+  3. Use streaming JSON parser for large arrays
+  4. Paginate flight list UI
 
 ## Dependencies at Risk
 
-**SwiftUI 5+ Requirement:**
-- Risk: App uses @Observable macro which requires iOS 17+. Limited to recent devices.
-- Impact: Cannot deploy to iOS 16 or older devices.
-- Migration plan: If backward compatibility needed, refactor TripStore to use @ObservedObject + @Published instead of @Observable.
+**Supabase Swift SDK Stability:**
+- Risk: SDK is v2.0+ (relatively new), breaking changes in minor versions possible
+- Impact: Auth changes, sync breaks, client-side decoding fails
+- Current version: ~v2.0 (from SPM requirement in memory)
+- Migration plan:
+  1. Pin to specific version (e.g., `.upToNextMajor(from: "2.0.0")`)
+  2. Test each SDK upgrade in CI before merging
+  3. Implement feature flags to gate breaking changes
+  4. Subscribe to release notes
 
-**CoreLocation for MapKit:**
-- Risk: Coordinates are used but no location permission requested. Map view works without user location, but fragile if location features are added.
-- Impact: If adding "current location" feature, will crash without permission request.
-- Migration plan: Add NSLocationWhenInUseUsageDescription to Info.plist and request CLLocationManager permission before accessing location.
+**MapKit Availability Gaps (iOS <18):**
+- Risk: New MapKit features require iOS 18; app targets lower iOS versions
+- Impact: Map item detail, new overlays not available on iPhone 13/14
+- Current workaround: `#available(iOS 18.0, *)` guards in place
+- Migration plan:
+  1. Document minimum iOS version target clearly
+  2. Implement fallback UIs for iOS <18
+  3. Test on iOS 17 device regularly
+  4. Consider bumping minimum to iOS 17 if features stabilize
 
-**MapKit Standard Maps Style Hardcoded:**
-- Risk: Apple may change POI availability (.museum, .nationalPark, .park, .restaurant). Custom map styles may break iOS updates.
-- Impact: Map filtering could fail silently on future iOS versions.
-- Migration plan: Add fallback to .standard style without POI filters. Test on iOS betas.
+**ActivityKit (Live Activities) Stability:**
+- Risk: ActivityKit is new, updates may break Live Activity format
+- Impact: Flight tracking widget crashes if Activity definition changes incompatibly
+- Current status: Used in production for flight/tracking
+- Migration plan:
+  1. Implement ActivityKit error handling, show error toast if update fails
+  2. Version the TrackingActivityAttributes struct
+  3. Monitor Apple Activity Kit release notes
+  4. Have fallback notification strategy if Live Activity fails
+
+**Open-Source Data Dependencies:**
+- Risk: Airport codes, country mappings maintained by community
+- Impact: Outdated data causes incorrect flight/country detection
+- Current dependencies:
+  - Country name mapping in VisitedCountriesMapView (hardcoded 200+ entries)
+  - Airport codes/names in FlightData static dictionaries
+- Migration plan:
+  1. Create automated job to sync country data from ISO 3166 API
+  2. Implement airport database from IATA/ICAO regularly updated
+  3. Cache with version tracking, alert users if cache is stale
+  4. Allow user overrides (e.g., custom country names)
 
 ## Missing Critical Features
 
-**No Trip Export/Backup:**
-- Problem: No way to export trip data (PDF, JSON, CSV). All data in app only.
-- Blocks: Sharing trip itineraries, backup, planning on web.
-- Priority: Medium - blocks sharing use case.
+**Data Backup & Disaster Recovery:**
+- Problem: No manual backup export; user data lives only on Supabase + on-device
+- Blocks: Users cannot migrate to new phone easily; no offline backup
+- Recommendation:
+  1. Implement "Backup to iCloud" feature
+  2. Encrypt and upload all models to iCloud Drive via CloudKit
+  3. Restore from iCloud on fresh install
+  4. Document restore process clearly
 
-**No Offline Map Caching:**
-- Problem: Map requires internet to load tiles. No offline mode.
-- Blocks: Using app in areas with poor connectivity (common in remote Japan areas).
-- Priority: High - breaks core itinerary planning while traveling.
+**Offline Mode Incomplete:**
+- Problem: App mostly works offline, but sync is broken
+- Blocks: Users cannot reliably edit trips without internet
+- Current offline support: Weather caching, map snapshots, local CRUD only
+- Recommendation:
+  1. Queue local edits (Trip, Day, Place, Expense) when offline
+  2. Implement conflict resolution when coming back online
+  3. Show "changes queued for sync" indicator
+  4. Test with airplane mode + battery saver
 
-**No Place Editing or Deletion:**
-- Problem: Places in itinerary cannot be edited after creation. Can only toggle visited/rate.
-- Blocks: Fixing typos, changing times, removing unvisited places.
-- Priority: Medium - UX friction for planning iterations.
-
-**No Budget Category Limits:**
-- Problem: Budget shows total spent vs total budget, but no per-category spending limits.
-- Blocks: Controlling spending in specific areas (e.g., max 20k on shopping, max 10k on activities).
-- Priority: Low - nice-to-have for budget management.
-
-**No Trip Comparison or History:**
-- Problem: App only supports one trip at a time. No past trips viewable.
-- Blocks: Referencing previous trips, year-to-year comparisons, trip statistics.
-- Priority: Low - nice-to-have for repeat travelers.
+**User Settings Sync:**
+- Problem: Preferences (currency, palette, language) not synced across devices
+- Blocks: Multi-device users get inconsistent experience
+- Recommendation:
+  1. Create settings table in Supabase
+  2. Sync palette, language, notification settings
+  3. Implement per-trip settings (currency preference for specific trip)
+  4. Handle conflicts (which device wins on simultaneous edit)
 
 ## Test Coverage Gaps
 
-**No Unit Tests:**
-- What's not tested: Trip.progress calculation, Trip.currentDay logic, date parsing edge cases, expense filtering and sorting.
-- Files: `Travel app/Models/TripModels.swift`, `Travel app/ViewModels/TripStore.swift`
-- Risk: Bugs in date math, silent calculation failures, off-by-one errors.
-- Priority: High - core business logic untested.
+**Sync Conflict Resolution:**
+- What's not tested: Remote edit while local edit pending; both create, delete, update scenarios
+- Files: `Travel app/Services/SyncManager.swift`, `Travel app/Services/SyncEngine.swift`
+- Risk: Corrupt data, lost updates, deleted items reappearing
+- Priority: High
+- Test needed: Unit tests for `pullTrips()` with stale local copies; integration tests with real Supabase
 
-**No View Tests:**
-- What's not tested: DashboardView counter animation, DayDetailView place toggle, ExpensesView delete functionality.
-- Files: `Travel app/Views/` (all files)
-- Risk: UI state mutations fail silently, animations break, navigation fails.
-- Priority: Medium - requires snapshot or XCUITest framework.
+**OAuth Flow Error Cases:**
+- What's not tested: Invalid redirects, canceled auth, network timeout during token exchange, invalid state
+- Files: `Travel app/Services/SupabaseAuthService.swift`, `Travel app/Views/Auth/AuthView.swift`
+- Risk: Users stuck in auth state, unable to retry
+- Priority: High
+- Test needed: Mock OAuth server responses, test recovery from each error code
 
-**No Integration Tests:**
-- What's not tested: TripStore.deleteExpense with cascading index updates, store.togglePlaceVisited affecting computed properties.
-- Files: `Travel app/ViewModels/TripStore.swift`
-- Risk: Complex mutations create inconsistent app state.
-- Priority: High - data integrity at risk.
+**LocationManager Background Resume:**
+- What's not tested: App killed in background with tracking active; GPS disabled then re-enabled
+- Files: `Travel app/Services/LocationManager.swift`, lines 78-87
+- Risk: Tracking state lost, double-tracking on resume
+- Priority: Medium
+- Test needed: Simulate app termination, verify persisted state restored
 
-**No Precision Testing for Animations:**
-- What's not tested: Counter increments correctly to target, timer fires expected number of times, animation completes without memory leaks.
-- Files: `Travel app/Views/Dashboard/DashboardView.swift` (animateCounter function)
-- Risk: Silent animation failures, performance degradation.
-- Priority: Medium - less visible but affects UX.
+**BookingScannerSheet OCR Edge Cases:**
+- What's not tested: Blurry images, inverted colors, multiple pages, handwritten booking numbers
+- Files: `Travel app/Views/Dashboard/BookingScannerSheet.swift`, `Travel app/Services/BookingScanService.swift`
+- Risk: Failed extractions, user frustration
+- Priority: Medium
+- Test needed: Unit tests with 50+ real booking screenshots, fuzzy flight matching
+
+**SyncModels Type Conversions:**
+- What's not tested: DTO with null/missing fields converts safely; date string parsing with locale variance
+- Files: `Travel app/Services/SyncModels.swift`, sync pull operations
+- Risk: Crashes on unexpected Supabase schema changes
+- Priority: High
+- Test needed: Parameterized tests with malformed DTOs, missing fields, type mismatches
+
+**Profile Picture Upload Resilience:**
+- What's not tested: Large files (>10MB), timeout midway, duplicate uploads, network switch
+- Files: `Travel app/Services/PhotoSyncService.swift`
+- Risk: Orphaned uploads, storage bloat, user avatar missing
+- Priority: Medium
+- Test needed: Simulate network interruption, verify retry queue, cleanup orphaned files
 
 ---
 
-*Concerns audit: 2026-02-28*
+*Concerns audit: 2026-03-20*

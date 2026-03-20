@@ -1,192 +1,198 @@
 # Architecture
 
-**Analysis Date:** 2026-02-28
+**Analysis Date:** 2026-03-20
 
 ## Pattern Overview
 
-**Overall:** MVVM (Model-View-ViewModel) with SwiftUI's modern Observation framework
+**Overall:** MVVM + Modular Services with SwiftData Persistence & Cloud Sync
 
 **Key Characteristics:**
-- Single source of truth via `@Observable` TripStore
-- Declarative SwiftUI UI composition
-- Unidirectional data flow (Store → Views)
-- Stateless components with environment-based store access
-- Brutalist design system with zero rounded corners and bold typography
+- SwiftUI views (V) with explicit @State + @Environment state management
+- Data models use SwiftData @Model with Syncable protocol for cloud synchronization
+- Service layer (singleton @Observable classes) handles business logic and async operations
+- Cloud-first architecture: Supabase handles auth, sync, and proxied external APIs
+- Glassmorphism design system unified via AppTheme + ColorPalette
 
 ## Layers
 
-**Model Layer:**
-- Purpose: Domain models representing trip data structures
+**Presentation (Views):**
+- Purpose: SwiftUI hierarchies for user interaction; responsive to service/model state changes
+- Location: `Travel app/Views/**/`
+- Contains: Tab views (Dashboard, Itinerary, Map, Expenses, Journal), feature screens (Auth, Home, AITripWizard), reusable components
+- Depends on: @State properties, @Environment modelContext, shared Services, Theme system
+- Used by: App entry point (Travel_appApp.swift)
+
+**Data Model:**
+- Purpose: SwiftData @Model classes defining app entities (Trip, TripDay, Place, Expense, etc.) with Syncable protocol
 - Location: `Travel app/Models/`
-- Contains: Data structures (Trip, TripDay, Place, Expense, JournalEntry, enums)
-- Depends on: Foundation, CoreLocation
-- Used by: ViewModels and Views
-- Key files: `TripModels.swift` (domain entities), `SampleData.swift` (test/demo data)
+- Contains: Trip/TripDay/Place/TripEvent/Expense/Ticket/PackingItem/JournalEntry/TripPhoto/BucketListItem/OfflineMapCache models
+- Depends on: SwiftData framework, Syncable protocol, Codable DTOs for serialization
+- Used by: Views (via @Query), Services (CRUD operations), SyncManager (push/pull)
 
-**ViewModel Layer:**
-- Purpose: State management and business logic
-- Location: `Travel app/ViewModels/TripStore.swift`
-- Contains: Single observable store managing all trip state
-- Depends on: Models, Foundation, Observation
-- Used by: All Views
-- Pattern: `@Observable` final class with computed properties and action methods
+**Service Layer:**
+- Purpose: Encapsulate domain logic, async operations, external API calls, state management
+- Location: `Travel app/Services/`
+- Contains: 43+ singleton @Observable classes (WeatherService, AuthManager, SyncManager, AIServices, LocationManager, etc.)
+- Depends on: Models, external frameworks (Supabase, MapKit, Vision for OCR), Secrets for credentials
+- Used by: Views (via dependency injection or property access), other Services
 
-**View Layer:**
-- Purpose: UI presentation in SwiftUI
-- Location: `Travel app/Views/`
-- Contains: View compositions organized by feature
-- Depends on: Models, ViewModels, Theme
-- Sub-layers:
-  - **Container Views:** MainTabView (5-tab navigation root)
-  - **Feature Views:** DashboardView, ItineraryView, TripMapView, ExpensesView, JournalView
-  - **Detail Views:** DayDetailView, AddJournalEntrySheet, AddExpenseSheet
-  - **Reusable Components:** StatCard, ProgressRing, CategoryBadge, StarRatingView
+**Theme System:**
+- Purpose: Centralized design tokens, color palettes, reusable UI modifiers (glassmorphism)
+- Location: `Travel app/Theme/`
+- Contains: AppTheme (static colors/spacing/radii), ColorPalette enum (6 cases), GlassComponents (ViewModifiers)
+- Depends on: SwiftUI framework
+- Used by: All Views, Models for category colors
 
-**Theme Layer:**
-- Purpose: Design system and visual constants
-- Location: `Travel app/Theme/AppTheme.swift`
-- Contains: Color palette, spacing values, typography scales, ViewModifiers
-- Depends on: SwiftUI
-- Used by: All Views
-- Pattern: Static enum with type-safe color/spacing functions
+**Auth & Sync:**
+- Purpose: Handle user authentication (Supabase OAuth + email), push/pull data synchronization
+- Location: `Travel app/Services/AuthManager.swift`, `SupabaseAuthService.swift`, `SyncManager.swift`, `SyncEngine.swift`, `SupabaseProxy.swift`
+- Delegates to Supabase (cloud provider) for identity and database operations
+- Used by: Travel_appApp (lifecycle), MainTabView (auth state gating), all data-mutating Views
 
 ## Data Flow
 
-**Trip Data Initialization:**
+**Trip Viewing (Happy Path):**
 
-1. App launches → `Travel_appApp` creates `TripStore()`
-2. `TripStore.init()` calls `SampleData.build()`
-3. SampleData creates Trip, TripDays, Expenses, JournalEntries
-4. Store state initialized with sample data
-5. Store injected into MainTabView
+1. User launches app → Travel_appApp.swift initializes Supabase, restores session, triggers auth check
+2. MainTabView reads @Query trips, computes selectedTrip via UUID lookup
+3. When trip selected → shows TabView (Dashboard, Itinerary, Map, Expenses, Journal tabs)
+4. Each tab receives `trip: Trip` parameter, reads @Environment modelContext for CRUD
+5. Models use @Relationship(deleteRule: .cascade) for hierarchical delete (e.g., Trip → TripDays → Places)
 
-**User Actions (Example: Toggle Place Visited):**
+**Creating/Editing Data (Add Trip Flow):**
 
-1. User taps place checkbox in DayDetailView
-2. View calls `store.togglePlaceVisited(dayId:, placeId:)`
-3. TripStore mutates `days` array (immutable pattern per action)
-4. `@Observable` notifies all dependent views
-5. Views re-render with new state
+1. User taps "+" → CreateTripSheet opens
+2. Form validation via AITripWizardView (4-step wizard) or manual CreateTripSheet
+3. On save: `modelContext.insert(trip)` → `try modelContext.save()`
+4. MainTabView @Query auto-refreshes, selectedTrip computed property finds new trip by UUID
+5. SyncManager.syncIfNeeded() debounces (60s), pushes Trip to Supabase via SyncEngine
 
-**Budget Tracking:**
+**Expense Entry with Receipt:**
 
-1. Store computes `totalSpent` from expenses array (reducer)
-2. Computed property automatically tracks changes
-3. DashboardView observes and displays:
-   - Budget usage percentage
-   - Spent amount
-   - Remaining budget
-   - Expense breakdown by category
-   - Color-coded progress indicators
+1. User taps receipt scanner icon → ReceiptScannerSheet (OCR + AI)
+2. Vision framework extracts text → BookingScanService (AI parsing via Gemini)
+3. Results show in sheet → user selects and taps "ADD"
+4. Expense object created → `modelContext.insert(expense)` → `modelContext.save()`
+5. SyncManager pushes to Supabase
 
-**Journal & Expense Management:**
+**Location Tracking (GPS):**
 
-1. Add actions: `addExpense()`, `addJournalEntry()`
-2. Delete actions: `deleteExpense(at:)`, `deleteJournalEntry(at:)`
-3. Rating action: `ratePlace(dayId:, placeId:, rating:)`
+1. LocationManager starts tracking GPS → updates route points in memory
+2. When app enters background → LocationManager stores resume flag
+3. DayDetailView shows real-time route on map (MapKit with RoutingService overlay)
+4. On day completion → updates place.isVisited flags
 
-**State Management:**
+**Weather Refresh Cycle:**
 
-- Single source of truth: `TripStore` (@Observable)
-- Immutable updates: Each action returns new struct instances
-- Computed properties: Derived state (totalSpent, remainingBudget, budgetUsedPercent, expensesByCategory, allPlaces, placesVisitedCount, todayDay)
-- No callbacks, no delegates, no manual binding complexity
+1. On app launch/scene activation → WeatherService.startAutoRefresh() (10min interval)
+2. Fetches via SupabaseProxy (proxied OpenMeteo API)
+3. On network error → restores cached weather from UserDefaults
+4. DashboardView and WeatherDetailView reactively update from @Observable
+
+**Offline & Sync:**
+
+1. OfflineCacheManager monitors NWPathMonitor (network reachability)
+2. When offline → OfflineBanner appears, SyncManager.canSync = false
+3. MapView shows cached MKMapSnapshots (per-day offline gallery)
+4. When online → SyncManager auto-syncs (60s debounce), PUSH local changes first, PULL remote
+5. Conflict resolution: remote `updatedAt` wins
 
 ## Key Abstractions
 
-**Identifiable Models:**
+**Syncable Protocol:**
+- Purpose: Uniform interface for sync-eligible models
+- Examples: `Trip`, `TripDay`, `Place`, `TripEvent`, `Expense`, `Ticket`, `PackingItem`, `JournalEntry`, `BucketListItem`
+- Pattern: Implements `updatedAt` + `isDeleted` fields; SyncManager uses these for push/pull logic
 
-All domain models conform to `Identifiable`:
-- `Trip`, `TripDay`, `Place`, `Expense`, `JournalEntry`
-- Use UUID for unique identity
-- Enables SwiftUI ForEach without explicit id parameter
+**@Observable Services:**
+- Purpose: Thread-safe, reactive state containers for async operations
+- Examples: `WeatherService`, `GeminiService`, `SyncManager`, `AuthManager`, `LocationManager`
+- Pattern: `@MainActor @Observable final class` with `static let shared` singleton; Views react to property changes
 
-**Category Enums:**
+**ColorPalette Enum:**
+- Purpose: Switch between 6 design palettes (sakura, midnight, imperial, matcha, fuji, hanami)
+- Examples: `ColorPalette.sakura.accentColor`, `ColorPalette.current.colorScheme`
+- Pattern: Stored in `@AppStorage("colorPalette")` for persistence; MainTabView rebuilds on change (`.id(palette)`)
 
-- `PlaceCategory`: 8 types (temple, shrine, food, shopping, nature, culture, accommodation, transport)
-- `ExpenseCategory`: 6 types (food, transport, accommodation, activities, shopping, other)
-- `Mood`: 5 types (amazing, happy, neutral, tired, frustrated)
-- Each enum: CaseIterable, Identifiable, maps to system image and localized string
+**DTO (Data Transfer Objects):**
+- Purpose: Serialize/deserialize SwiftData models to/from Supabase JSON
+- Examples: `TripDTO`, `TripDayDTO`, `PlaceDTO`, `ExpenseDTO` (snake_case for DB, swift CodingKeys)
+- Pattern: Used by SyncEngine for push/pull; optional fields handle nullable columns
 
-**Date Calculations:**
-
-Trip provides computed properties:
-- `totalDays`: days between start and end dates
-- `currentDay`: current progress (0 if not started, totalDays if ended)
-- `isActive`: boolean whether trip is happening now
-- `progress`: Double (0.0-1.0) for progress bars
-
-TripDay provides:
-- `visitedCount`: count of visited places
-
-**Theme Colors:**
-
-Static functions support dynamic color selection:
-- `categoryColor(for:)` - Place category colors
-- `expenseColor(for:)` - Expense category colors
-- `moodColor(for:)` - Journal mood colors
-
-**ViewModifiers:**
-
-Reusable style modifiers:
-- `cardStyle()` - Card background with 2px border
-- `surfaceStyle()` - Surface background with 2px border
-- `accentCardStyle()` - Card with 3px red accent border
+**AI Services:**
+- Purpose: Integrate multiple AI providers (Gemini default, fallback to Claude/Groq)
+- Examples: `GeminiService`, `RecommendationService`, `PlaceInfoService`, `AITripGeneratorService`
+- Pattern: Use SupabaseProxy to proxied Gemini API; AIPromptHelper personalizes prompts via ProfileService context
 
 ## Entry Points
 
-**App Entry:**
+**Travel_appApp (App):**
 - Location: `Travel app/Travel_appApp.swift`
-- Triggers: App launch
-- Responsibilities:
-  - Creates TripStore (@State)
-  - Configures dark color scheme
-  - Creates WindowGroup with MainTabView
+- Triggers: App launch, scene phase changes
+- Responsibilities: Initialize Supabase, restore auth session, set up ModelContainer, schedule background sync
 
-**Root View:**
+**MainTabView (Navigation):**
 - Location: `Travel app/Views/MainTabView.swift`
-- Triggers: App visible
-- Responsibilities:
-  - TabView navigation (5 tabs)
-  - Tab state management (@State selectedTab)
-  - Passes store to all feature views
+- Triggers: After auth/onboarding checks pass
+- Responsibilities: Route based on auth state (AuthView → ProfileSetupView → OnboardingView → HomeView or trip TabView); manage selectedTripID UUID state
 
-**Feature Roots:**
-- DashboardView: Summary stats, budget, recent expenses
-- ItineraryView: Day-by-day trip schedule
-- TripMapView: Map visualization of places
-- ExpensesView: Expense history and management
-- JournalView: Journal entries list and editing
+**HomeView (Trip Hub):**
+- Location: `Travel app/Views/Home/HomeView.swift`
+- Triggers: When no trip selected (user sees trip list)
+- Responsibilities: Display trips by phase (active/upcoming/past), quick actions (AI wizard, bucket list, packing list), travel stats
+
+**DashboardView (Trip Overview):**
+- Location: `Travel app/Views/Dashboard/DashboardView.swift`
+- Triggers: When trip selected + dashboard tab active
+- Responsibilities: Display compact hero, budget/weather/flights/country info per trip phase (preTrip/active/postTrip)
+
+**ItineraryView (Day CRUD):**
+- Location: `Travel app/Views/Itinerary/ItineraryView.swift`
+- Triggers: When trip selected + itinerary tab active
+- Responsibilities: Show trip days list, drag-reorder, navigate to DayDetailView
+
+**DayDetailView (Day Deep Dive):**
+- Location: `Travel app/Views/Itinerary/DayDetailView.swift`
+- Triggers: From ItineraryView (NavigationStack with day UUID)
+- Responsibilities: Show/edit day header, weather, events, places, journal entries, tickets, GPS tracking
+
+**TripMapView (Map + Search):**
+- Location: `Travel app/Views/Map/TripMapView.swift`
+- Triggers: When trip selected + map tab active
+- Responsibilities: Show MapKit with route overlay (events/places), floating search pill, bottom sheet for details/search/route
 
 ## Error Handling
 
-**Strategy:** Defensive programming with computed properties
+**Strategy:** Try-catch with user-friendly messages; offline fallback to cached data
 
 **Patterns:**
 
-- Place rating is Optional<Int> (nil until rated)
-- Journal mood is required (defaults to available enum value)
-- Date calculations use Calendar.current with fallback Int (returns 0)
-- Array access uses `firstIndex(where:)` with guard statements
-- No thrown errors in current implementation (simple state management)
+- **Network errors:** SyncManager catches errors, sets state = .error(String), shows alert in SettingsView
+- **Validation errors:** Forms validate before submit (email regex, date ranges, required fields)
+- **API errors:** Services log detailed error, return nil or fallback (e.g., WeatherService restores cache on HTTP error)
+- **SwiftData errors:** Save failures logged; retry triggered by scene activation or manual sync button
+- **Auth errors:** AuthView shows error message; SupabaseAuthService re-throws for controller handling
 
 ## Cross-Cutting Concerns
 
-**Logging:** Not implemented (simple app, no external integrations)
+**Logging:** Print statements (some with prefixes like `[GeminiService]`) in development; no production logging framework
 
 **Validation:**
-- Model validation in SampleData only (test data)
-- No user input validation yet (no edit screens for Trip/TripDay properties)
+- Models: Trip requires name/dates; TripDay requires date/cityName
+- Input: Email regex in EmailAuthSheet; currency amount in AddExpenseSheet
+- Forms: AI wizard validates step-by-step
 
-**Authentication:** Not applicable (local data only)
+**Authentication:**
+- SupabaseAuthService handles OAuth (Apple, Google, Yandex) + email sign-up/in
+- AuthManager gates views; MainTabView checks isSignedIn + isLocked (biometric)
+- Session restored from Supabase on app launch; persisted in Keychain via supabase-swift
 
-**Theming:**
-- AppTheme enum controls all colors, spacing, typography
-- Dark mode enforced via `.preferredColorScheme(.dark)`
-- Zero rounded corners (brutalist aesthetic)
-- Monospaced fonts for numerical data
-- High contrast text colors (white, gray, red)
+**State Synchronization:**
+- SyncManager debounces push/pull (60s minimum interval)
+- SyncEngine orders operations: trips → days → places → events → expenses (parents first)
+- Conflict resolution: remote updatedAt timestamp wins on both push and pull
+- Offline support: OfflineCacheManager tracks isOnline; sync skipped when offline
 
 ---
 
-*Architecture analysis: 2026-02-28*
+*Architecture analysis: 2026-03-20*

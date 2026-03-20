@@ -1,441 +1,341 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-02-28
+**Analysis Date:** 2026-03-20
 
 ## Test Framework
 
-**Status:** No testing framework currently configured
+**Runner:**
+- XCTest (native Xcode testing framework)
+- Version: Implicit (part of Xcode)
+- Config: No explicit config file (uses Xcode defaults)
 
-**Coverage:** 0% - No test files exist
+**Assertion Library:**
+- XCTest assertions: `XCTAssertTrue()`, `XCTAssertEqual()`, `XCTAssertNil()`, `XCTAssertNotNil()`
+- Accuracy parameter for floating-point: `XCTAssertEqual(result, expected, accuracy: 0.01)`
 
-**Why Testing is Absent:**
-This is an early-stage SwiftUI application (initial commit on 2026-02-28) focused on rapid feature development. The codebase is suitable for test introduction before scaling further.
-
-## Recommended Test Setup
-
-**Framework Recommendations:**
-
-**Unit Testing:**
-- Use XCTest (built-in, no external dependency)
-- Configuration file: `Travel appTests/Travel_appTests.swift` (naming convention)
-
-**UI/Integration Testing:**
-- Use XCTest with SwiftUI preview testing
-- Alternative: Consider adding `Testing` framework (Swift 6+) for better async/await support
-
-**Preview Testing:**
-- Leverage existing `#Preview` blocks for visual regression
-- Example: `DashboardView`, `MainTabView`, all views have preview definitions
-
-## Current Test Coverage Gaps
-
-**Critical Areas Without Tests:**
-
-**State Management (`TripStore`):**
-- File: `/Users/egorgalkin/Travel app/Travel app/ViewModels/TripStore.swift`
-- Missing tests:
-  - `togglePlaceVisited()` - Place visited state toggle
-  - `addExpense()` - Expense creation and appending
-  - `deleteExpense()` - Deletion by IndexSet with date-sorted filtering
-  - `ratePlace()` - Rating assignment to places
-  - Computed properties: `totalSpent`, `budgetUsedPercent`, `expensesByCategory`
-
-**Model Validation:**
-- File: `/Users/egorgalkin/Travel app/Travel app/Models/TripModels.swift`
-- Missing tests:
-  - `Trip.totalDays` calculation
-  - `Trip.currentDay` calculation (requires date comparison)
-  - `Trip.progress` computation
-  - `TripDay.visitedCount` filtering
-
-**Form Validation:**
-- File: `/Users/egorgalkin/Travel app/Travel app/Views/Expenses/AddExpenseSheet.swift`
-- Missing tests for `isValid` computed property:
-  - Empty title validation
-  - Invalid amount format
-  - Boundary conditions (zero, negative amounts)
-
-**Data Formatting:**
-- File: `/Users/egorgalkin/Travel app/Travel app/Views/Dashboard/DashboardView.swift`
-- Missing tests:
-  - `formatYen()` function with various amounts
-  - Date formatting with Russian locale
-  - Number grouping with spaces
-
-**Sample Data:**
-- File: `/Users/egorgalkin/Travel app/Travel app/Models/SampleData.swift`
-- Missing tests:
-  - Sample data builds correctly
-  - All places have valid coordinates
-  - All dates are within trip boundaries
-
-## Recommended Test Structure
-
-**Directory Layout:**
-```
-Travel app/
-├── Travel app/                     # Source code
-│   ├── Models/
-│   ├── ViewModels/
-│   ├── Views/
-│   └── Theme/
-└── Travel appTests/                # Test target
-    ├── Models/
-    │   ├── TripModelsTests.swift
-    │   └── SampleDataTests.swift
-    ├── ViewModels/
-    │   └── TripStoreTests.swift
-    ├── Views/
-    │   └── AddExpenseSheetTests.swift
-    └── Utilities/
-        └── FormValidationTests.swift
+**Run Commands:**
+```bash
+xcodebuild test                    # Run all tests
+xcodebuild test -scheme Travel_app # Run scheme tests
+Cmd+U in Xcode                     # Run tests in IDE
 ```
 
-## Suggested Test Examples
+## Test File Organization
 
-**Unit Test Pattern for State Management:**
+**Location:**
+- Co-located in separate test target: `Travel appTests/`
+- Target name matches main app with "Tests" suffix
+- Separate from production code (not embedded in main target)
+
+**Naming:**
+- Test files: `[TargetName]Tests.swift` (e.g., `KeychainHelperTests.swift`, `CurrencyServiceTests.swift`, `TripModelTests.swift`)
+- Test classes: `final class [ComponentName]Tests: XCTestCase`
+- Test methods: `func test[Behavior]()` (e.g., `testSaveAndReadString`, `testConvertSameCurrency`, `testTripTotalDays`)
+
+**Structure:**
+```
+Travel appTests/
+├── TripModelTests.swift          # Model logic tests (Trip, TripDay, TripEvent, Place)
+├── KeychainHelperTests.swift     # Keychain CRUD tests
+├── CurrencyServiceTests.swift    # Currency conversion & formatting tests
+```
+
+## Test Structure
+
+**Suite Organization:**
+
+Pattern: Single test class per component with logical test grouping via method naming
 
 ```swift
-import XCTest
-@testable import Travel_app
-
-final class TripStoreTests: XCTestCase {
-    var sut: TripStore!
-
-    override func setUp() {
-        super.setUp()
-        sut = TripStore()
-    }
+final class KeychainHelperTests: XCTestCase {
+    private let testKey = "test_keychain_helper_key"
 
     override func tearDown() {
-        sut = nil
+        KeychainHelper.delete(key: testKey)
         super.tearDown()
     }
 
-    // MARK: - Expense Tests
-
-    func testAddExpense() {
-        // Arrange
-        let initialCount = sut.expenses.count
-        let expense = Expense(
-            id: UUID(),
-            title: "Test",
-            amount: 1000,
-            category: .food,
-            date: Date(),
-            notes: ""
-        )
-
-        // Act
-        sut.addExpense(expense)
-
-        // Assert
-        XCTAssertEqual(sut.expenses.count, initialCount + 1)
-        XCTAssertTrue(sut.expenses.contains { $0.id == expense.id })
-    }
-
-    func testTotalSpentUpdatesOnExpenseAdd() {
-        // Arrange
-        let initialTotal = sut.totalSpent
-        let expense = Expense(
-            id: UUID(),
-            title: "Ramen",
-            amount: 1290,
-            category: .food,
-            date: Date(),
-            notes: ""
-        )
-
-        // Act
-        sut.addExpense(expense)
-
-        // Assert
-        XCTAssertEqual(sut.totalSpent, initialTotal + 1290)
-    }
-
-    func testTogglePlaceVisited() {
-        // Arrange
-        let firstDay = sut.days.first!
-        let place = firstDay.places.first!
-        let initialVisitedCount = firstDay.visitedCount
-
-        // Act
-        sut.togglePlaceVisited(dayId: firstDay.id, placeId: place.id)
-
-        // Assert
-        let updatedDay = sut.days.first { $0.id == firstDay.id }!
-        let updatedPlace = updatedDay.places.first { $0.id == place.id }!
-        XCTAssertTrue(updatedPlace.isVisited)
-    }
-
-    // MARK: - Computed Property Tests
-
-    func testBudgetUsedPercent() {
-        // Test boundary conditions
-        XCTAssertEqual(sut.budgetUsedPercent, sut.totalSpent / sut.trip.budget)
-
-        // When over budget
-        let overBudgetExpense = Expense(
-            id: UUID(),
-            title: "Big expense",
-            amount: sut.trip.budget * 2,
-            category: .accommodation,
-            date: Date(),
-            notes: ""
-        )
-        sut.addExpense(overBudgetExpense)
-        XCTAssertGreaterThan(sut.budgetUsedPercent, 1.0)
-    }
-
-    func testExpensesByCategory() {
-        // Should be sorted by total descending
-        let categories = sut.expensesByCategory
-        for i in 0..<(categories.count - 1) {
-            XCTAssertGreaterThanOrEqual(categories[i].total, categories[i + 1].total)
-        }
-    }
+    // Test methods follow pattern: testBehavior()
+    func testSaveAndReadString() { ... }
+    func testReadNonexistentKey() { ... }
+    func testDeleteKey() { ... }
 }
 ```
 
-**Unit Test Pattern for Model Calculations:**
+**Patterns:**
+- **Setup:** Properties initialized in class body (e.g., `testKey`); shared across test methods
+- **Teardown:** `tearDown()` method for cleanup (delete test keys, reset state)
+- **Isolation:** Each test method is independent; cleanup runs after every test
+- **Naming:** Descriptive method names without "test_" prefix underscore convention
+
+## Test Examples
+
+**Unit Test - Keychain Helper:**
+```swift
+func testSaveAndReadString() {
+    let saved = KeychainHelper.save(key: testKey, string: "hello")
+    XCTAssertTrue(saved)
+    let result = KeychainHelper.readString(key: testKey)
+    XCTAssertEqual(result, "hello")
+}
+```
+
+**Unit Test - Currency Conversion:**
+```swift
+func testConvertSameCurrency() {
+    let result = svc.convert(100, from: "RUB", to: "RUB")
+    XCTAssertEqual(result, 100, accuracy: 0.01)
+}
+
+func testConvertRubToOther() {
+    let result = svc.convert(1000, from: "RUB", to: "USD")
+    XCTAssertTrue(result > 0, "Conversion should produce positive result")
+    XCTAssertTrue(result < 1000, "1000 RUB should be less than 1000 USD")
+}
+```
+
+**Model Logic Test - Trip:**
+```swift
+func testTripTotalDays() {
+    let trip = makeTrip(startOffset: 0, endOffset: 7)
+    XCTAssertEqual(trip.totalDays, 7)
+}
+
+func testTripPhasePreTrip() {
+    let trip = makeTrip(startOffset: 5, endOffset: 10)
+    XCTAssertEqual(trip.phase, .preTrip)
+}
+```
+
+## Mocking
+
+**Framework:**
+- No third-party mocking framework detected (OCMock, Mockito, etc.)
+- Manual mocking via test doubles and stub data
+
+**Patterns:**
+
+**Manual Test Fixtures:**
+```swift
+private func makeTrip(startOffset: Int, endOffset: Int) -> Trip {
+    let cal = Calendar.current
+    return Trip(
+        name: "Test Trip",
+        destination: "Test",
+        startDate: cal.date(byAdding: .day, value: startOffset, to: Date())!,
+        endDate: cal.date(byAdding: .day, value: endOffset, to: Date())!,
+        budget: 100000,
+        currency: "RUB",
+        coverSystemImage: "airplane"
+    )
+}
+```
+
+**Dependency Stubbing:**
+- Services use singletons (CurrencyService.shared, AuthManager.shared)
+- Difficult to mock in tests; tests tend to use real service instances
+- CurrencyService tests use live instance: `let svc = CurrencyService.shared`
+- Fallback rates built into service for offline testing
+
+**What to Mock:**
+- API responses (not implemented; services tested with real SupabaseProxy)
+- External dependencies (not applicable; direct integration)
+
+**What NOT to Mock:**
+- Business logic (tested directly on models)
+- Time-dependent operations (use fixed test data with date offsets)
+- Local database (SwiftData used directly in preview setup)
+
+## Fixtures and Factories
+
+**Test Data:**
+
+Location: `Models/SampleData.swift` (shared across tests and previews)
 
 ```swift
-import XCTest
-@testable import Travel_app
-
-final class TripModelsTests: XCTestCase {
-
-    func testTripProgress() {
-        // Arrange
+enum SampleData {
+    static func seed(into context: ModelContext) {
         let calendar = Calendar.current
-        let startDate = calendar.date(byAdding: .day, value: -5, to: Date())!
-        let endDate = calendar.date(byAdding: .day, value: 5, to: Date())!
-
         let trip = Trip(
-            id: UUID(),
-            name: "Test Trip",
-            destination: "Japan",
+            name: "Путешествие по Японии",
+            country: "Япония",
             startDate: startDate,
             endDate: endDate,
-            budget: 100000,
-            currency: "JPY",
+            budget: 500000,
+            currency: "RUB",
             coverSystemImage: "airplane"
         )
-
-        // Act
-        let progress = trip.progress
-
-        // Assert
-        XCTAssertGreaterThan(progress, 0)
-        XCTAssertLessThan(progress, 1.0)
+        // ... setup related data
+        context.insert(trip)
+        try? context.save()
     }
 
-    func testTripCurrentDay() {
-        // Arrange
-        let calendar = Calendar.current
-        let today = Date()
-        let startDate = calendar.date(byAdding: .day, value: -3, to: today)!
-        let endDate = calendar.date(byAdding: .day, value: 7, to: today)!
-
-        let trip = Trip(
-            id: UUID(),
-            name: "Test",
-            destination: "Japan",
-            startDate: startDate,
-            endDate: endDate,
-            budget: 100000,
-            currency: "JPY",
-            coverSystemImage: "airplane"
-        )
-
-        // Act
-        let currentDay = trip.currentDay
-
-        // Assert
-        XCTAssertEqual(currentDay, 4) // 3 days passed + 1
-    }
-
-    func testVisitedCountFilter() {
-        // Arrange
-        let place1 = Place(id: UUID(), name: "P1", nameJapanese: "P1", category: .temple,
-                          address: "Addr", coordinate: CLLocationCoordinate2D(latitude: 0, longitude: 0),
-                          isVisited: true, rating: 5, notes: "", timeToSpend: "1h")
-        let place2 = Place(id: UUID(), name: "P2", nameJapanese: "P2", category: .food,
-                          address: "Addr", coordinate: CLLocationCoordinate2D(latitude: 0, longitude: 0),
-                          isVisited: false, rating: nil, notes: "", timeToSpend: "1h")
-
-        let day = TripDay(id: UUID(), date: Date(), title: "Day", cityName: "City",
-                         places: [place1, place2], notes: "")
-
-        // Act
-        let visitedCount = day.visitedCount
-
-        // Assert
-        XCTAssertEqual(visitedCount, 1)
-    }
+    private static func makeTime(
+        _ calendar: Calendar,
+        base: Date,
+        hour: Int,
+        minute: Int = 0
+    ) -> Date { ... }
 }
 ```
 
-**Unit Test Pattern for Validation:**
-
+**Preview Models (TripModels.swift):**
 ```swift
-import XCTest
-@testable import Travel_app
-
-final class FormValidationTests: XCTestCase {
-
-    func testExpenseFormValidation() {
-        // Valid form
-        let validTitle = "Ramen"
-        let validAmount = "1290"
-        let isValid = !validTitle.trimmingCharacters(in: .whitespaces).isEmpty
-            && Double(validAmount) != nil
-            && Double(validAmount)! > 0
-
-        XCTAssertTrue(isValid)
-    }
-
-    func testEmptyTitleInvalidation() {
-        let emptyTitle = ""
-        let amount = "1290"
-        let isValid = !emptyTitle.trimmingCharacters(in: .whitespaces).isEmpty
-            && Double(amount) != nil
-
-        XCTAssertFalse(isValid)
-    }
-
-    func testZeroAmountInvalidation() {
-        let title = "Expense"
-        let amount = "0"
-        let doubleAmount = Double(amount) ?? -1
-        let isValid = doubleAmount > 0
-
-        XCTAssertFalse(isValid)
-    }
-
-    func testNegativeAmountInvalidation() {
-        let title = "Expense"
-        let amount = "-100"
-        let doubleAmount = Double(amount) ?? 0
-        let isValid = doubleAmount > 0
-
-        XCTAssertFalse(isValid)
+#if DEBUG
+extension ModelContainer {
+    @MainActor
+    static var preview: ModelContainer {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try! ModelContainer(for: Trip.self, configurations: config)
+        SampleData.seed(into: container.mainContext)
+        return container
     }
 }
+
+extension Trip {
+    @MainActor
+    static var preview: Trip {
+        let container = ModelContainer.preview
+        let descriptor = FetchDescriptor<Trip>()
+        return try! container.mainContext.fetch(descriptor).first!
+    }
+}
+#endif
 ```
 
-## Preview Testing (Current Testing Method)
+**Factory Pattern:**
+- Test helper methods: `makeTrip(startOffset:endOffset:)`, `makeTime(...)`
+- Preset defaults for common scenarios (past, present, future trips)
+- Override parameters for specific test cases
 
-**Existing Preview Blocks:**
+## Coverage
 
-All views include `#Preview` blocks for visual testing:
+**Requirements:** No minimum coverage enforced (no .lcov config or CI checks detected)
 
+**View Coverage:**
+- Primarily via manual testing and live previews
+- SwiftUI views tested indirectly via model/service unit tests
+- No XCUITest/snapshot tests detected
+
+**Service Coverage:**
+- Core services have unit tests: CurrencyService, KeychainHelper
+- API integration services (AirLabsService, PlaceInfoService) not unit tested (rely on live integration)
+- Critical business logic (Trip calculations) covered: totalDays, progress, countdownToFlight, expensesByCategory
+
+**Model Coverage:**
+- TripModels.swift comprehensive: 14 test methods covering Trip, TripDay, TripEvent, Place
+- Tests cover state transitions (isUpcoming, isActive, isPast) and calculations (totalDays, progress, expenses)
+
+**View Coverage:**
+- Gaps: No snapshot tests for UI component layout/styling
+- Gaps: No integration tests for sync flow (SyncManager untested)
+- Gaps: No E2E tests for user workflows
+
+## Test Run Location
+
+**Where Tests Execute:**
+- Development simulator/device via Xcode
+- CI pipeline: Not detected (no GitHub Actions, Jenkins, or .gitlab-ci.yml)
+
+**Test Assertions Pattern:**
+- Single-assertion focus vs. multi-assertion bundling
+- Tests typically verify one behavior per method
+- Some tests verify related conditions together: `testTripIsUpcoming()` checks three state properties
+
+## Data Isolation
+
+**Database Isolation:**
 ```swift
-#Preview {
-    MainTabView(store: TripStore())
-        .preferredColorScheme(.dark)
+override func tearDown() {
+    KeychainHelper.delete(key: testKey)
+    super.tearDown()
 }
 ```
 
-Files with previews:
-- `MainTabView.swift` - Main navigation structure
-- `DashboardView.swift` - Dashboard visualization
-- `AddExpenseSheet.swift` - Form input
-- `ItineraryView.swift` - Day itinerary list
-- `JournalView.swift` - Journal entries
-- `StatCard.swift` - Reusable components
-- `TripMapView.swift` - Map visualization
+- Keychain tests clean up after each test to prevent state leakage
+- SwiftData tests use in-memory container: `ModelConfiguration(isStoredInMemoryOnly: true)`
+- No cross-test data sharing; each test starts with clean state
 
-**How to Use Previews:**
-1. Open file in Xcode
-2. Press Cmd+Alt+P to show preview
-3. Run preview to test UI interactively
-4. Previews use `TripStore()` with sample data from `SampleData.swift`
+**Network Isolation:**
+- No mock HTTP interceptors
+- Services that call live API (CurrencyService, AirLabsService) use real SupabaseProxy
+- Tests assume network availability (offline scenarios not tested)
 
-## Testing Best Practices for This Codebase
+## Test Types
 
-**What to Test First (Priority Order):**
+**Unit Tests (Current - 3 files):**
+- **Scope:** Individual models and services
+- **Approach:** Direct instantiation and assertion
+- **Examples:**
+  - `KeychainHelperTests`: CRUD operations on keychain
+  - `CurrencyServiceTests`: Currency conversion math, formatting
+  - `TripModelTests`: Trip state calculations (totalDays, phase, budget math)
 
-1. **High Priority - Core Business Logic**
-   - `TripStore` state mutations
-   - Date/progress calculations in `Trip` model
-   - Budget computations
+**Integration Tests (Not Implemented):**
+- Would test API client + server interaction
+- Would verify sync workflow (SyncManager → Supabase)
+- Would test photo upload with storage bucket
+- Gap: No integration tests for cloud features
 
-2. **Medium Priority - Data Validation**
-   - Form validation in add sheets
-   - Number and date formatting
-   - Category filtering
+**E2E Tests (Not Implemented):**
+- Would use XCUITest for user flows
+- Example flow: Create trip → Add expense → Sync to cloud → Fetch on other device
+- Gap: No E2E test framework set up
 
-3. **Lower Priority - UI (Use Previews)**
-   - Component rendering
-   - Layout and spacing (verify visually)
-   - Color application
+## Common Patterns
 
-**Testing Patterns to Follow:**
+**Async Testing:**
+- Current tests are synchronous only
+- Services have async methods (fetchRates, signInWithGoogle) but not tested
+- Pattern if implemented: `func testAsync() async { await service.method() }`
 
+**Error Testing:**
 ```swift
-// Arrange-Act-Assert (AAA) pattern
-func testSomething() {
-    // Arrange: Set up initial state
-    let store = TripStore()
-    let initialCount = store.expenses.count
-
-    // Act: Perform the action
-    store.addExpense(testExpense)
-
-    // Assert: Verify results
-    XCTAssertEqual(store.expenses.count, initialCount + 1)
-}
+// Not currently used; error cases not tested
+// Would verify fallback behavior:
+// If API fails, does service use fallbackRates? ← untested
 ```
 
-**Mocking Strategy:**
-
-For testing views with `TripStore`:
+**State Transition Testing:**
 ```swift
-// Use TripStore() directly with SampleData
-let store = TripStore()  // Creates fully populated store
-
-// Create minimal test stores for unit testing
-@Observable class MockTripStore: TripStore {
-    override init() {
-        super.init()
-        // Override with minimal test data
-    }
+func testTripPhasePreTrip() {
+    let trip = makeTrip(startOffset: 5, endOffset: 10)
+    XCTAssertEqual(trip.phase, .preTrip)
 }
 ```
 
-**Edge Cases to Test:**
+## Test Maintenance Notes
 
-1. Empty collections (no expenses, no days)
-2. Boundary values (0 budget, negative remaining)
-3. Invalid date ranges
-4. Duplicate UUIDs
-5. String encoding (Russian text in titles)
-6. Amount precision (floating point rounding)
+**Fragile Tests:**
+- `TripModelTests` uses real calendar dates — vulnerable to DST transitions and timezone changes
+- Fix: Use explicit calendar with fixed timezone in test helpers
+- `CurrencyServiceTests` relies on hardcoded count: `XCTAssertEqual(CurrencyService.supportedCurrencies.count, 5)` — brittle if currencies added
 
-## Performance Testing Notes
+**Unmaintained Gaps:**
+- No async/await test patterns established
+- Error handling untested in services (fallback behavior not verified)
+- Cloud sync (Supabase) untested
+- Photo sync untested
+- Authentication flows untested
 
-**No performance tests currently needed**, but watch for:
-- Large list rendering (100+ expenses)
-- Map annotation rendering (50+ places)
-- Lazy loading optimization in `ItineraryView` (uses `LazyVStack`)
+## Recommended Test Targets
 
-## Run Commands (Once Tests Added)
+**High Priority (Not Covered, High Impact):**
+1. `SyncManager` — critical cloud sync orchestrator
+2. `AuthManager` + `SupabaseAuthService` — auth state critical
+3. `PhotoSyncService` — data loss risk if upload fails
+4. `LocationManager.resumeTrackingIfNeeded()` — geofence functionality
 
-```bash
-# Run all tests
-xcodebuild test -scheme "Travel app"
+**Medium Priority (Partially Covered):**
+1. Async service tests (CurrencyService.fetchRates, AirLabsService.fetchFlightData)
+2. Error fallback behavior (offline mode, API failures)
+3. Multi-trip state management (MainTabView computed properties)
 
-# Run specific test class
-xcodebuild test -scheme "Travel app" -testClass TripStoreTests
-
-# Run with coverage
-xcodebuild test -scheme "Travel app" -enableCodeCoverage YES
-
-# View coverage report
-open $(xcodebuild test -scheme "Travel app" -enableCodeCoverage YES 2>&1 | grep -o '/var.*\.profdata')
-```
+**Low Priority (Nice to Have):**
+1. SwiftUI component snapshot tests
+2. E2E user flows (via XCUITest)
+3. Performance tests for large dataset handling
 
 ---
 
-*Testing analysis: 2026-02-28*
+*Testing analysis: 2026-03-20*
