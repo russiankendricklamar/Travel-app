@@ -60,16 +60,15 @@ struct MapBottomSheet<Content: View>: View {
                 .frame(height: max(sheetHeight, 60), alignment: .top)
                 .frame(maxWidth: .infinity)
                 .background(
-                    Color.black
-                        .clipShape(
-                            UnevenRoundedRectangle(
-                                topLeadingRadius: 30,
-                                bottomLeadingRadius: 0,
-                                bottomTrailingRadius: 0,
-                                topTrailingRadius: 30
-                            )
-                        )
-                        .ignoresSafeArea(edges: .bottom)
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: 30,
+                        bottomLeadingRadius: 0,
+                        bottomTrailingRadius: 0,
+                        topTrailingRadius: 30
+                    )
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.15), radius: 10, y: -5)
+                    .ignoresSafeArea(edges: .bottom)
                 )
             }
             .onAppear { screenHeight = availableHeight }

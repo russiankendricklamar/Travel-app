@@ -22,9 +22,9 @@ struct MapFloatingSearchPill: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(
-                Capsule()
-                    .fill(Color.black)
-                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 2)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
             )
         }
         .buttonStyle(.plain)

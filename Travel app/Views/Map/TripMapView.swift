@@ -307,6 +307,9 @@ struct TripMapView: View {
         .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .including([.museum, .nationalPark, .park, .restaurant])))
         .mapControls {
             MapScaleView()
+            MapCompass()
+            MapUserLocationButton()
+            MapPitchToggle()
         }
         .safeAreaPadding(.bottom, isIdleMode ? 48 : 0)
         .onMapCameraChange { context in
