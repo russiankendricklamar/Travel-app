@@ -1,12 +1,233 @@
 # Technology Stack
 
 **Project:** Travel App — Map Navigation Overhaul
-**Researched:** 2026-03-20
-**Mode:** Ecosystem / Stack dimension
+**Researched:** 2026-03-20 (core navigation) | Updated: 2026-03-21 (Apple Maps UI Parity milestone)
+**Confidence:** HIGH
 
 ---
 
-## Recommended Stack
+## v1.1 Apple Maps UI Parity — Stack Addendum
+
+This section covers ONLY the SwiftUI/MapKit APIs needed for the Apple Maps UI Parity milestone.
+The core navigation stack (v1.0) is unchanged below.
+
+### Bottom Sheet Architecture Decision
+
+**Keep the existing custom GeometryReader sheet. Do NOT migrate to `.presentationDetents`.**
+
+Rationale: Native `.presentationDetents` in iOS 16–18 has a fundamental limitation — it always renders as a system modal that dims the background and anchors to screen edges. The Apple Maps peek state is a **floating pill that does not cover the map**. No amount of `.presentationBackgroundInteraction` or `.presentationBackground` configuration can reproduce a pill that floats with horizontal margins over the map. This requires a custom overlay sheet.
+
+Additional note: `.presentationDetents` has confirmed content-height measurement bugs on iOS 16–18 that are only fixed in iOS 26. The custom `MapBottomSheet.swift` is architecturally correct; only visual polish is needed.
+
+### Peek Pill Background — Replace Solid Color with Blur Material
+
+| API | iOS Min | Purpose | Change Required |
+|-----|---------|---------|-----------------|
+| `.ultraThinMaterial` | iOS 15 | Frosted glass blur for peek pill | Replace `Color.black.opacity(0.75)` in `MapBottomSheet.swift` |
+| `.environment(\.colorScheme, .dark)` | iOS 13 | Force dark rendering of material | Apply to pill container so blur renders dark regardless of system scheme |
+| `RoundedRectangle(cornerRadius: 22, style: .continuous)` | iOS 13 | Squircle-shaped pill | Current `cornerRadius: 22` is correct; add `style: .continuous` for Apple-quality corners |
+| `.shadow(color: .black.opacity(0.35), radius: 14, x: 0, y: 4)` | iOS 13 | Drop shadow under pill | Increase from `radius: 12` to `radius: 14` for more realistic lift |
+
+Exact replacement for peek pill background in `MapBottomSheet.swift`:
+
+```swift
+// REPLACE current peek background:
+// .fill(Color.black.opacity(0.75))
+
+// WITH:
+.background(
+    .ultraThinMaterial,
+    in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+)
+.environment(\.colorScheme, .dark)
+.shadow(color: .black.opacity(0.35), radius: 14, x: 0, y: 4)
+.padding(.horizontal, 16)
+.padding(.bottom, 4)
+```
+
+### Drag Handle Spec
+
+Apple Maps drag handle exact dimensions (verified by pixel analysis):
+
+| Property | Current Code | Apple Maps Spec | Change |
+|----------|-------------|-----------------|--------|
+| Width | 60pt | 36pt | Reduce |
+| Height | 5pt | 5pt | No change |
+| Color | `Color.secondary.opacity(0.5)` | `Color(.systemFill)` | Use semantic color — adapts to dark/light |
+| Top padding | 10pt | 8pt | Reduce by 2pt |
+| Bottom padding | 8pt | 6pt | Reduce by 2pt |
+
+```swift
+// Replace in MapBottomSheet.swift:
+Capsule()
+    .fill(Color(.systemFill))
+    .frame(width: 36, height: 5)
+    .padding(.top, 8)
+    .padding(.bottom, 6)
+```
+
+### Expanded Sheet Background — Correct Dark Color
+
+Current expanded background `Color(red: 0.11, green: 0.11, blue: 0.12)` is a hardcoded dark color. Apple Maps uses the system background so it adapts to future OS changes:
+
+```swift
+// Replace hardcoded dark in MapBottomSheet.swift:
+// Color(red: 0.11, green: 0.11, blue: 0.12)
+
+// WITH:
+Color(uiColor: .systemBackground)
+// This is dark on dark scheme (which .preferredColorScheme(.dark) forces on the map)
+```
+
+### Background Transition — Peek to Expanded
+
+The background changes discretely between detent states, animated by the existing spring. Add `.transition(.opacity)` to each branch for a short 0.15s crossfade during the snap:
+
+```swift
+.background {
+    if isPeek {
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .environment(\.colorScheme, .dark)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
+            .transition(.opacity)
+    } else {
+        UnevenRoundedRectangle(
+            topLeadingRadius: 22,
+            bottomLeadingRadius: 0,
+            bottomTrailingRadius: 0,
+            topTrailingRadius: 22,
+            style: .continuous
+        )
+        .fill(Color(uiColor: .systemBackground))
+        .shadow(color: .black.opacity(0.15), radius: 10, y: -5)
+        .ignoresSafeArea(edges: .bottom)
+        .transition(.opacity)
+    }
+}
+.animation(.easeInOut(duration: 0.15), value: isPeek)
+```
+
+### Search Pill — Material Correction
+
+The existing `MapFloatingSearchPill.swift` uses `.ultraThinMaterial`. Apple Maps uses `.regularMaterial` (thicker) which gives better contrast for the search text:
+
+```swift
+// In MapFloatingSearchPill.swift, replace:
+// .fill(.ultraThinMaterial)
+
+// WITH:
+.fill(.regularMaterial)
+```
+
+The rest of the pill (cornerRadius 12, shadow radius 8, padding) is already correct.
+
+### Search Pill to Expanded Bar Animation — matchedGeometryEffect
+
+When the sheet transitions from peek to half/full and the search field expands, `matchedGeometryEffect` creates a smooth morphing animation:
+
+| API | iOS Min | Purpose |
+|-----|---------|---------|
+| `@Namespace` | iOS 14 | Creates animation namespace shared between pill and expanded bar |
+| `matchedGeometryEffect(id:in:)` | iOS 14 | Synchronizes geometry between pill shape and expanded search background |
+
+Implementation pattern:
+
+```swift
+// In TripMapView (owns both layers):
+@Namespace private var searchNamespace
+
+// Pass namespace to MapFloatingSearchPill and MapSearchContent
+// Apply .matchedGeometryEffect(id: "searchBackground", in: searchNamespace)
+// on the background RoundedRectangle in each component
+```
+
+Note: `matchedGeometryEffect` only works reliably when source and destination views are in the same SwiftUI view hierarchy. If z-index issues appear across the ZStack layers, fall back to `.transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .bottom)))` — less fluid but always correct.
+
+### Floating Map Controls — Right Vertical Stack
+
+Replace the existing hand-rolled location button and `.mapControls {}` block with scoped standalone controls placed in the right floating stack.
+
+**Why `MapUserLocationButton` over hand-rolled:**
+The native button automatically manages three location tracking states (none → following → followingWithHeading) with animated SF Symbol transitions and correct VoiceOver labels — no custom state machine needed.
+
+**Why standalone over `.mapControls {}`:**
+`.mapControls {}` places controls at the system-defined position (typically top-trailing corner). Apple Maps right-side vertical stack above the search pill requires custom positioning as standalone SwiftUI views.
+
+| API | iOS Min | Purpose |
+|-----|---------|---------|
+| `@Namespace` | iOS 14 | Namespace for map scope binding |
+| `Map(position:selection:scope:)` | iOS 17 | Attach scope to map instance |
+| `.mapScope(namespace)` | iOS 17 | Declare scope on parent view |
+| `MapUserLocationButton(scope:)` | iOS 17 | Native location tracking button |
+| `MapCompass(scope:)` | iOS 17 | Compass that appears on map rotation |
+| `MapPitchToggle(scope:)` | iOS 17 | 2D/3D perspective toggle |
+| `.mapControlVisibility(.visible)` | iOS 17 | Show compass permanently, not just on rotation |
+
+Implementation in `TripMapView.swift`:
+
+```swift
+@Namespace private var mapScope
+
+// On Map view, add scope parameter:
+Map(position: $vm.cameraPosition, selection: $vm.selectedPlaceID, scope: mapScope) {
+    // existing content unchanged
+}
+.mapScope(mapScope)
+
+// Remove existing .mapControls block
+// Remove hand-rolled location button VStack
+
+// Add floating controls ZStack layer:
+VStack {
+    Spacer()
+    VStack(spacing: 8) {
+        MapUserLocationButton(scope: mapScope)
+        MapPitchToggle(scope: mapScope)
+        MapCompass(scope: mapScope)
+            .mapControlVisibility(.visible)
+    }
+    .padding(.trailing, 16)
+    .padding(.bottom, 96)  // sit above peek pill height (56pt) + tab bar (34pt) + 6pt gap
+}
+```
+
+### Peek Sheet Height Correction
+
+Current peek height is 50pt. Apple Maps peek pill is ~58pt to accommodate 44pt search content + 7pt top + 7pt bottom padding:
+
+```swift
+// In MapBottomSheet.swift SheetDetent.peek:
+case .peek: return 58  // was 50
+```
+
+### Sheet Content Scroll Behavior
+
+When the sheet is at `.half` with scroll content (search results list), the default SwiftUI behavior expands the sheet to the next detent on upward scroll. Use `.presentationContentInteraction(.scrolls)` — but this only applies to system sheets.
+
+For the custom sheet, the existing drag gesture correctly distinguishes intent (drag on handle = resize, drag on content = scroll) because content is in a `ScrollView` with `DragGesture(minimumDistance: 5)` on the handle area only.
+
+No API change needed here. The existing approach is correct.
+
+### Summary of Changes Required
+
+| File | Change | API Used |
+|------|--------|----------|
+| `MapBottomSheet.swift` | Peek pill: `ultraThinMaterial` + dark env instead of solid black | `.ultraThinMaterial`, `.environment(\.colorScheme, .dark)` |
+| `MapBottomSheet.swift` | Drag handle: 36pt wide, `Color(.systemFill)` | `Capsule` |
+| `MapBottomSheet.swift` | Expanded bg: `Color(uiColor: .systemBackground)` | `UIColor.systemBackground` |
+| `MapBottomSheet.swift` | `UnevenRoundedRectangle` add `style: .continuous` | `UnevenRoundedRectangle` |
+| `MapBottomSheet.swift` | Peek height: 58pt instead of 50pt | `SheetDetent.peek` |
+| `MapFloatingSearchPill.swift` | Background: `.regularMaterial` instead of `.ultraThinMaterial` | `.regularMaterial` |
+| `TripMapView.swift` | Add `@Namespace mapScope`, `Map(scope:)`, `.mapScope()` | `@Namespace`, `Map(scope:)` |
+| `TripMapView.swift` | Replace hand-rolled location button with `MapUserLocationButton(scope:)` | `MapUserLocationButton` |
+| `TripMapView.swift` | Add `MapPitchToggle(scope:)` to floating right stack | `MapPitchToggle` |
+| `TripMapView.swift` | Remove `.mapControls {}` block (controls now standalone) | — |
+
+---
+
+## v1.0 Core Navigation Stack
 
 ### Core Map Framework
 
@@ -31,7 +252,7 @@
 
 **Confidence: HIGH** — official Apple docs confirmed, stable API since iOS 7.
 
-**Critical limitation:** Transit routing via `MKDirections` returns `MKRoute` steps but **does not expose individual transit legs** (e.g., "take Metro Line 3 for 4 stops"). Step text is human-readable but structured transit data is not available. For combined metro + walk routes, you get a single fused polyline with mixed `transportType` steps — acceptable for this project.
+**Critical limitation:** Transit routing via `MKDirections` returns `MKRoute` steps but does not expose individual transit legs. Step text is human-readable but structured transit data is not available. Acceptable for this project.
 
 ---
 
@@ -39,13 +260,11 @@
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| `CLLocationManager` | iOS 2+ | Real-time user position during navigation | `startUpdatingLocation()` with `desiredAccuracy = kCLLocationAccuracyBestForNavigation`. Delegate or async stream. App already has `LocationManager.swift` — extend it |
-| `CLLocation.distance(from:)` | iOS 2+ | Off-route deviation detection | Compare current position to nearest `MKRoute.Step` polyline point. If distance > threshold (e.g. 50m), trigger recalculation via new `MKDirections` request |
-| Custom `NavigationEngine` (@Observable) | — | Navigation state machine | Tracks: currentStepIndex, distanceToNextStep, isNavigating, hasDeviated. Updates on each CLLocation callback. Triggers `AVSpeechSynthesizer` at right moments |
+| `CLLocationManager` | iOS 2+ | Real-time user position during navigation | `startUpdatingLocation()` with `desiredAccuracy = kCLLocationAccuracyBestForNavigation`. App already has `LocationManager.swift` — extend it |
+| `CLLocation.distance(from:)` | iOS 2+ | Off-route deviation detection | Compare current position to nearest `MKRoute.Step` polyline point. If distance > threshold (e.g. 50m), trigger recalculation |
+| Custom `NavigationEngine` (@Observable) | — | Navigation state machine | Tracks: currentStepIndex, distanceToNextStep, isNavigating, hasDeviated. Updates on each CLLocation callback |
 
-**Confidence: HIGH** — standard pattern, confirmed by multiple developer resources. No higher-level Apple navigation engine exists for third-party apps (only Apple Maps internal).
-
-**Route recalculation pattern:** On deviation detected → issue new `MKDirections` request from current location to original destination → replace active route. No Apple API for auto-recalc — must implement manually.
+**Confidence: HIGH** — standard pattern, confirmed by multiple developer resources.
 
 ---
 
@@ -54,25 +273,10 @@
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
 | `AVSpeechSynthesizer` | iOS 7+ | Text-to-speech voice prompts | Free, offline, supports all iOS languages including Russian. No API key, no network required |
-| `AVSpeechUtterance` | iOS 7+ | Individual voice prompt | Set `.voice` to `AVSpeechSynthesisVoice(language: "ru-RU")` for Russian. Set `.rate` to `AVSpeechUtteranceDefaultSpeechRate` |
-| `AVAudioSession` | iOS 2+ | Audio session management | Set category `.playback` with `.duckOthers` option to lower music volume during prompts — same pattern as Apple Maps |
+| `AVSpeechUtterance` | iOS 7+ | Individual voice prompt | Set `.voice` to `AVSpeechSynthesisVoice(language: "ru-RU")` for Russian |
+| `AVAudioSession` | iOS 2+ | Audio session management | Set category `.playback` with `.duckOthers` to lower music during prompts — same pattern as Apple Maps |
 
-**Confidence: HIGH** — well-documented, widely used. iOS 17 introduced "Personal Voice" support (opt-in). Confirmed working for navigation prompts in multiple third-party apps.
-
-**Trigger logic:** Announce step instruction when `distanceToNextStep < 300m` (early warning) and `< 50m` (turn now). Use `AVSpeechSynthesizer.stopSpeaking(at: .immediate)` before queuing new utterance to prevent overlap.
-
----
-
-### UI Components
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `.sheet` + `presentationDetents` | iOS 16+ | Apple Maps-style bottom sheet | Native SwiftUI. Use `[.height(100), .medium, .large]` detents. `.presentationBackgroundInteraction(.enabled)` keeps map interactive while sheet is open. `.presentationCornerRadius(32)` for rounded top |
-| `presentationBackgroundInteraction(.enabled)` | iOS 16.4+ | Non-blocking sheet | Critical for Apple Maps feel — without it, map is dimmed and non-interactive behind sheet |
-| `@GestureState` + `DragGesture` | iOS 13+ | Custom sheet drag handle | For glassmorphism-styled handle indicator inside sheet header |
-| `ZStack` + `.ignoresSafeArea` | iOS 13+ | Floating search pill over map | Layer search bar on top of Map view. Already used in `MapFloatingSearchPill.swift` |
-
-**Confidence: HIGH** — `presentationDetents` and `presentationBackgroundInteraction` verified in Apple docs, available iOS 16+. Project targets iOS 17+ so all available.
+**Confidence: HIGH** — well-documented, widely used.
 
 ---
 
@@ -80,85 +284,68 @@
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| `MKMapSnapshotter` | iOS 7+ | Tile snapshots per region | Already in app (`OfflineCacheManager`). Captures raster snapshots at zoom levels. Suitable for viewing offline, not interactive tile streaming |
-| `MKTileOverlay` (UIKit bridge) | iOS 7+ | Custom tile overlay | Only accessible via `UIViewRepresentable` wrapper — SwiftUI `Map` does not support `MKOverlayRenderer` directly. Needed if streaming tiles from custom source |
-| `SwiftData` (existing) | iOS 17+ | Persist cached routes offline | Store serialized `MKRoute` data (polyline coordinates + steps) as `CachedRoute` @Model. Retrieve by origin/destination hash when offline |
+| `MKMapSnapshotter` | iOS 7+ | Tile snapshots per region | Already in app (`OfflineCacheManager`). Captures raster snapshots at zoom levels |
+| `SwiftData` (existing) | iOS 17+ | Persist cached routes offline | Store serialized `MKRoute` data as `CachedRoute` @Model |
 
-**Confidence: MEDIUM** — Apple's ToS prohibits caching Apple Maps tiles for offline use. `MKMapSnapshotter` snapshots are a gray area used widely in apps. For offline routing, route caching (not tile caching) is the compliant approach. The project already made this architectural decision correctly.
-
-**Offline routing approach:** Cache `MKRoute` responses in SwiftData when online. On offline request, match origin+destination (fuzzy, within ~500m radius) to return cached route. No separate routing engine needed. Mark routes with `cachedAt` timestamp, expire after 7 days.
+**Confidence: MEDIUM** — Apple's ToS prohibits caching Apple Maps tiles for offline use. `MKMapSnapshotter` snapshots are a gray area used widely in apps. The project already made this architectural decision correctly.
 
 ---
 
-### Live Activity / Dynamic Island
+## Alternatives Considered
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `ActivityKit` | iOS 16.1+ | Live Activity for active navigation | Project already has `LiveActivityManager.swift`. Extend existing widget for navigation state: current step instruction, distance, ETA |
-| `WidgetKit` | iOS 14+ | Live Activity UI rendering | Navigation Dynamic Island: compact view shows next turn icon + distance. Expanded view shows full step text |
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| Custom GeometryReader sheet | Native `.presentationDetents` | NEVER for floating pill peek. Use `.presentationDetents` only if peek can be full-width attached-to-edge (not Apple Maps style) |
+| `MapUserLocationButton(scope:)` | Hand-rolled `location.fill` button | Hand-rolled only if iOS 16 support is required (project targets iOS 17+) |
+| `matchedGeometryEffect` for pill animation | `.transition(.opacity.combined(.scale))` | Use scale+opacity if matchedGeometryEffect causes z-index conflicts across ZStack layers |
+| `.ultraThinMaterial` + dark env | `Color.black.opacity(0.75)` | Solid color is acceptable fallback if blur causes performance issues on older devices |
+| `@Namespace` + `mapScope` for controls | `.mapControls {}` | Use `.mapControls {}` only if custom positioning is not required |
+| MapKit (native) | Mapbox SDK, MapLibre | Only if offline vector tiles are mandatory (they are out of scope for this project) |
 
-**Confidence: HIGH** — project already uses this stack (Session 8). Navigation Live Activity is a natural extension.
+## What NOT to Use
 
----
-
-### Supporting Libraries (No Third-Party SDKs Required)
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| `Combine` / Swift Concurrency | Swift 5.5+ | Async route requests | Use `async/await` for `MKDirections.calculate()`. Already project pattern |
-| `CoreLocation` framework | iOS 2+ | Full location services | Already in `LocationManager.swift`. For navigation: switch to `kCLLocationAccuracyBestForNavigation` during active nav, revert to `kCLLocationAccuracyHundredMeters` when idle to save battery |
-| `SwiftData` | iOS 17+ | Route + offline cache persistence | Already used project-wide. `CachedRoute` model for offline routing |
-
----
-
-## Alternatives Considered and Rejected
-
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Map rendering | MapKit (SwiftUI native) | Mapbox SDK, MapLibre | Project constraint: MapKit only. Also: Mapbox costs money, adds 10MB+ binary, different visual style |
-| Offline tiles | MKMapSnapshotter cache | Mapbox Offline, OpenStreetMap tiles | ToS violation for Apple tiles; Mapbox requires SDK; OSM tiles need custom renderer (MapLibre) |
-| Voice TTS | AVSpeechSynthesizer | Amazon Polly, Google TTS | Requires network, API key, cost. System TTS is offline, free, no latency. Quality sufficient for navigation prompts |
-| Route calculation | MKDirections | OSRM, GraphHopper, Valhalla | All require server infrastructure or third-party SDK. MKDirections is free, no server needed, returns Apple Maps quality routes |
-| Turn-by-turn engine | Custom NavigationEngine | NavigationKit (OSS) | NavigationKit wraps Mapbox under the hood — incompatible with MapKit-only constraint |
-| Bottom sheet | `presentationDetents` | Custom UIKit sheet, third-party libs | Native iOS 16+ API is sufficient. Third-party libs (BottomSheet, etc.) add dependencies with no meaningful benefit on iOS 17+ |
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `.presentationDetents` for the always-present map sheet | Adds system dim overlay, cannot float as pill, known height-measurement bugs on iOS 16–18 | Custom GeometryReader overlay sheet (already in codebase) |
+| `UIViewRepresentable` wrapping `UISheetPresentationController` | Breaks SwiftUI state management, UIKit coupling | Custom SwiftUI overlay |
+| Third-party sheet libraries (BottomSheet, Introspect) | Fragile across iOS updates, adds SPM dependency | Pure SwiftUI custom sheet |
+| `MapZoomStepper` | macOS-only, not available on iOS | Pinch gesture directly on `Map` |
+| `List` inside the custom sheet | `List` creates its own scroll context that conflicts with the sheet drag gesture | `ScrollView` + `LazyVStack` (already used in search content) |
+| `.presentationBackground` modifier | Only applies to system modal sheets (`.sheet`, `.fullScreenCover`), not custom overlay views | Apply material fill directly to the overlay shape |
 
 ---
 
 ## iOS Version Requirements
 
 | API | Minimum iOS | Notes |
-|-----|------------|-------|
+|-----|-------------|-------|
 | `Map` SwiftUI view (new APIs) | iOS 17 | `MapCameraPosition`, `MapPolyline` in Map scope |
-| `presentationDetents` | iOS 16 | Project already targets iOS 17+, no issue |
-| `presentationBackgroundInteraction` | iOS 16.4 | Project already targets iOS 17+, no issue |
-| `ActivityKit` Live Activity | iOS 16.1 | Already in use |
-| `SwiftData` | iOS 17 | Already in use |
-| `CLLocationUpdate` (modern async) | iOS 17 | Optional — use if refactoring `LocationManager` |
+| `Map(scope:)` parameter | iOS 17 | Required for standalone MapKit controls |
+| `MapUserLocationButton(scope:)` | iOS 17 | Replaces hand-rolled location button |
+| `MapCompass(scope:)` standalone | iOS 17 | Use with mapScope namespace |
+| `MapPitchToggle(scope:)` standalone | iOS 17 | New addition to floating stack |
+| `.mapScope(_:)` modifier | iOS 17 | Associates controls with specific Map instance |
+| `UnevenRoundedRectangle` | iOS 17 | Top-only corner radius on expanded sheet |
+| `.ultraThinMaterial` | iOS 15 | Peek pill blur |
+| `.regularMaterial` | iOS 15 | Search pill blur |
+| `matchedGeometryEffect` | iOS 14 | Pill → expanded bar animation |
+| `@Namespace` | iOS 14 | Namespace for matched geometry |
+| `presentationDetents` | iOS 16 | Not used for main sheet; noted for reference |
+| `presentationBackgroundInteraction` | iOS 16.4 | Not used for main sheet; noted for reference |
 
-Project targets iOS 17+ — all APIs are available without conditional checks.
-
----
-
-## Key Architecture Constraint
-
-Apple provides **no public API for offline vector tile streaming or offline routing** on MapKit. This is not a documentation gap — it is intentional. The compliant offline strategy is:
-
-1. `MKMapSnapshotter` for offline map viewing (raster, already implemented)
-2. SwiftData-cached `MKRoute` responses for offline navigation (serialize polyline + steps when online)
-3. Accept that deep-zoom offline interactivity is not possible with MapKit alone
-
-Any feature spec that requires "full offline interactive map" without third-party SDKs must be scoped to cached snapshots + cached routes only.
+Project targets iOS 17+ (confirmed: build target iPhone 17 Pro Max, iOS 26.2). All APIs above are available without conditional checks.
 
 ---
 
 ## Sources
 
-- [Meet MapKit for SwiftUI — WWDC23](https://developer.apple.com/videos/play/wwdc2023/10043/) — HIGH confidence, official
-- [MKDirections — Apple Developer Documentation](https://developer.apple.com/documentation/mapkit/mkdirections) — HIGH confidence, official
-- [AVSpeechSynthesizer — Apple Developer Documentation](https://developer.apple.com/documentation/avfaudio/avspeechsynthesizer) — HIGH confidence, official
-- [CLLocationManager — Apple Developer Documentation](https://developer.apple.com/documentation/corelocation/cllocationmanager) — HIGH confidence, official
-- [presentationDetents — Sarunw](https://sarunw.com/posts/swiftui-bottom-sheet/) — MEDIUM confidence, community verified
-- [SwiftUI MapKit iOS 17 Missing Features — Medium](https://medium.com/@gerdcastan/swiftui-mapkit-ios-17-the-missing-features-4b08fa42ee9f) — MEDIUM confidence, documents SwiftUI MapKit gaps including MKTileOverlay limitation
-- [presentationBackgroundInteraction — Apple Developer Forums](https://developer.apple.com/forums/thread/711702) — MEDIUM confidence, confirmed working pattern
-- [Getting Directions in MapKit with SwiftUI — CreateWithSwift](https://www.createwithswift.com/getting-directions-in-mapkit-with-swiftui/) — MEDIUM confidence
-- [Core Location Modern API Tips — TwoCentStudios](https://twocentstudios.com/2024/12/02/core-location-modern-api-tips/) — MEDIUM confidence, 2024 post
+- [Meet MapKit for SwiftUI — WWDC23](https://developer.apple.com/videos/play/wwdc2023/10043/) — MapScope, MapUserLocationButton, standalone controls. HIGH confidence, official.
+- [Adding Map Controls — CreateWithSwift](https://www.createwithswift.com/adding-map-controls-to-a-map-view-with-swiftui-and-mapkit/) — Exact API patterns for standalone controls. HIGH confidence.
+- [Mastering MapKit Customizations — SwiftWithMajid](https://swiftwithmajid.com/2023/12/05/mastering-mapkit-in-swiftui-customizations/) — mapScope namespace pattern with code examples. HIGH confidence.
+- [Exploring Interactive Bottom Sheets — CreateWithSwift](https://www.createwithswift.com/exploring-interactive-bottom-sheets-in-swiftui/) — presentationDetents modifiers and limitations. HIGH confidence.
+- [Customizing Sheet Background — AppCoda](https://www.appcoda.com/swiftui-bottom-sheet-background/) — presentationBackground, material options, background interaction. HIGH confidence.
+- [UnevenRoundedRectangle iOS 17 — DevTechie/Medium](https://medium.com/devtechie/round-specific-corners-in-ios-17-swiftui-5-using-unevenroundedrectangle-ffdc88d163c9) — iOS 17 native API. HIGH confidence.
+- [presentationDetents iOS 16–18 bugs — Hacking with Swift Forums](https://www.hackingwithswift.com/forums/swiftui/swiftui-presentationdetents-behaves-incorrectly-on-ios-16-18-but-works-correctly-on-ios-26/30435) — Known content height bug justifying custom sheet approach. MEDIUM confidence.
+- [How to Build a Floating Bottom Sheet — DEV Community](https://dev.to/sebastienlato/how-to-build-a-floating-bottom-sheet-in-swiftui-drag-snap-blur-lfp) — Spring animation parameters, blur material approach. MEDIUM confidence.
+- [MKDirections — Apple Developer Documentation](https://developer.apple.com/documentation/mapkit/mkdirections) — HIGH confidence, official.
+- [AVSpeechSynthesizer — Apple Developer Documentation](https://developer.apple.com/documentation/avfaudio/avspeechsynthesizer) — HIGH confidence, official.

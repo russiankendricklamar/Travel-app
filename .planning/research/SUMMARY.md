@@ -1,175 +1,190 @@
 # Project Research Summary
 
-**Project:** Travel App — Map Navigation Overhaul
-**Domain:** iOS MapKit turn-by-turn navigation for travel planner
-**Researched:** 2026-03-20
+**Project:** Travel App — Apple Maps UI Parity (v1.1 Milestone)
+**Domain:** iOS SwiftUI — MapKit bottom sheet, floating controls, search pill visual polish
+**Researched:** 2026-03-21
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This is a navigation overhaul of an existing, well-structured iOS travel app — not a greenfield navigation app. The codebase already contains MapKit integration, a RoutingService backed by Google Routes API via Supabase proxy, a custom bottom sheet, location management, and offline map snapshots. The task is to build a complete turn-by-turn navigation experience on top of this foundation using exclusively Apple-native APIs: MapKit (iOS 17 SwiftUI APIs), MKDirections, AVSpeechSynthesizer, CLLocationManager, and ActivityKit. No third-party SDKs are needed or appropriate given the MapKit-only constraint.
+This milestone is a UI-only visual refactor of the existing map screen to achieve visual parity with Apple Maps. The navigation engine, routing, offline caching, and voice guidance are fully complete from v1.0. What remains is a set of targeted changes to `MapBottomSheet.swift`, `MapSearchContent.swift`, and `TripMapView.swift` — plus a new `MapFloatingControls.swift` component extracted from inline code in `TripMapView`. The changes are surgical: wrong background materials, oversized drag handle, incorrect peek height, jarring control visibility toggles, and a missing shape morph animation are the core problems. None require architectural rethinking.
 
-The recommended approach follows a strict dependency order: build the core NavigationEngine and NavigationVoiceService first (pure Swift, no UI), then layer NavigationHUD on top, then add alternative route selection, then offline route caching, and finally Live Activity integration. This order ensures each phase is independently testable and prevents the most common failure mode — building UI before the state machine is stable. The architecture is an extension of the existing single-source-of-truth MapViewModel pattern, with NavigationEngine as a new @Observable component owned by MapViewModel rather than a parallel top-level service.
+The recommended approach is to work in dependency order: fix peek geometry first (height, background material, padding), then polish the search bar, then extract floating controls to their own component, then do a final content and animation pass. Every change has low regression risk because the components are already well-isolated — the sheet does not know about its content, and the content does not know about the sheet's shape. The hardest single task is the peek-to-half shape morph, which can be deferred as an optional v1.1 nice-to-have and replaced with a simple opacity crossfade if time is short.
 
-The key risks are: (1) background location silently killed by iOS when the screen turns off — requires both `allowsBackgroundLocationUpdates = true` in code AND `UIBackgroundModes: [location]` in Info.plist, which is the most commonly missed step; (2) AVSpeechSynthesizer permanently ducking background music if the audio session is not explicitly deactivated with a 0.5s delay after speech ends; (3) rerouting flooding the Google Routes API without debouncing. All three are well-understood and preventable with specific patterns documented in PITFALLS.md.
+The primary risk is introducing visual regressions in the gesture interaction surface. The drag gesture, spring parameters (`response: 0.35, dampingFraction: 0.85`), and focus management timing (150ms delay before `isSearchFocused = true`) are already correct in the existing code — pitfall research confirms these should not be touched. The recommended change set is additive (new material types, new component extraction) rather than behavioral.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The entire feature set can be delivered using Apple-native APIs available on iOS 17+ — which the project already targets. MapKit's SwiftUI APIs (`Map`, `MapPolyline`, `MapCameraPosition`) replace legacy UIKit wrappers. MKDirections handles route calculation including alternatives. AVSpeechSynthesizer provides offline, free, Russian-language voice guidance. CLLocationManager (already in `LocationManager.swift`) needs configuration for continuous navigation mode. ActivityKit (already in `LiveActivityManager.swift`) extends to show navigation turns in the Dynamic Island.
+The project already uses the correct stack. No new frameworks or packages are required for this milestone. All APIs are available on iOS 17+ which is the current minimum target.
 
 **Core technologies:**
-- `Map` + `MapPolyline` (iOS 17 SwiftUI): Route rendering — WWDC23 APIs, no MKMapViewRepresentable needed
-- `MKDirections` (stable): Route calculation — supports alternatives, all transport modes, already wired via RoutingService
-- `CLLocationManager` (existing): Continuous GPS during navigation — must set `pausesLocationUpdatesAutomatically = false`
-- `AVSpeechSynthesizer` (iOS 7+): Voice guidance — offline, Russian-language, no API key, single instance pattern required
-- `presentationDetents` + `presentationBackgroundInteraction` (iOS 16.4+): Apple Maps-style sheet — already in MapBottomSheet.swift
-- `SwiftData` (existing): Offline route caching — `CachedRoute` @Model for serialised polylines + steps
-- `ActivityKit` (existing): Navigation Live Activity — extend `LiveActivityManager` for turn display
+- `.ultraThinMaterial` / `.regularMaterial` (iOS 15+): Background blur for peek pill and floating controls — replaces hardcoded `Color.black.opacity(0.75)` and `Color(.secondarySystemGroupedBackground)`
+- `@Namespace` + `Map(scope:)` + `.mapScope(_:)` (iOS 17+): Scoped map controls enabling `MapUserLocationButton`, `MapCompass`, `MapPitchToggle` as standalone positioned views — cannot be positioned manually without this
+- `UnevenRoundedRectangle` (iOS 17+): Single parameterized shape for smooth peek-to-half corner radius morphing — mandatory to avoid shape-type snap
+- `matchedGeometryEffect` (iOS 14+): Search pill to expanded bar animation — fallback to `.transition(.opacity.combined(with: .scale))` if z-index conflicts arise across ZStack layers
+- `.onGeometryChange` (iOS 17+, WWDC24): Preferred over `GeometryReader` for height measurement to avoid layout-pass redraws during drag
 
-**Critical limitation:** MKDirections transit mode does not expose structured transit legs (line numbers, stop counts). Step text is human-readable only. Full offline interactive map tiles are not possible with MapKit — accept this platform constraint.
+**What NOT to add:**
+- `.presentationDetents` — cannot reproduce floating pill; confirmed content-height bugs on iOS 16-18; only fixed in iOS 26
+- Third-party sheet libraries (BottomSheet, Introspect) — fragile across iOS updates, adds SPM dependency
+- `UIViewRepresentable` wrapping `UISheetPresentationController` — breaks @Observable pattern, unnecessary
 
 ### Expected Features
 
-**Must have (table stakes):**
-- Alternative routes panel (2-3 options with ETA chips) — MKDirections already returns these
-- Turn-by-turn step list in bottom sheet — MKRouteStep text already available
-- Transport mode ETA bar (all 4 modes simultaneously) — etaPreviews already loaded
-- Navigation mode: map auto-pan + heading lock + next-turn banner
-- Voice guidance via AVSpeechSynthesizer (Russian, reads next step on approach)
-- Route deviation detection + automatic recalculation
+**Must have (table stakes — v1.1 target):**
+- Peek pill height 56pt (from 50pt) — search content is clipped at current height; UISearchBar baseline is 56pt (HIGH confidence)
+- `.ultraThinMaterial` blur on peek pill — flat opaque color reads as a stuck-on bar over the map, not glass
+- `.regularMaterial` on floating controls — visual consistency with pill; prevents glass-over-glass conflict
+- Controls use `.opacity()` + `.allowsHitTesting()` fade (not `if/else` toggle) — instant removal is jarring
+- Bottom gap 8pt below peek pill — pill must visually float, not press against safe area
+- Drag handle 36pt wide (from 60pt) — current 60pt is non-standard and oversized
+- Sheet top corner radius 22pt (from 30pt) — 30pt is too large for a sheet top
 
-**Should have (travel-specific differentiators):**
-- Navigate to itinerary places directly — one-tap routing from saved places
-- Pre-cached routes for offline playback — store RouteResult JSON per trip day
-- Trip context overlay during navigation — "День 2 из 7 — Токио"
-- Day-by-day route overview with color coding per day
+**Should have (nice-to-have, v1.1):**
+- User avatar circle (28-30pt) at trailing of search pill — present in Apple Maps since iOS 15; requires `AuthManager` state check with `person.circle.fill` fallback
+- Shadow tuning on peek pill: softer shadow (opacity 0.18, radius 16) from current (opacity 0.3, radius 12)
+- Peek-to-half shape morph — pill grows to full-width during drag via interpolated `horizontalPadding` and `cornerRadius` — highest complexity, highest visual impact; optional crossfade fallback accepted
 
-**Defer to later milestones:**
-- Weather-aware transport suggestion — needs orchestration service, complex
-- Multi-city inter-city routing — low traveler demand relative to complexity
-- Live Activity navigation integration — tie in after core navigation is stable
+**Defer (v1.2+):**
+- Weather badge top-left on map (WeatherKit on map view — separate feature)
+- Look Around left-side floating button
+- Favorites/recent searches persistent section
+- "Search here" button after manual map pan (iOS 18 feature)
 
-**Anti-features (explicitly excluded):**
-- Custom tile rendering (Mapbox/MapLibre), truck/motorcycle routing, AR navigation, CarPlay, live traffic toggle, speed cameras, subscription gating
+**Confirmed app-specific deviations from Apple Maps (intentional — keep):**
+- AI sparkles toggle replaces microphone icon
+- Today's places section replaces Home/Work/Favorites circles
+- Map controls section (layers, weather, discover) replaces Guides
 
 ### Architecture Approach
 
-The overhaul extends the existing architecture rather than replacing it. `MapViewModel` remains the single source of truth and gains navigation sub-state. A new `NavigationEngine` (@Observable) sits between `LocationManager` (raw GPS) and the UI, owning the active session: step index, distance to next maneuver, off-route detection, and rerouting triggers. A new `NavigationVoiceService` wraps `AVSpeechSynthesizer` with distance-triggered announcement logic. `OfflineRouteCache` is a new SwiftData @Model that stores serialised RouteResult entries keyed by origin + destination + mode. The existing `MapBottomSheet`, `MapRouteContent`, and `TripMapView` are extended, not replaced.
+The architecture is already correct and requires extension, not replacement. `MapBottomSheet.swift` handles shape and drag; content views are agnostic to sheet geometry; `MapViewModel.swift` (974 lines, @Observable) is the single source of truth for all sheet state. The only structural change is extracting the inline location button and recenter button from `TripMapView.swift` into a new `MapFloatingControls.swift` — this reduces TripMapView complexity and gives controls a coherent home with proper visibility logic. `MapFloatingSearchPill.swift` (currently unused) should be repurposed or deleted and replaced by the new component.
 
 **Major components:**
-1. `NavigationEngine` (NEW) — active session state machine: step tracking, off-route detection, rerouting orchestration
-2. `NavigationVoiceService` (NEW) — AVSpeechSynthesizer wrapper with 500m/200m/0m trigger distances and audio session lifecycle
-3. `NavigationHUD` (NEW) — floating next-maneuver overlay card, rendered above the Map view
-4. `OfflineRouteCache` (NEW SwiftData @Model) — persisted RouteResult entries for offline navigation
-5. `MapViewModel` (EXTEND) — gains `isNavigating`, `navigationStepIndex`, `distanceToNextStep`, owns NavigationEngine instance
-6. `RoutingService` (EXTEND) — returns `[RouteResult]` for alternatives, checks OfflineRouteCache before network
+1. `MapBottomSheet.swift` — shape interpolation (pill vs. sheet), background material, drag gesture and snap. Only visual geometry changes needed here.
+2. `MapSearchContent.swift` — search bar rendering, cancel button, category chips, today's places, map controls. Remove inner capsule background in peek; minor padding adjustment.
+3. `MapFloatingControls.swift` (new, renamed from `MapFloatingSearchPill.swift`) — location button, recenter button; visibility tied to `vm.isNavigating` and `vm.sheetDetent`.
+4. `TripMapView.swift` — ZStack layer assembly, task orchestration. Simplified by extracting floating controls; adds `@Namespace mapScope` for native MapKit controls.
+5. `MapViewModel.swift` — add computed `showFloatingControls` property; change `SheetDetent.peek.height` value; no structural changes needed.
+
+**Data flow is unchanged:** detent enum drives visual shape; ViewModel state machine methods drive detent changes; `FocusState` lives in `TripMapView` and is passed as a binding to `MapSearchContent` (FocusState must live in the view that owns the layout — correct pattern, do not change).
 
 ### Critical Pitfalls
 
-1. **Background location silently killed** — iOS stops GPS when screen turns off unless BOTH `allowsBackgroundLocationUpdates = true` AND `UIBackgroundModes: [location]` in Info.plist are set. The plist entry is the step most commonly missed. Must set `pausesLocationUpdatesAutomatically = false` and `activityType = .otherNavigation`. Test on physical device only — simulator behaves differently.
+1. **Background stretching to screen edges** — SwiftUI modifier order is strict: apply `.background()` before outer padding, not after. Incorrect order makes the pill expand to full screen width. Pattern: inner content padding → `.background(shape)` → outer floating padding. Phase 1 must verify pill has visible gap from screen edges on all screen sizes.
 
-2. **AVSpeechSynthesizer ducks music permanently** — The synthesizer activates the AVAudioSession but never deactivates it. Must call `AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)` in `speechSynthesizer(_:didFinish:)` delegate with a 0.5s `asyncAfter` delay (synchronous call fails with error 560030580).
+2. **Opacity-based background looks wrong on device** — `Color.black.opacity(0.75)` appears correct in Simulator but shows incorrect tint over light map tiles (parks, beaches) on a real device. Replace with `.ultraThinMaterial` + optional `Color.black.opacity(0.35)` tint overlay. Must test on physical device with varied map tiles.
 
-3. **MKMapSnapshotter cannot provide interactive offline maps** — Snapshots are static UIImages at a fixed zoom; they cannot be panned or zoomed. The compliant offline strategy is: cache `RouteResult` polylines in SwiftData (routes, not tiles), display them as overlays on a degraded Map view, and accept that tile availability depends on iOS's own URLCache.
+3. **Separate shape types cannot animate between states** — `RoundedRectangle` (peek) and `UnevenRoundedRectangle` (half/full) are different types; SwiftUI cannot morph between them. Use a single `UnevenRoundedRectangle` for all states with animated parameters: `bottomRadius: isPeek ? 22 : 0`. This is the root cause of the current shape-snap visual.
 
-4. **Rerouting floods the API without debouncing** — `CLLocationManager` fires at 1 Hz; a single off-route segment can trigger 15+ API calls in 30 seconds. Must enforce: 20–50m off-route threshold, 8–10s debounce between reroute requests, snap origin to nearest step start before computing cache key.
+4. **Drag gesture conflicts with ScrollView** — Attaching `DragGesture` to a parent of `ScrollView` will be silently overridden. Attach only to the drag handle capsule. Current implementation is correct; do not regress when adding content sections to half/full modes.
 
-5. **@Observable MapViewModel causes 1 Hz map re-renders during navigation** — Navigation state (step index, distance, voice queue) must be in a separate `NavigationSessionState` struct or isolated @Observable. Camera position should only update when user moves >5m, not on every GPS tick.
+5. **GeometryReader redraws during drag** — `GeometryReader` inside the sheet re-executes at drag frequency (60Hz), potentially causing the `Map` behind it to repaint. Use `.onGeometryChange` (iOS 17+) for one-time height measurement stored in `@State`. Profile in Instruments after implementation — target <10% CPU during sheet drag.
 
 ## Implications for Roadmap
 
-Based on research, the architecture's dependency graph dictates a clear 5-phase order. Each phase is independently buildable and testable.
+Based on research, the milestone maps to 5 phases with clear sequential and parallel dependencies. All changes are confined to 4-5 existing files plus one new file. No new external dependencies are required.
 
-### Phase 1: NavigationEngine + VoiceService (Core Logic, No UI)
-**Rationale:** Everything else depends on this. NavigationEngine is pure Swift — testable without UI, no rendering concerns. Building it first ensures the state machine is stable before any UI is layered on.
-**Delivers:** Step advancement logic, off-route detection, polyline snapping, AVSpeechSynthesizer integration with correct audio session lifecycle.
-**Addresses:** Table-stakes navigation features (route deviation, voice guidance).
-**Avoids:** Pitfall 1 (background location — configure here), Pitfall 2 (audio session deactivation — implement here), Pitfall 4 (rerouting debounce — build the guard here), Pitfall 6 (step matching with segment snapping, not nearest-start).
+### Phase 1: Sheet Geometry and Background Materials
 
-### Phase 2: NavigationHUD + Active Navigation UI
-**Rationale:** Requires Phase 1's stable NavigationEngine API. UI directly renders NavigationEngine state.
-**Delivers:** `NavigationHUD` floating overlay (next maneuver card + distance), START navigation button in MapRouteContent, map camera auto-pan with heading lock, `.navigating` sheet detent.
-**Uses:** `MapCameraPosition.userLocation(followsHeading: true)`, `presentationDetents`, existing MapBottomSheet extension.
-**Avoids:** Pitfall 5 (isolate NavigationSessionState from map-redraw path), Pitfall 9 (use `.regularMaterial` for navigation sheet, not `.ultraThinMaterial`).
+**Rationale:** All other visual changes depend on correct peek geometry. The background material (Pitfall 2) and modifier order (Pitfall 1) must be established before search bar sizing or controls positioning can be validated. This is the highest-risk phase because the shape morph is the most complex change.
+**Delivers:** Peek pill uses `.ultraThinMaterial` blur; correct 56pt height; 8pt bottom gap; corner radius 22pt; single `UnevenRoundedRectangle` for smooth morph (or opacity crossfade fallback).
+**Addresses:** Peek height, blur material, bottom gap, corner radius, shape morph animation.
+**Files:** `MapBottomSheet.swift` only — isolated, zero regression risk to other screens.
+**Avoids:** Pitfall 1 (modifier order), Pitfall 2 (opacity material on device), Pitfall 3 (shape type mismatch / snap animation).
 
-### Phase 3: Route UX Completion (Alternative Routes + Step List)
-**Rationale:** Enhances RoutingService independently of active navigation session. Can be built in parallel with Phase 2 by a second developer, or immediately after.
-**Delivers:** Alternative routes picker (2-3 swipeable cards with ETA), full turn-by-turn step list in bottom sheet full detent, transport mode ETA bar (all 4 modes).
-**Uses:** `MKDirections.requestsAlternateRoutes = true`, existing `etaPreviews` loading.
-**Avoids:** Pitfall 7 (transit fallback — auto-switch to walking with clear explanation when transit unavailable), Pitfall 8 (lane guidance treated as optional render, no dedicated phase).
+### Phase 2: Search Bar Polish and Keyboard Interaction
 
-### Phase 4: Offline Route Cache
-**Rationale:** SwiftData model is independent of navigation UI; NavigationEngine's rerouting logic can integrate it once it exists.
-**Delivers:** `OfflineRouteCache` @Model, pre-calculation of routes between all trip places via "Подготовить офлайн" button, cache-first lookup in RoutingService, graceful offline error messaging.
-**Uses:** SwiftData (existing), extend OfflineCacheManager.
-**Avoids:** Pitfall 3 (accept tile limitation, document honestly — "маршруты сохранены, тайлы зависят от подключения"), Pitfall 12 (cache key must include transport mode).
+**Rationale:** Depends on correct peek height from Phase 1. Inner capsule background removal, padding adjustment, and pill height validation (~44pt content area inside the 56pt pill) only make sense once the outer geometry is stable.
+**Delivers:** Search bar fits naturally inside the pill with no double-background; correct `padding(.vertical, 7)` for icon and text; keyboard-sheet timing verified (sheet to full → 150ms → focus); optional user avatar at trailing.
+**Files:** `MapSearchContent.swift` primarily; keyboard timing in `TripMapView.swift` (verify, not change).
+**Avoids:** Pitfall 7 (search pill too tall — verify ~44pt rendered height via Xcode View Hierarchy Debugger), Pitfall 10 (keyboard + sheet conflict).
 
-### Phase 5: Live Activity Navigation Integration
-**Rationale:** Requires stable NavigationEngine state (Phase 1) and NavigationHUD (Phase 2). ActivityKit widget target changes are separate from app logic — appropriate to do last.
-**Delivers:** `NavigationActivityAttributes` with next maneuver + distance + ETA, Dynamic Island compact turn display, per-step updates from NavigationEngine to LiveActivityManager.
-**Uses:** ActivityKit (existing `LiveActivityManager.swift` extension), WidgetKit.
-**Implements:** LiveActivityManager extension.
+### Phase 3: Floating Controls Extraction and Native MapKit Integration
+
+**Rationale:** Independent of Phase 2 — can be parallelized. Must complete before Phase 5 visual integration. Extracting controls from `TripMapView` reduces that file's complexity from inline VStack blocks to a single `MapFloatingControls` reference.
+**Delivers:** `MapFloatingControls.swift` with location button and recenter button; controls use `.ultraThinMaterial` backgrounds; visibility uses `.opacity()` + `.allowsHitTesting()` instead of `if/else`; `@Namespace mapScope` wired to `Map` and `MapUserLocationButton`, `MapPitchToggle`, `MapCompass`.
+**Files:** `MapFloatingControls.swift` (new), `TripMapView.swift` (extraction + mapScope addition).
+**Avoids:** Anti-Pattern 5 (hiding controls too aggressively — keep location button visible at half detent, not just peek).
+
+### Phase 4: Content Sections and Half Mode Verification
+
+**Rationale:** Build on stable geometry (Phase 1) and stable search bar (Phase 2). This phase verifies existing sections are correctly gated and fills the half-mode frame. `MapViewModel` gets the two new computed properties documented in ARCHITECTURE.md.
+**Delivers:** Half mode has no blank dark area; section headers match Apple Maps style (small caps, secondary color); `MapViewModel.showFloatingControls` computed property; `SheetDetent.peek.height` value updated.
+**Files:** `MapSearchContent.swift` (section verification), `MapViewModel.swift` (minor additions).
+**Avoids:** Pitfall 8 (half mode empty area — verify each content mode fills the frame).
+
+### Phase 5: Visual Polish and Physical Device Validation
+
+**Rationale:** All structural changes are complete. This phase is verification and targeted cosmetic fixes. Must be done on a physical device — Simulator cannot validate `.ultraThinMaterial` appearance over real map tiles.
+**Delivers:** Shadow tuning (opacity 0.18, radius 16); spring parameter verification (must not deviate from `response: 0.35, dampingFraction: 0.85`); controls fade timing 0.2s; all acceptance checklist items verified.
+**Files:** All map files (read-mostly; targeted single-value fixes only).
+**Avoids:** Pitfall 6 (spring parameters — mark as intentional in code to prevent regression), Pitfall 2 final verification on physical device over park/beach tiles.
 
 ### Phase Ordering Rationale
 
-- NavigationEngine first because it is the shared dependency of HUD (Phase 2), step list (Phase 3), offline rerouting (Phase 4), and Live Activity (Phase 5) — all four phases read its state.
-- UI in Phase 2 before alternative routes in Phase 3 because the START button and navigation mode are prerequisites for users to benefit from route alternatives.
-- Offline cache in Phase 4 before Live Activity because offline is higher user value for a travel app (users go abroad without data); Live Activity is enhancement.
-- All critical pitfalls (background location, audio session, rerouting debounce, state isolation) are addressed in Phases 1-2, before any polish phases.
+- **Phases 1 → 2 are strictly sequential** — search bar sizing is meaningless before peek geometry is correct.
+- **Phase 3 runs parallel to Phase 2** — floating controls extraction has no dependency on search bar content.
+- **Phase 4 is gated on Phase 1 and 2** — half-mode content sections can only be validated after sheet shape is stable.
+- **Phase 5 is last** — it is verification and cosmetic polish, not construction.
+- The shape morph is the highest-complexity item. If `UnevenRoundedRectangle` parameter interpolation does not produce smooth results during Phase 1, switch to the opacity crossfade fallback (documented in STACK.md) rather than blocking the phase.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 1:** CLLocation polyline segment snapping algorithm — specific math for perpendicular projection; needs implementation research or reference implementation
-- **Phase 4:** SwiftData serialisation of `MKRoute` / `RouteResult` — MKPolyline is not Codable natively; coordinate array serialisation approach needs validation
+Phases needing careful validation (not additional research — patterns are known):
+- **Phase 1:** Verify peek pill behavior on iPhone SE (small screen) and iPhone 16 Pro Max (large screen). The `screenHeight * 0.47` half detent may need a small per-device adjustment.
+- **Phase 3 (floating controls extraction):** Medium risk — touches `TripMapView.swift` which has complex state and many `onChange` handlers. Test all interactive paths after extraction: search tap, place pin tap, navigation start, recenter button.
+- **Phase 5:** Requires a physical device. Simulator will not expose the material appearance problems described in Pitfall 2.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 2:** NavigationHUD UI layout follows established Apple Maps pattern; MapKit camera APIs are well-documented
-- **Phase 3:** MKDirections alternative routes — single flag change, well-documented; ETA bar already partially built
-- **Phase 5:** ActivityKit extension — project already has LiveActivityManager; extension is additive
+Phases with standard patterns (sufficient research, no additional research-phase needed):
+- **Phase 2:** Material swaps and padding changes are deterministic SwiftUI changes with no platform-specific behavior.
+- **Phase 4:** Content sections are already implemented; this is verification and minor conditional gating logic only.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All APIs are Apple-native, iOS 17+, official WWDC23 documentation verified. No third-party SDKs introduced. |
-| Features | HIGH | Table stakes derived from existing codebase analysis; differentiators are logical extensions of existing services (WeatherService, RoutingService). Anti-features clearly justified by platform constraints. |
-| Architecture | HIGH | Derived directly from codebase analysis — every component named exists; extension points are explicit. No external architecture sources needed. |
-| Pitfalls | MEDIUM-HIGH | Critical pitfalls verified against Apple Developer Forums and official docs. Audio session deactivation bug confirmed in Apple forums. Background location plist requirement is official. Rerouting debounce is inferred from platform behavior. |
+| Stack | HIGH | All APIs are iOS 17+ native, verified via WWDC23/24 sessions and official Apple docs. No third-party dependencies introduced. |
+| Features | MEDIUM | Apple does not publish pixel-level specs. Measurements marked ESTIMATED in FEATURES.md may need ±4pt tuning. Verified measurements (material types, spring params, corner radii) are HIGH confidence. |
+| Architecture | HIGH | Derived from direct codebase analysis of the actual files being modified. All decisions are grounded in existing code behavior, not external assumptions. |
+| Pitfalls | HIGH | Six critical pitfalls are directly derived from failures observable in the existing code. Four are confirmed by WWDC sessions and official documentation. Two (GeometryReader redraws, gesture conflicts) are confirmed by multiple community sources. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **MKRoute Codable serialisation:** Storing routes in SwiftData requires serialising `CLLocationCoordinate2D` arrays manually (they are not Codable). Validate chosen encoding format (JSON coordinates array vs binary) during Phase 4 planning.
-- **Transit step granularity:** MKDirections transit steps are human-readable text only — no structured line/stop data. If the product requires "take Metro Line 3 for 4 stops" display, this must come from Google Directions API `transitDetails` field, not MKDirections. Clarify requirement before Phase 3.
-- **Physical device testing timeline:** Pitfalls 1, 2, and 5 cannot be validated on simulator. Physical device must be available before Phase 1 is considered complete.
-- **UIBackgroundModes plist entry:** This is a manual Xcode configuration step (noted in MEMORY.md as pending). Must be completed before any navigation testing — it cannot be done in code.
+- **Exact peek height:** STACK.md specifies 58pt; FEATURES.md specifies 56pt; UISearchBar baseline is 56pt (HIGH confidence from Apple UIKit forums). Use 56pt as the starting value and tune during Phase 1 on a physical device.
+- **User avatar implementation:** Requires checking `AuthManager` sign-in state and deciding on the fallback (`person.circle.fill` when not signed in). Phase 2 nice-to-have — do not block Phase 1 on this decision.
+- **Shape morph complexity:** The interpolated `horizontalPadding` + `cornerRadius` morph during drag needs to be prototyped before committing. If `UnevenRoundedRectangle` animated parameters produce jank or unexpected behavior, the opacity crossfade fallback is the approved alternative — document which was chosen in the PLAN.
+- **`.ultraThinMaterial` performance during navigation:** PITFALLS.md notes frame drops on iPhone 12 and older with active navigation polyline. Phase 5 must profile with Instruments and decide whether to switch to `.regularMaterial` in navigation mode.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [WWDC23: Meet MapKit for SwiftUI](https://developer.apple.com/videos/play/wwdc2023/10043/) — Map, MapPolyline, MapCameraPosition APIs
-- [Apple Developer: MKDirections](https://developer.apple.com/documentation/mapkit/mkdirections) — routing, alternatives, transport modes
-- [Apple Developer: AVSpeechSynthesizer](https://developer.apple.com/documentation/avfaudio/avspeechsynthesizer) — TTS, audio session
-- [Apple Developer: CLLocationManager](https://developer.apple.com/documentation/corelocation/cllocationmanager) — background location, navigation accuracy
-- [Apple Developer: MKMapSnapshotter](https://developer.apple.com/documentation/mapkit/mkmapsnapshotter) — offline tile limitation
-- [Apple Developer: usesApplicationAudioSession](https://developer.apple.com/documentation/avfaudio/avspeechsynthesizer/usesapplicationaudiosession) — audio session control
-- [WWDC24: What's new in location authorization](https://developer.apple.com/videos/play/wwdc2024/10212/) — background location config
-- Existing codebase: `MapViewModel.swift`, `RoutingService.swift`, `LocationManager.swift`, `LiveActivityManager.swift`
+- [Meet MapKit for SwiftUI — WWDC23](https://developer.apple.com/videos/play/wwdc2023/10043/) — MapScope, standalone controls API, mapScope namespace
+- [Build a UIKit app with the new design — WWDC25](https://developer.apple.com/videos/play/wwdc2025/284/) — maps removes buttons when sheet expands to prevent glass-over-glass
+- [onGeometryChange — Apple Developer](https://developer.apple.com/documentation/swiftui/view/ongeometrychange(for:of:action:)/) — WWDC24 GeometryReader replacement
+- [MapUserLocationButton docs](https://developer.apple.com/documentation/mapkit/mapuserlocationbutton) — native control three-state behavior
+- [SwiftUI Material docs](https://developer.apple.com/documentation/swiftui/material/) — material hierarchy, vibrancy behavior
+- [Animate with springs — WWDC23](https://developer.apple.com/videos/play/wwdc2023/10158/) — spring duration/bounce API, gesture velocity
+- [background ignoresSafeAreaEdges — Apple Developer](https://developer.apple.com/documentation/swiftui/view/background(_:ignoressafeareaedges:)) — safe area + background modifier
+- Codebase direct analysis: `MapBottomSheet.swift`, `MapSearchContent.swift`, `TripMapView.swift`, `MapViewModel.swift`, `MapFloatingSearchPill.swift`
 
 ### Secondary (MEDIUM confidence)
-- [Sarunw: SwiftUI bottom sheet](https://sarunw.com/posts/swiftui-bottom-sheet/) — presentationDetents pattern
-- [Kodeco: Routing with MapKit and Core Location](https://www.kodeco.com/10028489-routing-with-mapkit-and-core-location) — MKDirections usage
-- [Apple Developer Forums: AVSpeechSynthesizer session deactivation (error 560030580)](https://developer.apple.com/forums/thread/45599) — confirmed audio bug
-- [Apple Developer Forums: CLLocationManager background location](https://developer.apple.com/forums/thread/87256) — background mode config
-- [Medium: SwiftUI MapKit iOS 17 Missing Features](https://medium.com/@gerdcastan/swiftui-mapkit-ios-17-the-missing-features-4b08fa42ee9f) — MKTileOverlay SwiftUI limitation
+- [Adding Map Controls — createwithswift.com](https://www.createwithswift.com/adding-map-controls-to-a-map-view-with-swiftui-and-mapkit/) — mapControls modifier patterns
+- [Mastering MapKit — swiftwithmajid.com](https://swiftwithmajid.com/2023/12/05/mastering-mapkit-in-swiftui-customizations/) — mapScope namespace with code examples
+- [SwiftUI Bottom Sheet — dev.to, 2025](https://dev.to/sebastienlato/how-to-build-a-floating-bottom-sheet-in-swiftui-drag-snap-blur-lfp) — handle: 40×5pt, cornerRadius 3, ultraThinMaterial
+- [GeometryReader: Blessing or Curse — fatbobman.com](https://fatbobman.com/en/posts/geometryreader-blessing-or-curse/) — redraws during drag analysis
+- [Tracking geometry changes — swiftwithmajid.com](https://swiftwithmajid.com/2024/08/13/tracking-geometry-changes-in-swiftui/) — onGeometryChange usage
+- [iOS 18 Apple Maps — MacRumors](https://www.macrumors.com/guide/ios-18-maps/) — user avatar presence since iOS 15
+- [presentationDetents bugs — Hacking with Swift Forums](https://www.hackingwithswift.com/forums/swiftui/swiftui-presentationdetents-behaves-incorrectly-on-ios-16-18-but-works-correctly-on-ios-26/30435) — confirmed content-height bug justifying custom sheet
 
-### Tertiary (LOW confidence)
-- [GitHub: react-native-background-geolocation iOS background gaps (Feb 2026)](https://github.com/transistorsoft/react-native-background-geolocation/issues/2494) — corroborates background location pause behavior
+### Tertiary (LOW confidence — needs physical device validation)
+- UISearchBar default height 56pt — Apple UIKit forums + GitHub Simplenote iOS issue #930
+- Apple Maps pixel measurements — developer teardowns and community reproductions; no official spec published by Apple
 
 ---
-*Research completed: 2026-03-20*
+*Research completed: 2026-03-21*
 *Ready for roadmap: yes*

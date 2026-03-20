@@ -1,153 +1,242 @@
-# Domain Pitfalls: MapKit Navigation on iOS
+# Domain Pitfalls: Apple Maps UI Parity in SwiftUI
 
-**Domain:** iOS turn-by-turn navigation, offline maps, Apple Maps-style UI
-**Project:** Travel App — Map Navigation Overhaul
-**Researched:** 2026-03-20
-**Confidence:** MEDIUM-HIGH (verified against Apple Developer Forums, official docs, community post-mortems)
+**Domain:** SwiftUI bottom sheet recreation, Apple Maps-style UI, MapKit integration
+**Project:** Travel App — v1.1 Apple Maps UI Parity Milestone
+**Researched:** 2026-03-21
+**Confidence:** HIGH (verified against Apple Developer Docs, WWDC sessions, direct code analysis of existing failures)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, App Store rejections, or navigation that simply stops working.
+Mistakes that cause rewrites or multiple iteration cycles. All six failures listed in the milestone context are addressed here.
 
 ---
 
-### Pitfall 1: Background Location Silently Killed During Navigation
+### Pitfall 1: `.padding(.horizontal)` on Content Does Not Restrict the Background
 
-**What goes wrong:** Navigation audio cues stop mid-route. The user's dot stops moving on the map. No crash, no error — the OS just stops delivering location updates.
+**What goes wrong:** The peek-mode pill has horizontal padding on its content (search bar, icons) to create visual inset. But the `.background()` modifier applies to the full frame of the containing VStack or HStack — not just the padded content. The result is a background rectangle that stretches edge-to-edge across the screen, making the pill look like a full-width bar instead of a floating capsule.
 
-**Why it happens:** Two separate configuration gates must both be open:
-1. `CLLocationManager.allowsBackgroundLocationUpdates = true` in code
-2. `UIBackgroundModes: [location]` in `Info.plist` (must be added in Xcode target settings under "Signing & Capabilities" → Background Modes)
+**Why it happens:** SwiftUI modifier ordering is strict: padding applied _to_ a view expands the view's frame before the background is measured. The pattern `.content.padding(.horizontal, 16).background(...)` means the background fills the padded frame (still full-width if the container is `.frame(maxWidth: .infinity)`). The background has no knowledge of the visual "inset" you want — it fills the view's actual bounds.
 
-Missing either one means location updates are suspended the moment the app goes to background. The plist entry is commonly forgotten because it is not a code change.
+**How to avoid:** Apply the background _before_ the padding, then apply padding _to the background-carrying view_. For a floating pill:
 
-Additionally, `activityType` must be set correctly. When set to `.automotiveNavigation` or `.otherNavigation`, iOS pauses location when the device becomes stationary — **but does not automatically restart it**. If the user stops at a traffic light and the system pauses, navigation never resumes.
+```swift
+// WRONG: background stretches to full width
+HStack { searchContent }
+    .frame(maxWidth: .infinity)
+    .padding(.horizontal, 16)
+    .background(RoundedRectangle(cornerRadius: 22).fill(Color.black.opacity(0.75)))
 
-**Consequences:** Rerouting never triggers because no new location comes in. Voice cues stop. App appears frozen to the user.
+// CORRECT: background stays pill-sized, outer padding creates the float
+HStack { searchContent }
+    .padding(.horizontal, 14)  // internal padding inside the pill
+    .background(
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(Color.black.opacity(0.75))
+    )
+    .padding(.horizontal, 16)  // outer padding to float away from edges
+```
 
-**Prevention:**
-- Set `activityType = .otherNavigation` (covers walking, transit, cycling, driving without auto-pause risk)
-- Set `pausesLocationUpdatesAutomatically = false` for active navigation sessions
-- Set `allowsBackgroundLocationUpdates = true` only when navigation is active; clear it when navigation ends
-- Add `UIBackgroundModes: [location]` to `Info.plist` — this is the step most commonly missed
-- In `CLLocationManagerDelegate.locationManagerDidPauseLocationUpdates(_:)`, immediately call `startUpdatingLocation()` again as a safety net
+The current `MapBottomSheet.swift` already does this correctly for the peek-mode background by applying `.padding(.horizontal, 16)` inside the `if isPeek` background Group. But content views placed _inside_ the sheet can re-introduce this problem if they add their own full-width frames before the background is applied.
 
 **Warning signs:**
-- Navigation works perfectly in simulator (background mode behaves differently)
-- Navigation works with screen on but fails after ~10 seconds of screen off
-- No `locationManager(_:didFailWithError:)` calls during the failure
+- Peek mode background extends to screen edges with no visible floating gap
+- The background color fills the full width in Simulator preview
+- Adding `.padding(.horizontal, N)` to the sheet wrapper has no visual effect on the background width
 
-**Phase:** Background location + rerouting phase. Must be tested on physical device, not simulator.
+**Phase to address:** Sheet background phase — must be verified in the peek state before any other styling work.
 
 ---
 
-### Pitfall 2: AVSpeechSynthesizer Ducks Music Permanently (Audio Session Not Deactivated)
+### Pitfall 2: Opacity-Based Background Looks Wrong vs. System Materials
 
-**What goes wrong:** After a voice cue plays, Spotify/Apple Music stays at 30% volume permanently. No crash. The synthesizer spoke, job done — but it activated the audio session and never deactivated it, leaving every other audio source ducked.
+**What goes wrong:** `Color.black.opacity(0.75)` looks correct in screenshots but wrong on a real device with a light map underneath. In dark mode the difference is minimal; in light mode (or when map has light-colored tiles) the pill appears too transparent or shows a green/brown tint from the map through it.
 
-**Why it happens:** `AVSpeechSynthesizer` activates the `AVAudioSession` on its own when speaking. It does NOT deactivate it when done. If the app does not explicitly call `AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)` after speech ends, the session stays active and ducks everything else.
+**Why it happens:** A fixed-opacity color does not adapt to what is beneath it. Apple Maps uses a vibrancy-aware material (`UIBlurEffect` style `.systemChromeMaterial` or `.systemUltraThinMaterialDark`) that composites against the actual pixels of the map. This adapts automatically: the pill reads as dark regardless of the map tile color because the blur samples the underlying content and adjusts contrast.
 
-Calling `setActive(false)` immediately from the synthesizer delegate also fails with error `560030580` ("Session deactivation failed") if called synchronously — the synthesizer internally holds the session open briefly after the delegate fires.
+SwiftUI materials (`.ultraThinMaterial`, `.regularMaterial`, etc.) automatically resolve to the correct vibrancy for the current color scheme. A hardcoded `Color.black.opacity(0.75)` does not.
 
-**Consequences:** User's music stays ducked for the duration of navigation, or until app is killed. Very visible UX bug.
+**How to avoid:** For the peek pill, use a material combined with a tinted overlay instead of a plain opacity color:
 
-**Prevention:**
 ```swift
-// After speaking ends:
-func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
-                        didFinish utterance: AVSpeechUtterance) {
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-        try? AVAudioSession.sharedInstance().setActive(
-            false,
-            options: .notifyOthersOnDeactivation
-        )
+// Peek pill background (dark, floating, vibrancy-aware)
+RoundedRectangle(cornerRadius: 22, style: .continuous)
+    .fill(.ultraThinMaterial)
+    .overlay(
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(Color.black.opacity(0.35))  // tint layer on top of material
+    )
+```
+
+For the half/full mode sheet background (opaque dark):
+
+```swift
+// The expanded sheet needs to feel solid, not glassy
+// Use a dark adaptive color rather than hardcoded RGB
+Color(uiColor: UIColor.systemBackground)  // adapts to color scheme
+// OR for dark-only map mode:
+Color(red: 0.11, green: 0.11, blue: 0.12)  // only correct when .preferredColorScheme(.dark) is forced on Map
+```
+
+The app forces `.preferredColorScheme(.dark)` on the `Map` view, so `Color(red: 0.11, green: 0.11, blue: 0.12)` is actually correct for the expanded sheet. The risk is forgetting that this hardcoded color only works because of the forced dark scheme.
+
+**Warning signs:**
+- Pill looks dark in Simulator but appears translucent or oddly-colored on a physical device
+- Pill changes appearance when moving map to light-colored tiles (beaches, parks)
+- Color looks correct in dark mode but too light in light mode (if dark scheme is not forced)
+
+**Phase to address:** Visual polish phase. Test on a physical device with varied map content — parks, water, buildings.
+
+---
+
+### Pitfall 3: Sheet Height in Full Mode Goes Under Status Bar
+
+**What goes wrong:** When the sheet expands to full, the drag handle and content appear under the status bar. Either the content is clipped by the safe area, or there is a dark "black bar" flash during the animation as the sheet slides into the status bar region.
+
+**Why it happens:** The `GeometryReader` reports `geo.size.height` which includes the full available layout height. When `case .full: return screenHeight` is used, the sheet height equals the total layout height and the sheet's VStack starts at the very top of the layout space — which is already below the safe area top. But `.ignoresSafeArea(edges: .bottom)` on the background shape causes it to extend to the screen bottom, and the safe area top is not accounted for in content layout.
+
+The "black bar" flash occurs specifically when the `NavigationStack` behind the sheet has a translucent navigation bar: the bar briefly becomes opaque during the sheet animation because the sheet's material or background touches the navigation bar region, triggering a UIKit composition change.
+
+**How to avoid:**
+
+```swift
+// In SheetDetent height calculation, reserve space for safe area top in full mode
+func height(in screenHeight: CGFloat, safeAreaTop: CGFloat) -> CGFloat {
+    switch self {
+    case .peek: return 50
+    case .half: return screenHeight * 0.47
+    case .full: return screenHeight  // sheet frame = full height
+    }
+}
+
+// In sheet body layout, pad content top when in full mode
+.padding(.top, detent == .full ? safeAreaTop : 0)
+```
+
+The current `MapBottomSheet.swift` already has this pattern at line 68 with `.padding(.top, isPeek ? 0 : (detent == .full ? safeAreaTop : 0))`. The black bar flash is separately caused by the `NavigationStack` toolbar. Resolve it with:
+
+```swift
+// On the NavigationStack wrapper
+.toolbar(.hidden, for: .navigationBar)
+// NOT just .toolbarBackground(.hidden) — that leaves the toolbar visible but transparent
+// and still causes flash during sheet animation
+```
+
+**Warning signs:**
+- Drag handle appears under or partially behind the clock/battery icons
+- A black/dark flash appears at the top of the screen during the peek → full transition
+- Content in full mode is clipped by the safe area
+
+**Phase to address:** Full-mode expansion phase. Must test with `.toolbar(.hidden)` on the NavigationStack.
+
+---
+
+### Pitfall 4: Drag Gesture Conflicts with ScrollView Inside Sheet
+
+**What goes wrong:** When the sheet is in half or full mode and contains a `ScrollView` (search results, place details), dragging down on the list to collapse the sheet instead scrolls the list. The sheet gesture never fires. Alternatively, dragging on the drag handle works but dragging on the list body does not collapse the sheet.
+
+**Why it happens:** SwiftUI `ScrollView` claims all vertical drag gestures. A `DragGesture` attached via `.gesture()` to a parent view of a `ScrollView` will be silently overridden by the scroll view's internal gesture recognizer. The `DragGesture` with `.minimumDistance: 5` fires initially but loses the gesture to the scroll view on subsequent ticks.
+
+**How to avoid:** Attach the drag gesture only to the drag handle area, not to the full sheet body. The scroll view should be allowed to scroll freely. Only collapse the sheet when the user drags the handle OR when the scroll view reaches the top AND the user continues dragging downward.
+
+```swift
+// Drag handle — always receives the sheet drag gesture
+Capsule()
+    .fill(Color.secondary.opacity(0.5))
+    .frame(width: 60, height: 5)
+    .padding(.top, 10)
+    .contentShape(Rectangle())
+    .gesture(dragGesture)
+
+// ScrollView — NO additional gesture, scroll freely
+ScrollView { listContent }
+    // Do NOT add .gesture(dragGesture) here
+```
+
+For the "scroll to top then collapse" behavior (the real Apple Maps behavior), use `UIScrollViewDelegate` via `UIViewRepresentable` or check the scroll offset with a `ScrollViewReader`/`onScrollGeometryChange` and only activate the sheet drag when `contentOffset.y <= 0 && dragDirection == .down`.
+
+The current implementation correctly attaches the drag only to the content area in peek mode via `isPeek ? dragGesture(...) : nil`. The risk is when content sections are added to the half/full modes that use their own gestures.
+
+**Warning signs:**
+- Dragging on a results list in half mode always scrolls instead of collapsing sheet
+- Sheet can only be dragged from the handle — dragging anywhere else on the sheet body does nothing
+- On iOS 18+, `UIGestureRecognizerRepresentable` may be needed to correctly interoperate
+
+**Phase to address:** Half/full mode content phase. Test drag interaction on each content type (search results, place details, navigation steps).
+
+---
+
+### Pitfall 5: GeometryReader in Sheet Causes Continuous Redraws
+
+**What goes wrong:** The sheet wraps content in a `GeometryReader` to get the screen height for detent calculations. Every pixel of drag offset causes a state update (`dragOffset`), which causes the `GeometryReader` body to re-execute, which re-computes the height, which causes SwiftUI to re-layout the entire sheet and all its children — including the `Map` view behind it. This manifests as 60fps animations that stutter at 30fps when the map has active content.
+
+**Why it happens:** `GeometryReader` participates in the layout pass. Any `@State` change in a parent that contains a `GeometryReader` triggers a re-layout of the `GeometryReader`'s children. During drag, `dragOffset` changes at 60Hz, and if the `GeometryReader` or any computed property using `geo.size` is inside the updated subtree, the map (as a sibling in the same `ZStack`) can also be affected by layout invalidation.
+
+**How to avoid:** Capture the screen height once on `.onAppear` and `.onChange(of: geo.size)`, storing it in a `@State` property. The `GeometryReader` itself should only update `screenHeight` and not be part of the sheet's body computation during drag.
+
+```swift
+// Capture height once, use stored value during drag
+@State private var screenHeight: CGFloat = 0
+
+var body: some View {
+    GeometryReader { geo in
+        Color.clear
+            .onAppear { screenHeight = geo.size.height }
+            .onChange(of: geo.size) { _, s in screenHeight = s.height }
+    }
+    .frame(height: 0)  // zero-height GeometryReader that only reads, doesn't layout
+
+    sheetContent  // uses stored screenHeight, not live geo
+}
+```
+
+On iOS 17+, prefer `.onGeometryChange(for: CGFloat.self) { geo in geo.size.height } action: { screenHeight = $0 }` — this is the WWDC 2024 recommended replacement for `GeometryReader` for size measurement. It does not affect layout.
+
+**Warning signs:**
+- CPU usage spikes to 40%+ during sheet drag in Instruments
+- Map annotations flicker during sheet drag
+- Debug "View Body Invocations" shows map view body executing at drag frequency
+
+**Phase to address:** Performance validation phase. Profile in Instruments on a real device after initial implementation.
+
+---
+
+### Pitfall 6: Spring Animation Parameters Feel "Wrong" (Too Bouncy or Too Slow)
+
+**What goes wrong:** The sheet snaps to detent positions but feels either rubber-band-bouncy (overshooting past the detent) or sluggish (drifts slowly). Neither matches the snappy-but-controlled feel of real Apple Maps.
+
+**Why it happens:** The traditional `response`/`dampingFraction` spring API (pre-iOS 17) does not account for velocity at gesture end. The sheet snaps with a fixed spring regardless of how fast the user was dragging. Fast drags feel "stuck" because the spring ignores their momentum. Slow drags feel bouncy because a low `dampingFraction` was tuned for fast gestures.
+
+iOS 17+ introduced `Animation.spring(duration:bounce:)` which is simpler to tune, and SwiftUI automatically passes gesture velocity to spring animations when state changes are triggered from within a gesture's `onEnded` handler.
+
+**How to avoid:** Pass the drag velocity as initial velocity to the spring:
+
+```swift
+.onEnded { value in
+    let velocity = value.predictedEndTranslation.height / screenHeight
+    // velocity is normalized -1.0 to 1.0
+
+    withAnimation(.spring(response: 0.38, dampingFraction: 0.78, blendDuration: 0)) {
+        detent = nearest
+        dragOffset = 0
     }
 }
 ```
-- Use `AVAudioSession.Category.playback` with `.duckOthers` option while speaking; deactivate after
-- Set `usesApplicationAudioSession = true` on the synthesizer (the default) so the app controls the session
-- Do NOT set `usesApplicationAudioSession = false` — this prevents ducking control entirely
+
+The Apple Maps feel uses approximately:
+- `response: 0.35–0.4` (moderately fast but not instant)
+- `dampingFraction: 0.8–0.85` (slight overshoot, settles quickly — NOT 1.0 which is critically damped/robotic)
+- `blendDuration: 0` (prevents blending from previous animation state)
+
+The current implementation uses `spring(response: 0.35, dampingFraction: 0.85)` which is close to correct. The risk is touching these values during "polish" iterations and making them worse.
 
 **Warning signs:**
-- Music plays quietly and never returns to full volume after first voice cue
-- The bug only occurs when background audio (music) is already playing
-- Deactivation error `560030580` in logs
+- Sheet overshoots its target detent visibly before settling
+- Sheet feels "sticky" at low drag velocities — doesn't snap cleanly
+- Sheet animation differs noticeably from Apple Maps (test side-by-side)
 
-**Phase:** Voice guidance implementation phase. Test with background music playing on physical device.
-
----
-
-### Pitfall 3: MKMapSnapshotter Does Not Provide Offline Map Tiles
-
-**What goes wrong:** The app calls `MKMapSnapshotter` to "cache" the map for offline use. The user goes offline in Tokyo. The map is blank. The snapshots are static images — they cannot be zoomed or panned.
-
-**Why it happens:** `MKMapSnapshotter` produces a static `UIImage` of a map region at a fixed zoom level. It is not a tile cache. Zooming in on the snapshot degrades it. Panning is impossible. Apple Maps tiles themselves are served by Apple's CDN and have no public API for bulk offline download.
-
-The `NSURLCache` that MapKit uses to store tiles is not guaranteed to persist. Cache eviction can remove tiles at any time. There is no contract for offline availability.
-
-**Consequences:** The feature listed in PROJECT.md — "полный офлайн: предзагрузка карт региона" — cannot be delivered with `MKMapSnapshotter` alone as an interactive map.
-
-**Prevention:**
-- Use `MKMapSnapshotter` only for static thumbnail previews (e.g. trip overview cards), not interactive navigation
-- For interactive offline maps: cache pre-built route polylines as `Codable` coordinate arrays in SwiftData; display them as overlays on a `Map` view that gracefully degrades when tiles fail to load
-- Pre-calculate and cache routes (`RouteResult`) for planned itinerary legs before the user travels
-- Accept that offline map tiles are a platform limitation — document this honestly for users: "маршруты сохранены, тайлы карты зависят от подключения"
-
-**Warning signs:**
-- Any plan that says "cache map tiles offline with MKMapSnapshotter for interactive use"
-- Assuming Apple Maps tile cache survives memory pressure or app restarts
-
-**Phase:** Offline caching phase. The architecture decision must be made before implementation starts, not after.
-
----
-
-### Pitfall 4: Rerouting Floods the API with Repeated Route Calculations
-
-**What goes wrong:** The user deviates 5 meters from the route. Rerouting triggers. They walk back on route. Rerouting triggers again. Within 30 seconds, 15 API calls go to the Google Routes proxy. Rate limits hit. Navigation dies.
-
-**Why it happens:** The naive implementation calls `calculateRoute()` on every `CLLocation` update that is off-route. `CLLocationManager` can fire 1 Hz or faster. Without debouncing, a single deviation causes a cascade.
-
-The existing `RoutingService` has an `inFlightKeys` deduplication guard, but it only prevents parallel duplicates for the same cache key. If the origin shifts slightly each update, the cache key changes, defeating deduplication.
-
-**Consequences:** Google Routes API quota exhausted. Navigation becomes unresponsive. Supabase Edge Function throttled.
-
-**Prevention:**
-- Only trigger rerouting when the user is off-route by more than a meaningful threshold (20–50m for walking, 100m for driving)
-- Debounce rerouting: no new request for at least 8–10 seconds after the last reroute
-- Snap the origin coordinate to the nearest route step start (prevents cache-key churn from GPS jitter)
-- Use `CLLocationManager.distanceFilter = kCLDistanceFilterNone` only during active navigation; use `distanceFilter = 10` (meters) otherwise
-
-**Warning signs:**
-- Rapid repeated log entries: `[RoutingService] Routes API request: ...` with slightly different origin coords
-- API calls spike during navigation sessions
-- Battery drain during navigation is unusually high
-
-**Phase:** Rerouting implementation phase. Rate limiting must be built before the first reroute test.
-
----
-
-### Pitfall 5: `@Observable` MapViewModel Causes Excessive Map Re-renders During Navigation
-
-**What goes wrong:** During active navigation, the map view flickers or lags. Every location update mutates state on `MapViewModel`, which triggers full SwiftUI body re-evaluation on the `Map` view — including re-laying out polylines, re-pinning annotations, and re-computing camera position.
-
-**Why it happens:** `@Observable` is granular about property access, but a `Map` view that reads `cameraPosition`, `activeRoute`, and annotation arrays all from the same `@Observable` object will re-render whenever any of those change. Location updates during navigation change position frequently (1 Hz), hitting this path on every tick.
-
-**Consequences:** Visible map stutter at 1 Hz. High CPU during navigation. Battery drain. Degraded rendering on older devices.
-
-**Prevention:**
-- Extract navigation-specific state (current step index, distance to next maneuver, voice queue) into a separate `NavigationSessionState` struct or `@Observable` class
-- Only update `cameraPosition` when the user has moved more than 5m, not on every location tick
-- Use `MapPolyline` with stable identity — do not recreate the entire polyline array on each update
-- The camera auto-follow during navigation should animate to the next waypoint, not the raw GPS coordinate (reduces jitter)
-
-**Warning signs:**
-- CPU usage >40% during navigation in Instruments
-- Map view re-renders visible via "Debug View Hierarchy" flashes
-- `zoomToRoute` called more than once per second in logs
-
-**Phase:** Navigation session UI phase. Profile with Instruments before considering it done.
+**Phase to address:** Animation tuning phase. Lock the parameters and mark them as intentional to prevent regression.
 
 ---
 
@@ -155,131 +244,245 @@ The existing `RoutingService` has an `inFlightKeys` deduplication guard, but it 
 
 ---
 
-### Pitfall 6: Step-Matching Logic Misidentifies Current Step
+### Pitfall 7: Search Pill Height Mismatch vs. Apple Maps
 
-**What goes wrong:** The turn-by-turn instruction says "Turn left in 50m" but the user already turned 200m ago and is on the next street. The step counter is stuck.
+**What goes wrong:** The search pill is visually taller than Apple Maps' search bar. The excess height creates empty space above and below the text/icons, making the pill look like a generic text field rather than a compact search control.
 
-**Why it happens:** Matching the current location to the correct route step requires more than "distance to step start." The simplest approach — find the nearest step start point — fails when steps are short (urban grid) or when GPS drifts to an adjacent street. The correct approach is to find the nearest point on the entire step polyline, then advance when the user passes the step's end point.
+**Why it happens:** Apple Maps' search pill has ~44pt total height with ~8pt top/bottom padding. A TextField with `.padding(.vertical, 12)` plus the Capsule background will be at least 56pt tall. The discrepancy comes from treating the pill like a standard form input rather than a compact toolbar element.
 
-**Prevention:**
-- Implement segment-level snapping: for each route step's polyline, find the closest segment, compute the perpendicular projection, and use that as the snapped position
-- Advance to the next step when: (a) user is within 15m of the step end coordinate AND (b) heading toward the next step start (dot-product check)
-- Fall back to rerouting if no step matches within 50m
+**How to avoid:**
+- Target ~44pt total pill height
+- Use `.padding(.vertical, 6–8)` not `.padding(.vertical, 12)` for the pill content
+- Verify with a `frame(height:)` assertion in preview
+- The icon size should be 15–16pt (not 20pt, which is form-appropriate but too large for a pill)
 
-**Phase:** Step-by-step instruction phase.
+```swift
+// Apple Maps pill proportions (approximate)
+HStack(spacing: 8) {
+    Image(systemName: "magnifyingglass").font(.system(size: 15))
+    Text("Поиск на карте").font(.system(size: 16))
+    Spacer()
+}
+.padding(.horizontal, 12)
+.padding(.vertical, 7)  // results in ~44pt total height
+.background(Capsule().fill(...))
+```
 
----
+**Warning signs:**
+- Side-by-side screenshot comparison shows search bar taller than Apple Maps
+- The pill has visible empty space above/below the icon and text
 
-### Pitfall 7: Transit Mode Unavailability Treated as a Hard Error
-
-**What goes wrong:** The user requests transit directions in a city where Google Directions has no transit data (many cities in Central Asia, Africa, parts of Eastern Europe). The app shows a generic "Маршрут не найден" error and offers nothing.
-
-**Why it happens:** The `RoutingService` correctly detects `transitUnavailableRegion` but the fallback (JapanTransitService / AI routing) is Japan-specific. For most of the world, both paths fail.
-
-**Prevention:**
-- When transit is unavailable, automatically show walking or driving ETA as a fallback with a clear explanation: "ОТ недоступен в этом регионе — показан пешеходный маршрут"
-- Offer the "Open in Apple Maps" deep-link as a last resort (already implemented in `RoutingService.openAppleMapsTransit`)
-- Never show a blank error for transit failure — always provide an alternative
-
-**Phase:** Transport mode fallback phase.
-
----
-
-### Pitfall 8: Lane Guidance Data Is Not Available via Google Routes API
-
-**What goes wrong:** PROJECT.md lists "Lane guidance (подсказки полос) где доступно" as a requirement. Development time is allocated. No lane data arrives.
-
-**Why it happens:** Lane guidance (`maneuver.lanes`) is returned by the Google Routes API v2 only for the Directions API with `ComputeRoutes` and requires the `routes.legs.steps.navigationInstruction` field mask. Even then, lane data is sparse and geographically limited (US, some EU). For Russia, Japan, and most travel destinations in this app, lane data will be absent in practice.
-
-**Prevention:**
-- Treat lane guidance as a "nice to have" that renders if data is present, not a feature to build UI scaffolding for
-- Check `navigationInstruction.maneuverView` fields from the Routes API — if absent, hide the lanes UI entirely
-- Do not allocate a dedicated roadmap phase to lane guidance
-
-**Phase:** Do not create a dedicated phase. Embed as optional rendering in step-instruction display.
+**Phase to address:** Search pill layout phase. Screenshot comparison is the acceptance test.
 
 ---
 
-### Pitfall 9: Glassmorphism Blur Performance on Map Overlays
+### Pitfall 8: Half Mode Has Large Empty Area Below Content
 
-**What goes wrong:** The bottom sheet with `ultraThinMaterial` background renders beautifully in isolation. Over the live map during active navigation, it causes frame drops to 30fps, especially on iPhone 12 or older.
+**What goes wrong:** In half mode (~47% of screen height), the sheet shows content but leaves a large blank area between the last row and the sheet bottom. This looks unfinished and wastes space.
 
-**Why it happens:** `UIBlurEffect` / `.ultraThinMaterial` composites every frame against the layer underneath it. A constantly-moving map with active route polylines means the blur compositor works at full rate, competing with MapKit's own render loop.
+**Why it happens:** The sheet frame is sized to `screenHeight * 0.47` regardless of content height. If the content (search bar + chips + short results list) is only ~200pt tall, and the half mode frame is ~400pt, there is 200pt of empty background. Since the sheet background fills the entire frame, the blank area is visible and styled identically to the content area.
 
-**Prevention:**
-- Use `.regularMaterial` instead of `.ultraThinMaterial` for the navigation bottom sheet — slightly less transparent but significantly lighter to composite
-- Reduce the blur area: keep the blur only on the "pill" header of the sheet, use a solid (semi-transparent) background for the step list below it
-- During active navigation, avoid animating sheet `detent` changes — keep the sheet at `.medium` fixed until navigation ends
+**How to avoid:** Two approaches:
+1. Fill the half-mode frame with content (recommended): add sections like "Today's places", "Recent", or "Nearby" that fill the space naturally. This is what Apple Maps does — the sheet always has content proportional to its height.
+2. Shrink the sheet to content height up to the detent maximum (complex): use `min(contentHeight, screenHeight * 0.47)` as the actual frame height. Requires measuring content height with `onGeometryChange`.
 
-**Phase:** Navigation UI polish phase.
+The current implementation already added "Today's places" and "Map controls" sections to fill the half-mode content. The risk is regression if those sections are behind conditions that hide them in certain states.
 
----
+**Warning signs:**
+- Large blank dark area at the bottom of the half-mode sheet
+- Sheet looks taller than its content in any state
 
-## Minor Pitfalls
-
----
-
-### Pitfall 10: `MKLocalSearch` Region Bias Gives Wrong Results Abroad
-
-**What goes wrong:** User searches "Starbucks" in Tokyo. The `MKLocalSearch` returns Starbucks locations in the user's home city because `request.region` was set to the device's current location rather than the map's visible region.
-
-**Prevention:**
-- Always set `request.region = visibleRegion` (already done in `MapViewModel.performMapSearch`), not the device's current location
-- Verify `visibleRegion` is not nil before issuing the search; fall back to the trip's first place coordinate
-
-**Phase:** Search refinement (already partially correct — verify not regressed during navigation mode changes).
+**Phase to address:** Content-filling phase. Verify each sheet content mode (idle, search results, place detail) fills the half mode frame.
 
 ---
 
-### Pitfall 11: `AVSpeechUtterance` Queue Builds Up During Rapid Maneuvers
+### Pitfall 9: Corner Radius Changes Between States Feel Wrong
 
-**What goes wrong:** User approaches a complex interchange with three turns in quick succession. All three utterances are queued. The synthesizer speaks "Turn left" 45 seconds after the turn.
+**What goes wrong:** When the sheet transitions from peek (floating pill, 22pt radius) to half/full (docked sheet, 30pt top radius, 0pt bottom), the background shape change is abrupt or not animated. The pill appears to "snap" into a rectangular sheet.
 
-**Prevention:**
-- Always call `synthesizer.stopSpeaking(at: .immediate)` before queuing a new utterance during active navigation
-- Only speak the immediately upcoming maneuver; silence queued ones when a new step is activated
+**Why it happens:** The peek mode uses a `RoundedRectangle(cornerRadius: 22)` and the half/full modes use `UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, bottomLeadingRadius: 0, bottomTrailingRadius: 0)`. These are different shape types — SwiftUI cannot morph between them with `.animation()` because they do not share a type-erased animatable path by default.
 
-**Phase:** Voice guidance phase.
+**How to avoid:** Use a single shape for all states, changing only the parameters:
+
+```swift
+// Single RoundedRectangle for all states — animate the corner radius change
+let radius: CGFloat = detent == .peek ? 22 : 30
+let bottomRadius: CGFloat = detent == .peek ? 22 : 0
+
+// Use UnevenRoundedRectangle for all states
+UnevenRoundedRectangle(
+    topLeadingRadius: radius,
+    bottomLeadingRadius: bottomRadius,
+    bottomTrailingRadius: bottomRadius,
+    topTrailingRadius: radius,
+    style: .continuous
+)
+.animation(.spring(response: 0.35, dampingFraction: 0.85), value: detent)
+```
+
+This morphs the shape smoothly because it is the same type with animatable parameters.
+
+**Warning signs:**
+- Shape pops between rounded-all-corners and rounded-top-only with no animation
+- The transition looks correct at full speed but shows a frame flash at 0.25x slow motion
+
+**Phase to address:** Shape transition phase — alongside the corner radius work for peek and expanded states.
 
 ---
 
-### Pitfall 12: SwiftData Route Cache Not Keyed on Mode
+### Pitfall 10: Keyboard Appearance Conflicts with Sheet Height
 
-**What goes wrong:** User previews walking route, then switches to driving. The cache returns the walking route for the driving mode (same origin/destination key, wrong mode).
+**What goes wrong:** When the search `TextField` inside the sheet receives focus, the keyboard appears. iOS's built-in keyboard avoidance pushes the entire sheet view up — but the sheet's own detent height calculation is still based on screen height without keyboard. The sheet overshoots the available space, or the map behind it shifts unexpectedly.
 
-**Prevention:**
-- The existing `RoutingService` cache key includes `mode.rawValue` — this is correct
-- Verify this key structure is preserved if `RouteResult` persistence is moved to SwiftData for offline use
+**Why it happens:** The sheet uses `GeometryReader` to get `geo.size.height`, which reports the available height before keyboard avoidance is applied. Once the keyboard appears, iOS shrinks the `SafeAreaInsets.bottom` which changes the available layout height, but the stored `screenHeight` may not update if the `onChange(of: geo.size)` is not wired correctly.
 
-**Phase:** Offline route caching phase.
+The map view behind the sheet also uses `safeAreaPadding(.bottom, ...)` which interacts with the keyboard inset.
+
+**How to avoid:**
+- When the search field gains focus, explicitly set the sheet to `.full` mode _before_ the keyboard appears (using a 0.15s delay so the sheet animation starts first). This is the Apple Maps behavior: tap search → sheet goes full → keyboard rises.
+- Use `.ignoresSafeArea(.keyboard)` on the sheet container to prevent double-shifting (the sheet handles its own keyboard inset, not the system)
+- Do NOT use `.ignoresSafeArea(.keyboard)` on the `Map` view — the map should stay put, only the sheet adjusts
+
+```swift
+// On search field tap (before TextField becomes active):
+.onTapGesture {
+    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+        vm.sheetDetent = .full
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+        isSearchFocused = true  // keyboard appears AFTER sheet is at full
+    }
+}
+```
+
+**Warning signs:**
+- Map view shifts up when keyboard appears (sheet + map both moving)
+- Sheet overshoots the top of the screen momentarily when keyboard appears
+- Content inside the sheet is hidden behind the keyboard
+
+**Phase to address:** Search focus and keyboard interaction phase.
 
 ---
 
-## Phase-Specific Warnings
+## Technical Debt Patterns
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|----------------|------------|
-| Background location / rerouting | Location silently paused when stationary | `pausesLocationUpdatesAutomatically = false` + plist entry |
-| Voice guidance | Music stays ducked after TTS | Async session deactivation in `didFinish` delegate |
-| Offline caching | MKMapSnapshotter used for interactive offline | Accept tile limitation; cache routes, not tiles |
-| Rerouting frequency | API quota exhaustion | 8s debounce + 20m off-route threshold |
-| Navigation session UI | Map jitter from 1 Hz state updates | Separate `NavigationSessionState`, 5m camera update threshold |
-| Step matching | Wrong step announced | Polyline segment snapping, not nearest-start matching |
-| Transit fallback | Blank error in unsupported regions | Auto-fallback to walking + Apple Maps deep-link |
-| Lane guidance | Phase allocated but data absent | Treat as optional render, no dedicated phase |
-| Glass bottom sheet | Frame drops during navigation | `.regularMaterial`, reduced blur surface area |
+Shortcuts that seem reasonable but create long-term problems.
+
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Hardcoded `Color(red: 0.11, ...)` for sheet background | Exact match to target dark color | Breaks if `preferredColorScheme(.dark)` is removed from Map view | Only acceptable while Map forces dark mode |
+| Fixed `screenHeight * 0.47` for half detent | Simple calculation, no measurement | Empty area if content is sparse; clips content if it is tall | Acceptable for MVP; add content-filling sections |
+| `dragOffset` as `@State CGFloat` driving all layout | Simple implementation | GeometryReader inside sheet triggers map redraws during drag | Acceptable until performance issue appears on real device |
+| Separate shape types for peek vs. expanded | Code clarity per state | Cannot animate shape morph between states | Never — use single parameterized shape |
+| Delay `isSearchFocused` by 150ms | Prevents keyboard race condition | Magic number, breaks on slow devices | Acceptable; use `withAnimation` completion callback on iOS 17+ instead |
+
+---
+
+## Performance Traps
+
+Patterns that work correctly but degrade on older devices or with complex map content.
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| `GeometryReader` wrapping sheet during drag | Frame drops during sheet drag with active map | Store height in `@State`, use `onGeometryChange` for measurement only | iPhone 12 or older with active polyline animations |
+| `.ultraThinMaterial` over live map | 30fps during navigation mode | Use `.regularMaterial` in navigation mode, or solid background | Any device when map has animated content (traffic, navigation polyline) |
+| `withAnimation` on `detent` changes from `onChange` triggers | Sheet stutters when search query changes trigger content/height shifts | Use `withAnimation` only in gesture handlers, not `onChange` observers | Any device when `onChange` fires rapidly (typing) |
+| Nested `ScrollView` inside full-mode sheet | Scroll and sheet gestures compete, causing jank | Attach sheet drag only to handle, not content area | Always if `DragGesture` is applied to ScrollView parent |
+
+---
+
+## UX Pitfalls
+
+Common user experience mistakes when recreating Apple Maps bottom sheet.
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Sheet dismisses when swiping down in half mode with active search | User loses search query | Bounce to half if search is active; only dismiss if truly idle |
+| Search field activates in peek mode (keyboard jumps up) | Jarring experience | Treat peek search bar as a tap target that expands sheet first, then focuses |
+| Sheet animates to full when user just wanted to peek at details | Feels uncontrolled | Tapping a pin should go to half mode; search bar tap goes to full mode |
+| Half mode empty area styled same as content area | Sheet looks broken/unfinished | Fill with contextual content (today's places, recent searches) |
+| Drag handle hidden in peek mode | User does not know sheet is draggable | Show handle in half/full mode; make entire peek bar draggable |
+
+---
+
+## "Looks Done But Isn't" Checklist
+
+Things that appear complete in the Simulator but fail on a real device or specific states.
+
+- [ ] **Peek pill background:** Verify on a physical device with the map showing a light-colored area (park, beach) — pill should still read as dark/distinct
+- [ ] **Full mode top padding:** Verify drag handle does not overlap the clock in the status bar at any screen size (check iPhone SE and iPhone 16 Pro Max)
+- [ ] **Shape morph animation:** Verify the peek → half transition in slow-motion (Simulator: Debug → Slow Animations) — no shape "snap"
+- [ ] **Keyboard + sheet:** Verify tapping search in peek mode produces: sheet → full, THEN keyboard appears (not simultaneous)
+- [ ] **Drag with scroll:** Verify that dragging down on a search result list in half mode collapses the sheet (not just scrolls the list)
+- [ ] **Spring parameters:** Side-by-side screenshot comparison with Apple Maps for snap-to-detent speed and overshoot
+- [ ] **Search pill height:** Measure rendered height using Xcode View Hierarchy Debugger — target ~44pt
+
+---
+
+## Recovery Strategies
+
+When pitfalls occur despite prevention, how to recover.
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Background stretching to edges | LOW | Change modifier order: background before outer padding |
+| Black bar flash on full mode | LOW | Add `.toolbar(.hidden, for: .navigationBar)` to NavigationStack |
+| Gesture conflict in scroll list | MEDIUM | Extract drag to handle-only; add scroll-top detection for list body |
+| Shape snap between states | LOW | Replace two shape types with single `UnevenRoundedRectangle` with animated params |
+| Performance during drag | MEDIUM | Extract height measurement to zero-height GeometryReader; use `onGeometryChange` |
+| Wrong material color on device | LOW | Replace `Color.black.opacity(N)` with `.ultraThinMaterial` + tint overlay |
+
+---
+
+## Pitfall-to-Phase Mapping
+
+How roadmap phases should address these pitfalls.
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| Background stretches to edges | Sheet background phase (Phase 1) | Peek pill has visible gap from screen edges on all screen sizes |
+| Opacity material wrong on device | Sheet background phase (Phase 1) | Test on physical device over varied map tiles |
+| Full mode under status bar | Full mode expansion phase (Phase 2) | Drag handle visible below status bar, no black flash |
+| Drag vs. scroll conflict | Sheet content phase (Phase 3) | Dragging on results list in half mode collapses to peek |
+| GeometryReader redraws | Performance phase (Phase 4) | Instruments: <10% CPU during sheet drag over active map |
+| Spring animation wrong | Animation polish phase (Phase 4) | Side-by-side comparison with Apple Maps passes review |
+| Search pill too tall | Search pill phase (Phase 1) | Rendered height is 42–46pt via Xcode View Hierarchy Debugger |
+| Half mode empty area | Content-filling phase (Phase 3) | No blank background visible in any content mode |
+| Corner radius snap | Shape transition phase (Phase 2) | Slow-motion Simulator shows smooth morph, no shape pop |
+| Keyboard + sheet conflict | Search interaction phase (Phase 2) | Sheet expands to full before keyboard appears, no double-shift |
+
+---
+
+## Navigation Domain Pitfalls (Preserved from v1.0)
+
+These pitfalls from the v1.0 navigation milestone remain relevant for the v1.1 UI work.
+
+### Background Location During Navigation (Critical)
+See v1.0 research: `allowsBackgroundLocationUpdates`, `UIBackgroundModes: [location]`, `pausesLocationUpdatesAutomatically = false`. Active navigation still runs in v1.1 — do not regress these configurations during sheet refactoring.
+
+### Glassmorphism Blur Performance on Map Overlays (Moderate)
+`.ultraThinMaterial` over active navigation map causes frame drops on iPhone 12 and older. Use `.regularMaterial` for the navigation sheet mode. This applies directly to v1.1 sheet work: the expanded sheet over a navigating map must use the heavier material.
+
+### `@Observable` MapViewModel Excessive Redraws (Moderate)
+Adding new `@State` or `@Binding` wires through `MapBottomSheet` creates new observation dependencies. Each new binding to `vm` inside the sheet adds a re-render trigger. Keep the sheet's view model surface minimal — pass only what the sheet actually reads.
 
 ---
 
 ## Sources
 
-- [Apple Developer Forums: CLLocationManager background location](https://developer.apple.com/forums/thread/87256) — MEDIUM confidence
-- [Apple WWDC24: What's new in location authorization](https://developer.apple.com/videos/play/wwdc2024/10212/) — HIGH confidence
-- [Apple Developer Docs: CLLocationManager](https://developer.apple.com/documentation/corelocation/cllocationmanager) — HIGH confidence
-- [Apple Developer Forums: AVSpeechSynthesizer session deactivation failure](https://developer.apple.com/forums/thread/45599) — HIGH confidence (confirmed bug)
-- [Apple Developer Docs: usesApplicationAudioSession](https://developer.apple.com/documentation/avfaudio/avspeechsynthesizer/usesapplicationaudiosession) — HIGH confidence
-- [Apple Developer Docs: Handling audio interruptions](https://developer.apple.com/documentation/avfaudio/handling-audio-interruptions) — HIGH confidence
-- [NSHipster: MKTileOverlay, MKMapSnapshotter, MKDirections](https://nshipster.com/mktileoverlay-mkmapsnapshotter-mkdirections/) — MEDIUM confidence (older article, constraints unchanged)
-- [Apple Developer Docs: MKMapSnapshotter](https://developer.apple.com/documentation/mapkit/mkmapsnapshotter) — HIGH confidence
-- [GitHub issue: iOS background location ~80s gaps (Feb 2026)](https://github.com/transistorsoft/react-native-background-geolocation/issues/2494) — LOW confidence (third-party, but corroborates Apple forum reports)
-- Existing project code reviewed: `RoutingService.swift`, `MapViewModel.swift` — direct code analysis
+- [SwiftUI backgrounds and modifier ordering — Swift by Sundell](https://www.swiftbysundell.com/articles/backgrounds-and-overlays-in-swiftui/) — MEDIUM confidence
+- [GeometryReader: Blessing or Curse — fatbobman](https://fatbobman.com/en/posts/geometryreader-blessing-or-curse/) — HIGH confidence
+- [Tracking geometry changes with onGeometryChange — Swift with Majid](https://swiftwithmajid.com/2024/08/13/tracking-geometry-changes-in-swiftui/) — HIGH confidence (WWDC 2024 API)
+- [onGeometryChange official docs — Apple Developer](https://developer.apple.com/documentation/swiftui/view/ongeometrychange(for:of:action:)/) — HIGH confidence
+- [Preventing scroll hijacking by DragGestureRecognizer — darjeelingsteve.com](https://darjeelingsteve.com/articles/Preventing-Scroll-Hijacking-by-DragGestureRecognizer-Inside-ScrollView.html) — MEDIUM confidence
+- [Animate with springs — WWDC23](https://developer.apple.com/videos/play/wwdc2023/10158/) — HIGH confidence
+- [SwiftUI Material documentation — Apple Developer](https://developer.apple.com/documentation/swiftui/material/) — HIGH confidence
+- [SwiftUI keyboard avoidance patterns — vadimbulavin.com](https://www.vadimbulavin.com/how-to-move-swiftui-view-when-keyboard-covers-text-field/) — MEDIUM confidence
+- [background(_:ignoresSafeAreaEdges:) — Apple Developer](https://developer.apple.com/documentation/swiftui/view/background(_:ignoressafeareaedges:)) — HIGH confidence
+- [Mastering safe area in SwiftUI — fatbobman](https://fatbobman.com/en/posts/safearea/) — HIGH confidence
+- [SwiftUI draggable bottom sheet like Apple Maps — medium/@sonyahew](https://medium.com/@sonyahew/swiftui-draggable-bottom-sheet-for-iphone-ipad-like-apple-maps-a7ea71ebb2d3) — MEDIUM confidence
+- Existing project code reviewed directly: `MapBottomSheet.swift`, `MapSearchContent.swift`, `TripMapView.swift`, `MapFloatingSearchPill.swift` — HIGH confidence (direct failure analysis)
+
+---
+*Pitfalls research for: Apple Maps UI parity in SwiftUI (v1.1 milestone)*
+*Researched: 2026-03-21*
