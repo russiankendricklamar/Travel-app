@@ -29,387 +29,418 @@ struct MapPlaceDetailContent: View {
         }
     }
 
-    // MARK: - Place Detail
+    // MARK: - Detail Mode Views
 
     private func placeDetailView(_ place: Place) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Photo carousel
-            if let photos = vm.googleDetail?.photoURLs, !photos.isEmpty {
-                photoCarousel(photos)
-            }
+        unifiedDetailContent(
+            name: place.name,
+            subtitle: place.nameLocal.isEmpty ? place.category.rawValue : place.nameLocal,
+            categoryIconName: categoryIconName(for: place.category),
+            actionButtons: { AnyView(placeActionButtons(place: place)) },
+            extraContent: {
+                AnyView(
+                    Group {
+                        // Notes
+                        if !place.notes.isEmpty {
+                            sectionDivider
+                            notesSection(place.notes)
+                        }
 
-            // Look Around preview
-            lookAroundSection
-
-            // Header (centered like Apple Maps)
-            placeHeader(
-                name: place.name,
-                subtitle: place.nameLocal.isEmpty ? place.category.rawValue : place.nameLocal,
-                close: { vm.clearSelection() }
-            )
-
-            // Action buttons row (Apple Maps style)
-            actionButtonsRow(place: place)
-                .padding(.top, 12)
-
-            // Quick info row (hours / rating / distance)
-            quickInfoRow(place: place)
-                .padding(.top, 14)
-
-            // Google Places details
-            if vm.isLoadingGoogleDetail || vm.googleDetail != nil {
-                sectionDivider
-                googlePlaceDetailsBlock
-            }
-
-            // Apple Maps info (address, phone, website)
-            if vm.isLoadingInfo || vm.appleMapsInfo != nil || !place.address.isEmpty {
-                sectionDivider
-                contactInfoBlock(place: place)
-            }
-
-            // Notes
-            if !place.notes.isEmpty {
-                sectionDivider
-                notesSection(place.notes)
-            }
-
-            // Route error
-            if let error = vm.routeError {
-                routeErrorRow(error)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
-        }
+                        // Route error
+                        if let error = vm.routeError {
+                            routeErrorRow(error)
+                                .padding(.horizontal, 16)
+                                .padding(.top, 8)
+                        }
+                    }
+                )
+            },
+            visitedBadge: place.isVisited
+        )
     }
-
-    // MARK: - Search Item Detail
 
     private func searchItemDetailView(_ item: MKMapItem) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Photo carousel
-            if let photos = vm.googleDetail?.photoURLs, !photos.isEmpty {
-                photoCarousel(photos)
-            }
+        unifiedDetailContent(
+            name: item.name ?? "",
+            subtitle: vm.formatSearchAddress(item),
+            categoryIconName: "mappin.circle.fill",
+            actionButtons: { AnyView(searchActionButtons(item: item)) },
+            extraContent: {
+                AnyView(
+                    Group {
+                        // Add to trip button
+                        addToTripButton {
+                            vm.showDayPickerForAI = PlaceRecommendation.from(mapItem: item)
+                        }
 
-            // Look Around preview
-            lookAroundSection
-
-            placeHeader(
-                name: item.name ?? "",
-                subtitle: vm.formatSearchAddress(item),
-                close: { vm.clearSelection() }
-            )
-
-            // Route action row
-            searchActionRow(item: item)
-                .padding(.top, 12)
-
-            // Contact info
-            if item.phoneNumber != nil || item.url != nil {
-                sectionDivider
-                VStack(alignment: .leading, spacing: 0) {
-                    if let phone = item.phoneNumber, !phone.isEmpty {
-                        contactRow(icon: "phone.fill", label: "Телефон", value: phone, color: AppTheme.sakuraPink)
+                        // Route error
+                        if let error = vm.routeError {
+                            routeErrorRow(error)
+                                .padding(.horizontal, 16)
+                                .padding(.top, 8)
+                        }
                     }
-                    if let url = item.url {
-                        contactRow(icon: "globe", label: "Сайт", value: url.host ?? url.absoluteString, color: AppTheme.sakuraPink)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-
-            // Add to trip button
-            Button {
-                vm.showDayPickerForAI = PlaceRecommendation.from(mapItem: item)
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text("Добавить в маршрут")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 13)
-                .background(AppTheme.sakuraPink)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-
-            if let error = vm.routeError {
-                routeErrorRow(error)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
-        }
+                )
+            },
+            visitedBadge: false
+        )
     }
-
-    // MARK: - AI Result Detail
 
     private func aiResultDetailView(_ rec: PlaceRecommendation) -> some View {
+        unifiedDetailContent(
+            name: rec.name,
+            subtitle: rec.category,
+            categoryIconName: categoryIconNameFromString(rec.category),
+            actionButtons: { AnyView(EmptyView()) },
+            extraContent: {
+                AnyView(
+                    Group {
+                        // Description
+                        Text(rec.description)
+                            .font(.system(size: 15))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 10)
+
+                        // Address / estimated time
+                        if !rec.address.isEmpty || !rec.estimatedTime.isEmpty {
+                            sectionDivider
+                            VStack(alignment: .leading, spacing: 0) {
+                                if !rec.address.isEmpty {
+                                    contactRow(icon: "mappin.circle.fill", label: "Адрес", value: rec.address, color: .secondary)
+                                }
+                                if !rec.estimatedTime.isEmpty {
+                                    contactRow(icon: "clock", label: "Время", value: rec.estimatedTime, color: .secondary)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+
+                        // Add to trip button
+                        addToTripButton {
+                            vm.showDayPickerForAI = rec
+                        }
+                    }
+                )
+            },
+            visitedBadge: false
+        )
+    }
+
+    // MARK: - Unified Layout
+
+    private func unifiedDetailContent(
+        name: String,
+        subtitle: String?,
+        categoryIconName: String,
+        actionButtons: () -> AnyView,
+        extraContent: () -> AnyView,
+        visitedBadge: Bool
+    ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            placeHeader(
-                name: rec.name,
-                subtitle: rec.category,
-                close: { vm.clearSelection() }
+            // Hero section: Look Around or first photo full-width
+            heroSection
+
+            // Photo thumbnails below hero
+            photoThumbnails
+
+            // Left-aligned header with category icon
+            placeHeaderNew(
+                name: name,
+                subtitle: subtitle,
+                categoryIconName: categoryIconName
             )
 
-            Text(rec.description)
-                .font(.system(size: 15))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
+            // Quick status row: open/closed, rating, price, visited
+            quickStatusRow(visitedBadge: visitedBadge)
+                .padding(.top, 8)
 
-            if !rec.address.isEmpty || !rec.estimatedTime.isEmpty {
+            // Circular action buttons
+            actionButtons()
+                .padding(.top, 14)
+
+            // Inline hours (today visible, expandable)
+            if let detail = vm.googleDetail, !detail.weekdayHours.isEmpty {
                 sectionDivider
-                VStack(alignment: .leading, spacing: 0) {
-                    if !rec.address.isEmpty {
-                        contactRow(icon: "mappin.circle.fill", label: "Адрес", value: rec.address, color: .secondary)
-                    }
-                    if !rec.estimatedTime.isEmpty {
-                        contactRow(icon: "clock", label: "Время", value: rec.estimatedTime, color: .secondary)
-                    }
-                }
-                .padding(.horizontal, 16)
+                inlineHoursSection(hours: detail.weekdayHours)
+                    .padding(.horizontal, 16)
             }
 
-            Button {
-                vm.showDayPickerForAI = rec
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text("Добавить в маршрут")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 13)
-                .background(AppTheme.sakuraPink)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            // Merged contact info
+            if vm.isLoadingInfo || vm.isLoadingGoogleDetail || hasContactInfo {
+                sectionDivider
+                mergedContactInfo
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
+
+            // Reviews
+            if let detail = vm.googleDetail, !detail.reviews.isEmpty {
+                sectionDivider
+                reviewsSection(detail.reviews)
+                    .padding(.horizontal, 16)
+            }
+
+            // Extra content (notes, add button, description, errors)
+            extraContent()
         }
     }
 
-    // MARK: - Photo Carousel
+    // MARK: - Hero Section
 
-    private func photoCarousel(_ urls: [URL]) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Array(urls.enumerated()), id: \.offset) { _, url in
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: urls.count == 1 ? UIScreen.main.bounds.width - 32 : 260, height: 180)
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        case .failure:
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.primary.opacity(0.06))
-                                .frame(width: 260, height: 180)
-                                .overlay {
-                                    Image(systemName: "photo")
-                                        .font(.system(size: 28))
-                                        .foregroundStyle(.tertiary)
-                                }
-                        case .empty:
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.primary.opacity(0.06))
-                                .frame(width: 260, height: 180)
-                                .overlay { ProgressView() }
-                        @unknown default:
-                            EmptyView()
+    @ViewBuilder
+    private var heroSection: some View {
+        if let scene = vm.lookAroundScene {
+            LookAroundPreview(initialScene: scene)
+                .frame(height: 200)
+                .clipped()
+        } else if vm.isLoadingLookAround {
+            Color.primary.opacity(0.06)
+                .frame(height: 200)
+                .overlay { ProgressView() }
+        } else if let firstPhoto = vm.googleDetail?.photoURLs.first {
+            AsyncImage(url: firstPhoto) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
+                        .clipped()
+                case .failure:
+                    Color.primary.opacity(0.06)
+                        .frame(height: 200)
+                        .overlay {
+                            Image(systemName: "photo")
+                                .font(.system(size: 28))
+                                .foregroundStyle(.tertiary)
+                        }
+                case .empty:
+                    Color.primary.opacity(0.06)
+                        .frame(height: 200)
+                        .overlay { ProgressView() }
+                @unknown default:
+                    EmptyView()
+                }
+            }
+        }
+    }
+
+    // MARK: - Photo Thumbnails
+
+    @ViewBuilder
+    private var photoThumbnails: some View {
+        let photos = vm.googleDetail?.photoURLs ?? []
+        // Show thumbnails when Look Around is hero and any photos exist,
+        // or when Look Around is absent and 2+ photos exist (first is hero)
+        let showThumbnails: Bool = {
+            if vm.lookAroundScene != nil {
+                return !photos.isEmpty
+            } else {
+                return photos.count > 1
+            }
+        }()
+        let thumbUrls = vm.lookAroundScene != nil ? photos : Array(photos.dropFirst())
+
+        if showThumbnails && !thumbUrls.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(thumbUrls.enumerated()), id: \.offset) { _, url in
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 56, height: 56)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            case .failure, .empty:
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(Color.primary.opacity(0.06))
+                                    .frame(width: 56, height: 56)
+                            @unknown default:
+                                EmptyView()
+                            }
                         }
                     }
                 }
+                .padding(.horizontal, 16)
             }
-            .padding(.horizontal, 16)
+            .padding(.top, 10)
         }
-        .padding(.bottom, 12)
     }
 
-    // MARK: - Header (Apple Maps centered style)
+    // MARK: - Left-Aligned Header
 
-    private func placeHeader(name: String, subtitle: String?, close: @escaping () -> Void) -> some View {
-        VStack(spacing: 4) {
-            // Close + title row
-            ZStack {
-                // Close button — left (share in Apple Maps, we use close)
-                HStack {
-                    Spacer()
-                    Button(action: close) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(.secondary)
-                    }
+    private func placeHeaderNew(name: String, subtitle: String?, categoryIconName: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Category icon badge
+            Circle()
+                .fill(AppTheme.sakuraPink.opacity(0.12))
+                .frame(width: 32, height: 32)
+                .overlay {
+                    Image(systemName: categoryIconName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppTheme.sakuraPink)
                 }
 
-                // Centered title
-                VStack(spacing: 3) {
-                    Text(name)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
+            // Name + subtitle
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 21, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
 
-                    if let subtitle, !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
-                .padding(.horizontal, 44) // room for buttons
+            }
+
+            Spacer()
+
+            // Close button
+            Button(action: { vm.clearSelection() }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 28))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal, 16)
+        .padding(.top, 12)
     }
 
-    // MARK: - Action Buttons (Apple Maps pill style)
+    // MARK: - Quick Status Row
 
-    private func actionButtonsRow(place: Place) -> some View {
-        HStack(spacing: 8) {
-            // Route button (primary — filled)
+    @ViewBuilder
+    private func quickStatusRow(visitedBadge: Bool) -> some View {
+        let openNow = vm.googleDetail?.openNow
+        let rating = vm.googleDetail?.rating
+        let ratingCount = vm.googleDetail?.userRatingCount
+        let priceLevel = vm.googleDetail?.priceLevel
+
+        let hasContent = openNow != nil || rating != nil || priceLevel != nil || visitedBadge
+
+        if hasContent {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    // Open / closed capsule
+                    if let open = openNow {
+                        Text(open ? "Открыто" : "Закрыто")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(open ? AppTheme.bambooGreen : AppTheme.toriiRed)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background((open ? AppTheme.bambooGreen : AppTheme.toriiRed).opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+
+                    // Star rating with count
+                    if let r = rating {
+                        HStack(spacing: 3) {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppTheme.templeGold)
+                            Text(String(format: "%.1f", r))
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            if let count = ratingCount, count > 0 {
+                                Text("(\(count))")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    // Price level
+                    if let price = priceLevel, let label = priceLevelLabel(price) {
+                        Text(label)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    // Visited badge
+                    if visitedBadge {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 12))
+                            Text("Посещено")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundStyle(AppTheme.bambooGreen)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(AppTheme.bambooGreen.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    private func priceLevelLabel(_ level: String) -> String? {
+        switch level {
+        case "PRICE_LEVEL_FREE": return "Бесплатно"
+        case "PRICE_LEVEL_INEXPENSIVE": return "₽"
+        case "PRICE_LEVEL_MODERATE": return "₽₽"
+        case "PRICE_LEVEL_EXPENSIVE": return "₽₽₽"
+        case "PRICE_LEVEL_VERY_EXPENSIVE": return "₽₽₽₽"
+        default: return nil
+        }
+    }
+
+    // MARK: - Circular Action Buttons
+
+    private func placeActionButtons(place: Place) -> some View {
+        HStack(spacing: 20) {
+            // Route (primary — filled circle)
             Button {
                 Task { await vm.calculateDirectionRoute(to: place) }
             } label: {
-                actionPill(
+                circularButton(
                     icon: vm.selectedTransportMode.icon,
                     label: vm.isCalculatingRoute ? "..." : "Маршрут",
-                    filled: true,
-                    color: AppTheme.sakuraPink
+                    filled: true
                 )
             }
             .disabled(vm.isCalculatingRoute)
 
-            // Phone button
-            if let phone = vm.appleMapsInfo?.phoneNumber ?? extractPhone(for: place),
+            // Phone
+            if let phone = vm.appleMapsInfo?.phoneNumber ?? vm.googleDetail?.phone,
+               !phone.isEmpty,
                let url = URL(string: "tel:\(phone.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: ""))") {
                 Link(destination: url) {
-                    actionPill(icon: "phone.fill", label: "Вызов", filled: false, color: AppTheme.sakuraPink)
+                    circularButton(icon: "phone.fill", label: "Вызов", filled: false)
                 }
             }
 
-            // Website button
+            // Website
             if let url = vm.appleMapsInfo?.website ?? vm.googleDetail?.website.flatMap({ URL(string: $0) }) {
                 Link(destination: url) {
-                    actionPill(icon: "safari", label: "Веб-сайт", filled: false, color: AppTheme.sakuraPink)
+                    circularButton(icon: "safari", label: "Сайт", filled: false)
                 }
             }
 
             #if !targetEnvironment(simulator)
-            // AR button
+            // AR
             Button {
                 vm.arPlace = place
             } label: {
-                actionPill(icon: "arkit", label: "AR", filled: false, color: AppTheme.indigoPurple)
+                circularButton(icon: "arkit", label: "AR", filled: false, color: AppTheme.indigoPurple)
             }
             #endif
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
     }
 
-    private func actionPill(icon: String, label: String, filled: Bool, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-        }
-        .foregroundStyle(filled ? .white : color)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(filled ? color : color.opacity(0.15))
-        )
-    }
-
-    // MARK: - Quick Info Row
-
-    private func quickInfoRow(place: Place) -> some View {
-        HStack(spacing: 0) {
-            // Hours status
-            if let openNow = vm.googleDetail?.openNow {
-                quickInfoItem(
-                    title: "Часы работы",
-                    value: openNow ? "открыто" : "закрыто",
-                    valueColor: openNow ? AppTheme.bambooGreen : AppTheme.toriiRed
-                )
-
-                quickInfoDivider
-            }
-
-            // Rating
-            let ratingValue: Double? = vm.googleDetail?.rating ?? place.rating.map(Double.init)
-            if let rating = ratingValue {
-                quickInfoItem(
-                    title: "\(vm.googleDetail?.userRatingCount ?? 0) оценок",
-                    value: String(format: "%.1f", rating),
-                    icon: "star.fill",
-                    iconColor: AppTheme.templeGold
-                )
-
-                quickInfoDivider
-            }
-
-            // Category badge
-            quickInfoItem(
-                title: "Категория",
-                value: place.category.rawValue,
-                valueColor: AppTheme.categoryColor(for: place.category.rawValue)
-            )
-
-            if place.isVisited {
-                quickInfoDivider
-                quickInfoItem(
-                    title: "Статус",
-                    value: "посещено",
-                    icon: "checkmark.circle.fill",
-                    iconColor: AppTheme.bambooGreen
-                )
-            }
-        }
-        .padding(.horizontal, 16)
-    }
-
-    private func quickInfoItem(title: String, value: String, icon: String? = nil, iconColor: Color? = nil, valueColor: Color? = nil) -> some View {
-        VStack(spacing: 3) {
-            Text(title)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-            HStack(spacing: 3) {
-                if let icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(iconColor ?? .primary)
-                }
-                Text(value)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(valueColor ?? .primary)
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var quickInfoDivider: some View {
-        Rectangle()
-            .fill(.quaternary)
-            .frame(width: 0.5, height: 28)
-    }
-
-    // MARK: - Search Action Row
-
-    private func searchActionRow(item: MKMapItem) -> some View {
-        HStack(spacing: 8) {
+    private func searchActionButtons(item: MKMapItem) -> some View {
+        HStack(spacing: 20) {
             // Transport mode selector
             Menu {
                 ForEach(TransportMode.allCases) { mode in
@@ -420,61 +451,273 @@ struct MapPlaceDetailContent: View {
                     }
                 }
             } label: {
-                actionPill(
+                circularButton(
                     icon: vm.selectedTransportMode.icon,
                     label: vm.selectedTransportMode.label,
-                    filled: false,
-                    color: AppTheme.sakuraPink
+                    filled: false
                 )
             }
 
-            // Route button
+            // Route (primary)
             Button {
                 Task { await vm.calculateRouteToSearchedItem(item) }
             } label: {
-                actionPill(
+                circularButton(
                     icon: "arrow.triangle.turn.up.right.diamond.fill",
                     label: vm.isCalculatingRoute ? "..." : "Маршрут",
-                    filled: true,
-                    color: AppTheme.sakuraPink
+                    filled: true
                 )
             }
             .disabled(vm.isCalculatingRoute)
+
+            // Phone
+            if let phone = vm.appleMapsInfo?.phoneNumber ?? item.phoneNumber,
+               !phone.isEmpty,
+               let url = URL(string: "tel:\(phone.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: ""))") {
+                Link(destination: url) {
+                    circularButton(icon: "phone.fill", label: "Вызов", filled: false)
+                }
+            }
+
+            // Website
+            if let url = vm.appleMapsInfo?.website ?? item.url {
+                Link(destination: url) {
+                    circularButton(icon: "safari", label: "Сайт", filled: false)
+                }
+            }
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Contact Info Block
-
-    private func contactInfoBlock(place: Place) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if vm.isLoadingInfo {
-                HStack(spacing: 8) {
-                    ProgressView().scaleEffect(0.7)
-                    Text("Загрузка...")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
+    private func circularButton(icon: String, label: String, filled: Bool, color: Color = AppTheme.sakuraPink) -> some View {
+        VStack(spacing: 6) {
+            Circle()
+                .fill(filled ? color : color.opacity(0.12))
+                .frame(width: 44, height: 44)
+                .overlay {
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(filled ? .white : color)
                 }
-                .padding(.horizontal, 16)
+
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(color)
+        }
+    }
+
+    // MARK: - Inline Hours
+
+    private func inlineHoursSection(hours: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Today's hours inline
+            let todayLine = todayHoursLine(from: hours)
+
+            Button {
+                withAnimation(.spring(response: 0.3)) { vm.showAllHours.toggle() }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(AppTheme.sakuraPink)
+                        .frame(width: 20)
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Часы работы")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Text(todayLine)
+                            .font(.system(size: 15))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: vm.showAllHours ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
                 .padding(.vertical, 10)
-            } else if let info = vm.appleMapsInfo {
-                if let addr = info.localAddress {
+            }
+
+            // Expanded full schedule
+            if vm.showAllHours {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(hours.enumerated()), id: \.offset) { _, line in
+                        Text(line)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.leading, 32)
+                .padding(.bottom, 8)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private func todayHoursLine(from hours: [String]) -> String {
+        // Google weekdayDescriptions is Monday=0 through Sunday=6
+        // Calendar weekday: 1=Sunday, 2=Monday, ..., 7=Saturday
+        let weekday = Calendar.current.component(.weekday, from: Date())
+        // Convert: Sunday(1)->6, Monday(2)->0, ..., Saturday(7)->5
+        let index = (weekday + 5) % 7
+        guard index < hours.count else { return hours.first ?? "—" }
+        return hours[index]
+    }
+
+    // MARK: - Merged Contact Info
+
+    private var hasContactInfo: Bool {
+        if let info = vm.appleMapsInfo {
+            return info.localAddress != nil || info.phoneNumber != nil || info.website != nil
+        }
+        if let detail = vm.googleDetail {
+            return detail.formattedAddress != nil || detail.phone != nil || detail.website != nil || detail.googleMapsURL != nil
+        }
+        return false
+    }
+
+    @ViewBuilder
+    private var mergedContactInfo: some View {
+        if vm.isLoadingInfo || vm.isLoadingGoogleDetail {
+            HStack(spacing: 8) {
+                ProgressView().scaleEffect(0.7)
+                Text("Загрузка...")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                // Address: prefer Apple Maps, fallback Google
+                let address = vm.appleMapsInfo?.localAddress ?? vm.googleDetail?.formattedAddress
+                if let addr = address, !addr.isEmpty {
                     contactRow(icon: "mappin.circle.fill", label: "Адрес", value: addr, color: .secondary)
                 }
-                if let phone = info.phoneNumber, !phone.isEmpty {
+
+                // Phone: prefer Apple Maps, fallback Google (deduplicated)
+                let phone = vm.appleMapsInfo?.phoneNumber ?? vm.googleDetail?.phone
+                if let ph = phone, !ph.isEmpty {
                     inlineDivider
-                    contactRow(icon: "phone.fill", label: "Телефон", value: phone, color: AppTheme.sakuraPink, isLink: true)
+                    contactRow(icon: "phone.fill", label: "Телефон", value: ph, color: AppTheme.sakuraPink, isLink: true)
                 }
-                if let url = info.website {
+
+                // Website: prefer Apple Maps, fallback Google (deduplicated)
+                let website: URL? = vm.appleMapsInfo?.website ?? vm.googleDetail?.website.flatMap { URL(string: $0) }
+                if let url = website {
                     inlineDivider
                     contactRow(icon: "globe", label: "Сайт", value: url.host ?? url.absoluteString, color: AppTheme.sakuraPink, isLink: true)
                 }
-            } else if !place.address.isEmpty {
-                contactRow(icon: "mappin.circle.fill", label: "Адрес", value: place.address, color: .secondary)
+
+                // Google Maps link
+                if let gMapsURL = vm.googleDetail?.googleMapsURL, let gUrl = URL(string: gMapsURL) {
+                    inlineDivider
+                    Link(destination: gUrl) {
+                        contactRow(icon: "map.fill", label: "Google Maps", value: "Открыть", color: AppTheme.sakuraPink, isLink: true)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Reviews Section
+
+    private func reviewsSection(_ reviews: [GooglePlaceReview]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // First review always visible
+            if let first = reviews.first {
+                reviewRow(first)
+            }
+
+            // Expand toggle
+            if reviews.count > 1 {
+                Button {
+                    withAnimation(.spring(response: 0.3)) { vm.showAllReviews.toggle() }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(vm.showAllReviews ? "Скрыть отзывы" : "Все отзывы (\(reviews.count))")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(AppTheme.sakuraPink)
+                        Image(systemName: vm.showAllReviews ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(AppTheme.sakuraPink)
+                    }
+                }
+
+                if vm.showAllReviews {
+                    VStack(spacing: 8) {
+                        ForEach(Array(reviews.dropFirst().enumerated()), id: \.offset) { _, review in
+                            reviewRow(review)
+                        }
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
         }
-        .padding(.horizontal, 16)
     }
+
+    // MARK: - Add to Trip Button
+
+    private func addToTripButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("Добавить в маршрут")
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 13)
+            .background(AppTheme.sakuraPink)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+    }
+
+    // MARK: - Category Icon Helpers
+
+    private func categoryIconName(for category: PlaceCategory) -> String {
+        switch category {
+        case .food: return "fork.knife"
+        case .museum: return "building.columns.fill"
+        case .shopping: return "bag.fill"
+        case .accommodation: return "bed.double.fill"
+        case .temple, .culture, .palace: return "building.columns"
+        case .shrine: return "sparkles"
+        case .nature, .park, .garden: return "leaf.fill"
+        case .gallery: return "photo.artframe"
+        case .transport, .station, .metro: return "tram.fill"
+        case .airport: return "airplane"
+        case .lake: return "drop.fill"
+        case .mountains: return "mountain.2.fill"
+        case .sport: return "figure.run"
+        case .stadium: return "sportscourt.fill"
+        case .viewpoint: return "binoculars.fill"
+        }
+    }
+
+    private func categoryIconNameFromString(_ category: String) -> String {
+        let lower = category.lowercased()
+        if lower.contains("ресторан") || lower.contains("еда") || lower.contains("кафе") { return "fork.knife" }
+        if lower.contains("музей") { return "building.columns.fill" }
+        if lower.contains("шопинг") || lower.contains("магазин") { return "bag.fill" }
+        if lower.contains("отель") || lower.contains("жильё") || lower.contains("хостел") { return "bed.double.fill" }
+        if lower.contains("храм") || lower.contains("церковь") || lower.contains("собор") { return "building.columns" }
+        if lower.contains("парк") || lower.contains("природа") { return "leaf.fill" }
+        if lower.contains("транспорт") || lower.contains("вокзал") { return "tram.fill" }
+        if lower.contains("аэропорт") { return "airplane" }
+        if lower.contains("смотровая") { return "binoculars.fill" }
+        return "mappin.circle.fill"
+    }
+
+    // MARK: - Shared Components
 
     private func contactRow(icon: String, label: String, value: String, color: Color, isLink: Bool = false) -> some View {
         HStack(spacing: 12) {
@@ -495,82 +738,6 @@ struct MapPlaceDetailContent: View {
         }
         .padding(.vertical, 10)
     }
-
-    // MARK: - Google Places Block
-
-    @ViewBuilder
-    private var googlePlaceDetailsBlock: some View {
-        if vm.isLoadingGoogleDetail {
-            HStack(spacing: 8) {
-                ProgressView().scaleEffect(0.7)
-                Text("Google Places...")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-        } else if let detail = vm.googleDetail {
-            VStack(alignment: .leading, spacing: 0) {
-                // Hours (collapsible)
-                if !detail.weekdayHours.isEmpty {
-                    collapsibleSection(
-                        title: "Часы работы",
-                        icon: "clock",
-                        isExpanded: vm.showAllHours,
-                        toggle: { vm.showAllHours.toggle() }
-                    ) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(detail.weekdayHours, id: \.self) { line in
-                                Text(line)
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-
-                // Reviews (collapsible)
-                if !detail.reviews.isEmpty {
-                    inlineDivider
-                    collapsibleSection(
-                        title: "Отзывы (\(detail.reviews.count))",
-                        icon: "text.quote",
-                        isExpanded: vm.showAllReviews,
-                        toggle: { vm.showAllReviews.toggle() }
-                    ) {
-                        VStack(spacing: 8) {
-                            ForEach(Array(detail.reviews.enumerated()), id: \.offset) { _, review in
-                                reviewRow(review)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-        }
-    }
-
-    // MARK: - Look Around
-
-    @ViewBuilder
-    private var lookAroundSection: some View {
-        if let scene = vm.lookAroundScene {
-            LookAroundPreview(initialScene: scene)
-                .frame(height: 180)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
-        } else if vm.isLoadingLookAround {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.primary.opacity(0.06))
-                .frame(height: 180)
-                .overlay { ProgressView() }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
-        }
-    }
-
-    // MARK: - Shared Components
 
     private var sectionDivider: some View {
         Rectangle()
@@ -596,38 +763,6 @@ struct MapPlaceDetailContent: View {
             Spacer()
         }
         .foregroundStyle(AppTheme.toriiRed)
-    }
-
-    // MARK: - Collapsible Section
-
-    private func collapsibleSection<Content: View>(
-        title: String,
-        icon: String,
-        isExpanded: Bool,
-        toggle: @escaping () -> Void,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button {
-                withAnimation(.spring(response: 0.3)) { toggle() }
-            } label: {
-                HStack(spacing: 6) {
-                    Text(title)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
-            }
-
-            if isExpanded {
-                content()
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .padding(.vertical, 4)
     }
 
     // MARK: - Review Row
@@ -687,11 +822,4 @@ struct MapPlaceDetailContent: View {
         }
         .padding(.horizontal, 16)
     }
-
-    // MARK: - Helpers
-
-    private func extractPhone(for place: Place) -> String? {
-        vm.googleDetail?.phone
-    }
 }
-
