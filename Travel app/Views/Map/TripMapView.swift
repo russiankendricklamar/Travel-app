@@ -146,6 +146,40 @@ struct TripMapView: View {
                     .animation(.spring(response: 0.3), value: vm.isOffNavCenter)
                 }
 
+                // MARK: - Floating Location Button (Apple Maps style, right side above search pill)
+                if isIdleMode && !vm.isNavigating {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button {
+                                Task {
+                                    if let loc = await LocationManager.shared.requestCurrentLocation() {
+                                        withAnimation(.easeInOut(duration: 0.4)) {
+                                            vm.cameraPosition = .region(
+                                                MKCoordinateRegion(
+                                                    center: loc,
+                                                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color(.secondarySystemGroupedBackground).opacity(0.97))
+                                    .clipShape(Circle())
+                                    .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
+                            }
+                        }
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 90) // Above search pill
+                    }
+                }
+
                 // MARK: - Bottom Sheet (always visible — Apple Maps style)
                 if !isOfflineWithCache {
                     MapBottomSheet(detent: $vm.sheetDetent) {
@@ -382,10 +416,8 @@ struct TripMapView: View {
         .mapControls {
             MapScaleView()
             MapCompass()
-            MapUserLocationButton()
-            MapPitchToggle()
         }
-        .safeAreaPadding(.bottom, isIdleMode ? 74 : 0)
+        .safeAreaPadding(.bottom, isIdleMode ? 90 : 0)
         .onMapCameraChange { context in
             vm.visibleRegion = context.region
             // Detect manual pan during navigation — show recenter button if > 50m from user location

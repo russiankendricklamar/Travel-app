@@ -64,16 +64,16 @@ struct MapBottomSheet<Content: View>: View {
                     Spacer(minLength: 0)
                 }
                 .frame(height: max(sheetHeight, 60), alignment: .top)
-                .frame(maxWidth: isPeek ? nil : .infinity)
-                .padding(.horizontal, isPeek ? 16 : 0)
-                .padding(.bottom, isPeek ? 4 : 0)
-                .padding(.top, isPeek ? 0 : (detent == .full ? safeAreaTop : 0))
+                .frame(maxWidth: .infinity)
+                .padding(.top, isPeek ? 0 : (detent == .full ? safeAreaTop + 16 : 0))
                 .background(
                     Group {
                         if isPeek {
                             RoundedRectangle(cornerRadius: 22, style: .continuous)
                                 .fill(Color(.secondarySystemGroupedBackground).opacity(0.97))
                                 .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 4)
                         } else {
                             UnevenRoundedRectangle(
                                 topLeadingRadius: 30,
@@ -81,7 +81,7 @@ struct MapBottomSheet<Content: View>: View {
                                 bottomTrailingRadius: 0,
                                 topTrailingRadius: 30
                             )
-                            .fill(.ultraThinMaterial)
+                            .fill(Color.black.opacity(0.85))
                             .shadow(color: .black.opacity(0.15), radius: 10, y: -5)
                             .ignoresSafeArea(edges: .bottom)
                         }
