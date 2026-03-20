@@ -1,6 +1,7 @@
 import Foundation
 import MapKit
 import SwiftUI
+import SwiftData
 
 enum TransportMode: String, CaseIterable, Identifiable {
     case walking, automobile, transit, cycling
@@ -185,6 +186,48 @@ final class RoutingService {
 
         // Drive / Walk / Bicycle: use Routes API v2 (traffic-aware, real cycling)
         return await calculateRoutesAPIRoute(from: origin, to: destination, mode: mode, cacheKey: cacheKey)
+    }
+
+    // MARK: - Place-UUID Overload (Offline Cache Support)
+
+    /// Place-UUID based route calculation with offline cache support.
+    /// Online: fetches from API and stores result in cache.
+    /// Offline: returns cached route if available, empty array otherwise.
+    func calculateRoute(
+        fromPlace origin: Place,
+        toPlace destination: Place,
+        mode: TransportMode,
+        tripID: UUID,
+        context: ModelContext
+    ) async -> [RouteResult] {
+        // Online: always use API (cache is for offline only)
+        if await OfflineCacheManager.shared.isOnline {
+            let results = await calculateRoute(
+                from: origin.coordinate,
+                to: destination.coordinate,
+                mode: mode
+            )
+            // Store first result for future offline use
+            if let first = results.first {
+                await RoutingCacheService.shared.store(
+                    first, origin: origin.id, dest: destination.id,
+                    tripID: tripID, context: context
+                )
+            }
+            return results
+        }
+
+        // Offline: L1+L2 cache lookup
+        if let cached = await RoutingCacheService.shared.lookup(
+            origin: origin.id, dest: destination.id,
+            mode: mode, context: context
+        ) {
+            return [cached]
+        }
+
+        // Offline + no cache
+        lastError = "Маршрут недоступен офлайн. Подготовьте маршруты заранее при наличии сети."
+        return []
     }
 
     // MARK: - Routes API v2 (Drive / Walk / Bicycle)
