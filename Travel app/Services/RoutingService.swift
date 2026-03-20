@@ -139,17 +139,17 @@ final class RoutingService {
         from origin: CLLocationCoordinate2D,
         to destination: CLLocationCoordinate2D,
         mode: TransportMode
-    ) async -> RouteResult? {
+    ) async -> [RouteResult] {
         lastError = nil
         transitUnavailableRegion = false
 
         let cacheKey = "\(String(format: "%.5f,%.5f", origin.latitude, origin.longitude))_\(String(format: "%.5f,%.5f", destination.latitude, destination.longitude))_\(mode.rawValue)"
-        if let cached = cache[cacheKey] { return cached }
+        if let cached = cache[cacheKey] { return [cached] }
 
         // Prevent duplicate in-flight requests for the same route
         guard !inFlightKeys.contains(cacheKey) else {
             print("[RoutingService] ⏳ Request already in-flight for \(mode.rawValue), skipping duplicate")
-            return nil
+            return []
         }
         inFlightKeys.insert(cacheKey)
         defer { inFlightKeys.remove(cacheKey) }
@@ -160,9 +160,9 @@ final class RoutingService {
             print("[RoutingService] 🚌 Transit route requested")
             print("[RoutingService] Trying Google Directions API first...")
             let googleResult = await calculateGoogleTransitRoute(from: origin, to: destination, cacheKey: cacheKey)
-            if googleResult != nil {
+            if let googleResult {
                 print("[RoutingService] ✅ Google Directions returned a transit route")
-                return googleResult
+                return [googleResult]
             }
             print("[RoutingService] ❌ Google Directions failed. transitUnavailableRegion=\(transitUnavailableRegion), lastError=\(lastError ?? "nil")")
 
@@ -175,12 +175,12 @@ final class RoutingService {
                     transitUnavailableRegion = false
                     lastError = nil
                     cache[cacheKey] = aiResult
-                    return aiResult
+                    return [aiResult]
                 }
                 print("[RoutingService] ❌ AI transit route also failed")
             }
 
-            return nil
+            return []
         }
 
         // Drive / Walk / Bicycle: use Routes API v2 (traffic-aware, real cycling)
@@ -194,7 +194,7 @@ final class RoutingService {
         to destination: CLLocationCoordinate2D,
         mode: TransportMode,
         cacheKey: String
-    ) async -> RouteResult? {
+    ) async -> [RouteResult] {
         print("[RoutingService] 🗺️ Routes API request: mode=\(mode.routesAPIMode), origin=\(String(format: "%.5f,%.5f", origin.latitude, origin.longitude)), dest=\(String(format: "%.5f,%.5f", destination.latitude, destination.longitude))")
         do {
             let data = try await SupabaseProxy.request(
@@ -211,21 +211,21 @@ final class RoutingService {
 
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let routes = json["routes"] as? [[String: Any]],
-                  let route = routes.first else {
+                  !routes.isEmpty else {
                 let preview = String(data: data.prefix(500), encoding: .utf8) ?? ""
                 print("[RoutingService] Routes API empty for \(mode.rawValue): \(preview)")
                 lastError = "Маршрут не найден"
-                return nil
+                return []
             }
 
-            let result = parseRoutesAPIResponse(route, mode: mode)
-            print("[RoutingService] ✅ Routes API success: mode=\(mode.rawValue), duration=\(Self.formatDuration(result.expectedTravelTime)), distance=\(Self.formatDistance(result.distance)), polyline=\(result.polyline.count) pts")
-            cache[cacheKey] = result
-            return result
+            let results = Array(routes.prefix(3).map { parseRoutesAPIResponse($0, mode: mode) })
+            print("[RoutingService] ✅ Routes API success: mode=\(mode.rawValue), \(results.count) routes, first: duration=\(Self.formatDuration(results[0].expectedTravelTime)), distance=\(Self.formatDistance(results[0].distance)), polyline=\(results[0].polyline.count) pts")
+            cache[cacheKey] = results[0]  // cache fastest only
+            return results
         } catch {
             print("[RoutingService] ❌ Routes API error for \(mode.rawValue): \(error)")
             lastError = "Ошибка маршрута: \(error.localizedDescription)"
-            return nil
+            return []
         }
     }
 

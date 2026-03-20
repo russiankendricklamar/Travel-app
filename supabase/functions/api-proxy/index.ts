@@ -206,7 +206,7 @@ async function handleGoogleRoutes(params: Record<string, string>) {
     travelMode,
     languageCode: language,
     regionCode: params.region || "",
-    computeAlternativeRoutes: false,
+    computeAlternativeRoutes: true,
     polylineEncoding: "ENCODED_POLYLINE",
   };
 
@@ -232,6 +232,7 @@ async function handleGoogleRoutes(params: Record<string, string>) {
     "routes.legs.steps.polyline.encodedPolyline","routes.legs.steps.travelMode",
     "routes.legs.steps.transitDetails","routes.travelAdvisory",
     "routes.legs.startLocation","routes.legs.endLocation",
+    "routes.staticDuration",
   ].join(",");
 
   const resp = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
