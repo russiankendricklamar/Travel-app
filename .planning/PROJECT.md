@@ -32,9 +32,9 @@
 
 ### Active
 
-- [ ] Построение маршрутов через MKDirections с несколькими вариантами (2-3 альтернативы)
-- [ ] Мультимодальные маршруты (пешком, авто, транспорт) с переключением
-- [ ] ETA и расстояние на каждом варианте маршрута
+- [x] Построение маршрутов через Google Routes API с несколькими вариантами (2-3 альтернативы) — Validated in Phase 3: Route Selection
+- [x] Мультимодальные маршруты (пешком, авто, транспорт) с переключением — Validated in Phase 3
+- [x] ETA и расстояние на каждом варианте маршрута — Validated in Phase 3
 - [ ] Комбинированные маршруты (метро + пешком) в одном маршруте
 - [ ] Lane guidance (подсказки полос) где доступно
 - [x] Apple Maps UI: выдвижной bottom sheet с detents (.small, .medium, .large) — Validated in Phase 2
@@ -82,6 +82,6 @@
 ---
 ## Current State
 
-Phase 2 (Navigation UI) complete — NavigationHUDView (glassmorphism HUD), MapRecenterButton, NavigationSheetContent (peek/expanded), кнопка "Начать навигацию" в MapRouteContent. Всё интегрировано в TripMapView с heading-lock камерой, dismiss guard, и pan detection.
+Phase 3 (Route Selection) complete — RouteAlternativeCard (glassmorphism карты 140×88pt с бейджами «Быстрый»/«Короткий»), горизонтальная карусель «МАРШРУТЫ» в MapRouteContent, RoutingService возвращает до 3 альтернатив через Google Routes API (`computeAlternativeRoutes: true`), MapViewModel отслеживает selectedRouteIndex. Polyline анимируется при выборе маршрута.
 
-*Last updated: 2026-03-20 after Phase 2 completion*
+*Last updated: 2026-03-20 after Phase 3 completion*
