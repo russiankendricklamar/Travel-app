@@ -73,40 +73,40 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GEOM-01 | TBD | Pending |
-| GEOM-02 | TBD | Pending |
-| GEOM-03 | TBD | Pending |
-| GEOM-04 | TBD | Pending |
-| GEOM-05 | TBD | Pending |
-| HNDL-01 | TBD | Pending |
-| HNDL-02 | TBD | Pending |
-| HNDL-03 | TBD | Pending |
-| SRCH-01 | TBD | Pending |
-| SRCH-02 | TBD | Pending |
-| SRCH-03 | TBD | Pending |
-| SRCH-04 | TBD | Pending |
-| SRCH-05 | TBD | Pending |
-| CTRL-01 | TBD | Pending |
-| CTRL-02 | TBD | Pending |
-| CTRL-03 | TBD | Pending |
-| CTRL-04 | TBD | Pending |
-| CTRL-05 | TBD | Pending |
-| CTRL-06 | TBD | Pending |
-| CTRL-07 | TBD | Pending |
-| CONT-01 | TBD | Pending |
-| CONT-02 | TBD | Pending |
-| CONT-03 | TBD | Pending |
-| CONT-04 | TBD | Pending |
-| TRAN-01 | TBD | Pending |
-| TRAN-02 | TBD | Pending |
-| TRAN-03 | TBD | Pending |
-| TRAN-04 | TBD | Pending |
+| GEOM-01 | Phase 7 | Pending |
+| GEOM-02 | Phase 7 | Pending |
+| GEOM-03 | Phase 7 | Pending |
+| GEOM-04 | Phase 7 | Pending |
+| GEOM-05 | Phase 7 | Pending |
+| HNDL-01 | Phase 8 | Pending |
+| HNDL-02 | Phase 8 | Pending |
+| HNDL-03 | Phase 8 | Pending |
+| SRCH-01 | Phase 8 | Pending |
+| SRCH-02 | Phase 8 | Pending |
+| SRCH-03 | Phase 8 | Pending |
+| SRCH-04 | Phase 8 | Pending |
+| SRCH-05 | Phase 8 | Pending |
+| CTRL-01 | Phase 9 | Pending |
+| CTRL-02 | Phase 9 | Pending |
+| CTRL-03 | Phase 9 | Pending |
+| CTRL-04 | Phase 9 | Pending |
+| CTRL-05 | Phase 9 | Pending |
+| CTRL-06 | Phase 9 | Pending |
+| CTRL-07 | Phase 9 | Pending |
+| CONT-01 | Phase 10 | Pending |
+| CONT-02 | Phase 10 | Pending |
+| CONT-03 | Phase 10 | Pending |
+| CONT-04 | Phase 10 | Pending |
+| TRAN-01 | Phase 11 | Pending |
+| TRAN-02 | Phase 11 | Pending |
+| TRAN-03 | Phase 11 | Pending |
+| TRAN-04 | Phase 11 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24 ⚠️
+- v1.1 requirements: 28 total
+- Mapped to phases: 28
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 after roadmap creation*
