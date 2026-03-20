@@ -19,6 +19,11 @@
 - ✓ Bottom sheet с деталями мест — existing
 - ✓ Офлайн кэш снимков карты (MKMapSnapshotter) — existing
 - ✓ MapViewModel с состояниями — existing
+- ✓ Turn-by-turn навигация с отслеживанием положения — Validated in Phase 1: Navigation Engine
+- ✓ Голосовые подсказки через AVSpeechSynthesizer (500м/200м/прибытие) — Validated in Phase 1
+- ✓ Пошаговые инструкции поворотов (NavigationStep модель) — Validated in Phase 1
+- ✓ Автоматическое перестроение маршрута при отклонении (30м + 8с debounce) — Validated in Phase 1
+- ✓ Фоновый GPS при заблокированном экране — Validated in Phase 1
 
 ### Active
 
@@ -26,10 +31,6 @@
 - [ ] Мультимодальные маршруты (пешком, авто, транспорт) с переключением
 - [ ] ETA и расстояние на каждом варианте маршрута
 - [ ] Комбинированные маршруты (метро + пешком) в одном маршруте
-- [ ] Полная turn-by-turn навигация с отслеживанием положения
-- [ ] Голосовые подсказки через системный TTS (AVSpeechSynthesizer, язык устройства)
-- [ ] Пошаговые инструкции поворотов с иконками направлений
-- [ ] Автоматическое перестроение маршрута при отклонении
 - [ ] Lane guidance (подсказки полос) где доступно
 - [ ] Apple Maps UI: выдвижной bottom sheet с detents (.small, .medium, .large)
 - [ ] Floating search bar поверх карты
@@ -74,4 +75,8 @@
 | Кэш маршрутов для офлайн | Apple не даёт офлайн routing, кэшируем построенные маршруты | — Pending |
 
 ---
-*Last updated: 2026-03-20 after initialization*
+## Current State
+
+Phase 1 (Navigation Engine) complete — NavigationStep модель, NavigationVoiceService, NavigationEngine state machine интегрированы в MapViewModel. Вся логика навигации работает без нового UI.
+
+*Last updated: 2026-03-20 after Phase 1 completion*
