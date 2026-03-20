@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: Map Navigation Overhaul
-status: completed
-stopped_at: Milestone v1.0 archived
+milestone: v1.1
+milestone_name: Apple Maps UI Parity
+status: in_progress
+stopped_at: Defining requirements
 last_updated: "2026-03-21"
 last_activity: 2026-03-21
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 12
-  completed_plans: 12
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -20,18 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Путешественник может построить маршрут между любыми точками, получить пошаговую навигацию с голосом на любом транспорте, и всё это работает офлайн в чужой стране без интернета.
-**Current focus:** Milestone v1.0 completed — planning next milestone
+**Current focus:** v1.1 Apple Maps UI Parity — точное воспроизведение UI карты Apple Maps
 
 ## Current Position
 
-Milestone v1.0 shipped. All 6 phases, 12 plans complete.
-Next: `/gsd:new-milestone` to start v1.1.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-21 — Milestone v1.1 started
 
 ### Blockers/Concerns
 
 None
 
-### Quick Tasks Completed
+### Quick Tasks Completed (v1.0)
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
@@ -45,6 +47,6 @@ None
 
 ## Session Continuity
 
-Last activity: 2026-03-21 - Completed quick task 260321-652: redesign map search pill
-Stopped at: Quick task 260321-652 completed
+Last activity: 2026-03-21 - Started milestone v1.1: Apple Maps UI Parity
+Stopped at: Milestone v1.1 initialization
 Resume file: None

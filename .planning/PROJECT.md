@@ -39,10 +39,17 @@
 
 ### Active
 
+- [ ] Bottom sheet 1:1 Apple Maps: 3 detent states (peek/half/full) с правильной стилистикой
+- [ ] Search pill в стиле Apple Maps: drag handle + поиск + микрофон + аватар
+- [ ] Floating map buttons: компас, транспорт, локация (правый вертикальный стек)
+- [ ] Sheet контент: структура как в Apple Maps (транспорт, места, недавние)
+- [ ] Peek mode: тёмная полупрозрачная таблетка с blur и правильными пропорциями
+- [ ] Half/Full mode: непрозрачный тёмный фон, правильные отступы и скругления
+
+### Deferred
+
 - [ ] Комбинированные маршруты (метро + пешком) в одном маршруте
 - [ ] Lane guidance (подсказки полос) где доступно
-- [ ] Floating search bar поверх карты
-- [ ] Карточки мест в стиле Apple Maps
 - [ ] Полный офлайн: предзагрузка тайлов карты региона
 - [ ] Live Activity при активной навигации (Dynamic Island)
 
@@ -83,5 +90,33 @@ Glassmorphism design system throughout.
 - **Design**: Glassmorphism стиль приложения
 - **Architecture**: @Observable pattern, SwiftData для persistence
 
+## Current Milestone: v1.1 Apple Maps UI Parity
+
+**Goal:** Точное воспроизведение UI карты Apple Maps — bottom sheet, search pill, floating buttons, контент sheet.
+
+**Target features:**
+- Bottom sheet с 3 detent states идентичный Apple Maps
+- Search pill с drag handle, стиль и пропорции Apple Maps
+- Floating map buttons (компас, транспорт, локация) как в Apple Maps
+- Sheet контент (транспорт рядом, места, недавние) в стиле Apple Maps
+- Визуальная полировка: фоны, скругления, тени, отступы
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-03-21 after v1.0 milestone*
+*Last updated: 2026-03-21 after v1.1 milestone start*
