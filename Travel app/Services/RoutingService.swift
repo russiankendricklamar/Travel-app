@@ -53,6 +53,7 @@ struct RouteResult {
     let transitSteps: [TransitStep]
     let trafficDuration: TimeInterval?
     let originAddress: String?
+    let navigationSteps: [NavigationStep]
 
     init(
         polyline: [CLLocationCoordinate2D],
@@ -61,7 +62,8 @@ struct RouteResult {
         mode: TransportMode,
         transitSteps: [TransitStep] = [],
         trafficDuration: TimeInterval? = nil,
-        originAddress: String? = nil
+        originAddress: String? = nil,
+        navigationSteps: [NavigationStep] = []
     ) {
         self.polyline = polyline
         self.distance = distance
@@ -70,6 +72,7 @@ struct RouteResult {
         self.transitSteps = transitSteps
         self.trafficDuration = trafficDuration
         self.originAddress = originAddress
+        self.navigationSteps = navigationSteps
     }
 }
 
