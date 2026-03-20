@@ -10,7 +10,7 @@
 - [ ] **ROUTE-01**: Построение маршрута через MKDirections с 2-3 альтернативными вариантами
 - [ ] **ROUTE-02**: Переключение транспортного режима (пешком, авто, транспорт, велосипед)
 - [ ] **ROUTE-03**: Отображение ETA и расстояния для каждого транспортного режима одновременно
-- [ ] **ROUTE-04**: Список пошаговых инструкций (turn-by-turn step list) в bottom sheet
+- [x] **ROUTE-04**: Список пошаговых инструкций (turn-by-turn step list) в bottom sheet
 
 ### Навигация
 
@@ -18,7 +18,7 @@
 - [x] **NAV-02**: Голосовые подсказки через AVSpeechSynthesizer (язык устройства, включая русский)
 - [ ] **NAV-03**: Детекция отклонения от маршрута (>30м) с автоматическим перестроением
 - [ ] **NAV-04**: Дебаунс перестроения маршрута (минимум 8с между запросами)
-- [ ] **NAV-05**: Корректная работа GPS в фоне (allowsBackgroundLocationUpdates + UIBackgroundModes plist)
+- [x] **NAV-05**: Корректная работа GPS в фоне (allowsBackgroundLocationUpdates + UIBackgroundModes plist)
 - [ ] **NAV-06**: Кнопка "Начать навигацию" в UI маршрута
 
 ### UI карты
@@ -69,12 +69,12 @@
 | ROUTE-01 | Phase 3 | Pending |
 | ROUTE-02 | Phase 3 | Pending |
 | ROUTE-03 | Phase 3 | Pending |
-| ROUTE-04 | Phase 1 | Pending |
+| ROUTE-04 | Phase 1 | Complete |
 | NAV-01 | Phase 1 | Pending |
 | NAV-02 | Phase 1 | Complete |
 | NAV-03 | Phase 1 | Pending |
 | NAV-04 | Phase 1 | Pending |
-| NAV-05 | Phase 1 | Pending |
+| NAV-05 | Phase 1 | Complete |
 | NAV-06 | Phase 2 | Pending |
 | UI-01 | Phase 2 | Pending |
 | UI-02 | Phase 2 | Pending |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-03-20T05:58:50.505Z"
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-03-20T06:01:40.929Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -47,6 +47,7 @@ Plan: 1 of 3
 
 *Updated after each plan completion*
 | Phase 01 P02 | 3 | 1 tasks | 1 files |
+| Phase 01 P01 | 8 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -59,6 +60,8 @@ Recent decisions affecting current work:
 - [Roadmap]: Phase 1 is pure logic (no UI) to ensure NavigationEngine API is stable before UI work
 - [Roadmap]: Phase 3 depends on Phase 1 only (not Phase 2) — route selection is independent of navigation UI
 - [Phase 01]: 0.5s asyncAfter in AVSpeechSynthesizerDelegate didFinish to prevent error 560030580 on synchronous audio session deactivation
+- [Phase 01]: NavigationStep uses isTransit bool to distinguish MKDirections steps (false) from Google transit steps (true) for future NavigationEngine routing logic
+- [Phase 01]: cycling maps to MKDirections .walking since MKDirections has no cycling type — acceptable approximation for step-by-step instructions
 
 ### Pending Todos
 
@@ -71,6 +74,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T05:58:50.503Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-03-20T06:01:23.943Z
+Stopped at: Completed 01-01-PLAN.md
 Resume file: None
