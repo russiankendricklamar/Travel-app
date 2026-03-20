@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed quick/260321-00h-apple-maps-style-search-ux-in-maps
-last_updated: "2026-03-20T15:10:42.169Z"
-last_activity: 2026-03-20
+stopped_at: Completed 04-offline-routes 04-03-PLAN.md
+last_updated: "2026-03-20T15:17:58.093Z"
+last_activity: "2026-03-20 - Completed quick task 260321-00h: Apple Maps-style search UX"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 10
 ---
 
 # Project State
@@ -55,6 +55,8 @@ Plan: 1 of 3
 | Phase 03 P01 | 3 | 2 tasks | 3 files |
 | Phase 03 P02 | 25 | 3 tasks | 2 files |
 | Phase 04-offline-routes P01 | 3 | 2 tasks | 4 files |
+| Phase 04-offline-routes P02 | 3 | 2 tasks | 3 files |
+| Phase 04-offline-routes P03 | 22 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -81,6 +83,10 @@ Recent decisions affecting current work:
 - [Phase 03-02]: Carousel hidden entirely when alternativeRoutes is empty and not loading — avoids empty-state clutter
 - [Phase 04-offline-routes]: CachedRoute uses JSON-encoded Data fields (not externalStorage) — route data is small and needs predicate queries on UUIDs
 - [Phase 04-offline-routes]: calculateRoute(fromPlace:) is a new overload — coordinate-based method untouched for GPS-origin routes
+- [Phase 04-offline-routes]: preCacheDay captures Place coordinate+UUID before task group to avoid MainActor isolation warnings
+- [Phase 04-offline-routes]: TripMapView shows checkmark.icloud.fill badge when isDayCached=true, otherwise OfflinePrecacheButton — no redundant state
+- [Phase 04-offline-routes]: NavigationEngine uses stored isOfflineMode:Bool (set at nav start) to avoid @MainActor isolation issue in GPS thread
+- [Phase 04-offline-routes]: Carousel hidden entirely offline — avoids empty-state clutter, matches CONTEXT.md single-route-per-mode offline constraint
 
 ### Pending Todos
 
@@ -101,6 +107,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-20 - Completed quick task 260321-00h: Apple Maps-style search UX
-Last session: 2026-03-20T15:09:14.000Z
-Stopped at: Completed quick/260321-00h-apple-maps-style-search-ux-in-maps
+Last session: 2026-03-20T15:17:58.091Z
+Stopped at: Completed 04-offline-routes 04-03-PLAN.md
 Resume file: None
