@@ -257,7 +257,8 @@ struct TripMapView: View {
             // GPS route tracks
             if vm.showRoutes {
                 ForEach(vm.daysWithRoutes) { day in
-                    let coords = day.routePoints.sorted { $0.timestamp < $1.timestamp }.map(\.coordinate)
+                    let rawCoords = day.routePoints.sorted { $0.timestamp < $1.timestamp }.map(\.coordinate)
+                    let coords = PolylineSmoother.smooth(coordinates: rawCoords)
                     if coords.count >= 2 {
                         MapPolyline(coordinates: coords)
                             .stroke(vm.routeColor(for: day), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
@@ -292,8 +293,12 @@ struct TripMapView: View {
 
             // Active route
             if let route = vm.activeRoute {
+                // Outer glow layer — wide, translucent
                 MapPolyline(coordinates: route.polyline)
-                    .stroke(route.mode.color, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                    .stroke(route.mode.color.opacity(0.3), style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round))
+                // Inner core layer — narrow, solid
+                MapPolyline(coordinates: route.polyline)
+                    .stroke(route.mode.color, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
             }
 
             // Flight arcs
