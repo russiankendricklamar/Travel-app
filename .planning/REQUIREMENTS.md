@@ -31,7 +31,7 @@
 ### Офлайн
 
 - [x] **OFFL-01**: CachedRoute @Model в SwiftData для хранения сериализованных маршрутов
-- [ ] **OFFL-02**: Cache-first lookup в RoutingService (офлайн маршрут если есть в кэше)
+- [x] **OFFL-02**: Cache-first lookup в RoutingService (офлайн маршрут если есть в кэше)
 - [x] **OFFL-03**: Кнопка "Подготовить офлайн" — предзагрузка маршрутов между всеми местами дня
 - [x] **OFFL-04**: Graceful degradation при отсутствии сети — сообщение "маршруты сохранены, тайлы зависят от подключения"
 
@@ -81,7 +81,7 @@
 | UI-03 | Phase 2 | Complete |
 | UI-04 | Phase 2 | Complete |
 | OFFL-01 | Phase 4 | Complete |
-| OFFL-02 | Phase 6 | Pending |
+| OFFL-02 | Phase 6 | Complete |
 | OFFL-03 | Phase 4 | Complete |
 | OFFL-04 | Phase 5 | Complete |
 

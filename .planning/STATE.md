@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-03-20T15:39:39.933Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-20T16:06:44.964Z"
 last_activity: 2026-03-20
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Project State
@@ -20,11 +20,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Путешественник может построить маршрут между любыми точками, получить пошаговую навигацию с голосом на любом транспорте, и всё это работает офлайн в чужой стране без интернета.
-**Current focus:** Phase 05 — offline-route-fixes
+**Current focus:** Phase 06 — offline-cache-wiring
 
 ## Current Position
 
-Phase: 05 (offline-route-fixes) — EXECUTING
+Phase: 06 (offline-cache-wiring) — EXECUTING
 Plan: 1 of 1
 
 ## Performance Metrics
@@ -58,6 +58,7 @@ Plan: 1 of 1
 | Phase 04-offline-routes P02 | 3 | 2 tasks | 3 files |
 | Phase 04-offline-routes P03 | 22 | 2 tasks | 6 files |
 | Phase 05 P01 | 4 | 2 tasks | 2 files |
+| Phase 06 P01 | 5 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ Recent decisions affecting current work:
 - [Phase 04-offline-routes]: Carousel hidden entirely offline — avoids empty-state clutter, matches CONTEXT.md single-route-per-mode offline constraint
 - [Phase 05]: offlineNoCacheMessage moved to top-level else-if branch — only reachable when vm.activeRoute == nil AND offline
 - [Phase 05]: RouteResult rebuilt immutably with navigationSteps before caching — mirrors OfflineCacheManager.preCacheDay pattern
+- [Phase 06]: modelContext injected via .onAppear — TripMapView holds @Environment(\.modelContext), onAppear is earliest safe injection point
 
 ### Pending Todos
 
@@ -112,6 +114,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-20
-Last session: 2026-03-20T15:39:39.931Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-03-20T16:06:40.357Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
