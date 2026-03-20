@@ -17,6 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Route Selection** - Alternative routes picker, transport mode ETA bar, step list in bottom sheet (completed 2026-03-20)
 - [x] **Phase 4: Offline Routes** - SwiftData route cache, pre-calculation, cache-first lookup, offline degradation (completed 2026-03-20)
 - [x] **Phase 5: Offline Route Fixes** - Gap closure: fix auto-cached navigationSteps + unreachable offlineNoCacheMessage (completed 2026-03-20)
+- [ ] **Phase 6: Offline Cache Wiring** - Gap closure: wire MapViewModel to place-UUID cache overload + verify Phase 5
 
 ## Phase Details
 
@@ -93,10 +94,21 @@ Plans:
   2. When offline with no cached route, user sees "Маршрут недоступен офлайн" message with pre-cache suggestion
 **Plans**: TBD
 
+### Phase 6: Offline Cache Wiring
+**Goal**: MapViewModel uses the place-UUID routing overload with L2 SwiftData cache, so pre-cached routes are returned to users offline
+**Depends on**: Phase 4, Phase 5
+**Requirements**: OFFL-02
+**Gap Closure**: Closes gaps from v1.0-MILESTONE-AUDIT.md (re-audit)
+**Success Criteria** (what must be TRUE):
+  1. When offline, tapping "Маршрут" to a trip Place returns the pre-cached route from SwiftData (not "Маршрут недоступен офлайн")
+  2. MapViewModel.calculateDirectionRoute(to:) calls the place-UUID overload with tripID and modelContext when a Place is selected
+  3. Phase 5 has a VERIFICATION.md confirming its fixes are working
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -105,3 +117,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 3. Route Selection | 2/2 | Complete   | 2026-03-20 |
 | 4. Offline Routes | 3/3 | Complete   | 2026-03-20 |
 | 5. Offline Route Fixes | 1/1 | Complete   | 2026-03-20 |
+| 6. Offline Cache Wiring | 0/0 | Pending   | — |
