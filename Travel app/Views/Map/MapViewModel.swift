@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import SwiftData
 
 // MARK: - Search Completer Delegate
 
@@ -154,6 +155,9 @@ final class MapViewModel {
 
     // Misc
     var showDiscoverNearby = false
+
+    // Model context (injected by TripMapView for offline cache access)
+    var modelContext: ModelContext?
     #if !targetEnvironment(simulator)
     var arPlace: Place?
     #endif
@@ -483,9 +487,22 @@ final class MapViewModel {
             return
         }
 
-        let results = await RoutingService.shared.calculateRoute(
-            from: origin, to: destination, mode: selectedTransportMode
-        )
+        let results: [RouteResult]
+        if let ctx = modelContext, let originPlace = routeOriginPlace {
+            // Place-to-Place: use UUID overload with L1+L2 SwiftData cache (required for offline)
+            results = await RoutingService.shared.calculateRoute(
+                fromPlace: originPlace,
+                toPlace: place,
+                mode: selectedTransportMode,
+                tripID: trip.id,
+                context: ctx
+            )
+        } else {
+            // GPS origin or no modelContext — coordinate overload (no offline cache)
+            results = await RoutingService.shared.calculateRoute(
+                from: origin, to: destination, mode: selectedTransportMode
+            )
+        }
 
         if let firstRoute = results.first {
             withAnimation(.spring(response: 0.3)) {

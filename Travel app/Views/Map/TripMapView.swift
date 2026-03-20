@@ -157,6 +157,7 @@ struct TripMapView: View {
                 }
             }
             .onAppear {
+                vm.modelContext = modelContext   // inject for offline cache access
                 LocationManager.shared.requestPermission()
                 vm.setInitialCamera()
             }
