@@ -377,7 +377,8 @@ struct TripMapView: View {
                 }
             }
         }
-        .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .including([.museum, .nationalPark, .park, .restaurant])))
+        .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .including([.museum, .nationalPark, .park, .restaurant]), showsTraffic: true))
+        .preferredColorScheme(.dark)
         .mapControls {
             MapScaleView()
             MapCompass()
