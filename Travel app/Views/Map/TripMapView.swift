@@ -69,6 +69,30 @@ struct TripMapView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
 
+                // MARK: - Navigation HUD (floating top card)
+                if vm.isNavigating {
+                    VStack {
+                        NavigationHUDView(vm: vm)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .animation(.easeInOut, value: vm.isNavigating)
+                }
+
+                // MARK: - Recenter Button (appears on manual pan during navigation)
+                if vm.isNavigating && vm.isOffNavCenter {
+                    VStack {
+                        Spacer()
+                        MapRecenterButton {
+                            vm.recenterNavigation()
+                        }
+                        .padding(.bottom, 100) // Above the bottom sheet peek
+                    }
+                    .animation(.spring(response: 0.3), value: vm.isOffNavCenter)
+                }
+
                 // MARK: - Bottom Sheet (active content: search, detail, route)
                 if !isOfflineWithCache && !isIdleMode {
                     MapBottomSheet(detent: $vm.sheetDetent) {
@@ -144,7 +168,8 @@ struct TripMapView: View {
             }
             .onChange(of: vm.sheetDetent) { oldDetent, newDetent in
                 // Swipe down to peek → full reset (clear pins, search, selections)
-                if newDetent == .peek && oldDetent != .peek {
+                // Guard: do NOT dismiss during active navigation — user may collapse sheet to peek
+                if newDetent == .peek && oldDetent != .peek && !vm.isNavigating {
                     vm.dismissDetail()
                 }
             }
@@ -286,6 +311,13 @@ struct TripMapView: View {
         .safeAreaPadding(.bottom, isIdleMode ? 48 : 0)
         .onMapCameraChange { context in
             vm.visibleRegion = context.region
+            // Detect manual pan during navigation — show recenter button if > 50m from user location
+            if vm.isNavigating, let userLoc = LocationManager.shared.currentLocation {
+                let center = context.region.center
+                let distance = CLLocation(latitude: center.latitude, longitude: center.longitude)
+                    .distance(from: CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude))
+                vm.isOffNavCenter = distance > 50
+            }
         }
     }
 
