@@ -75,6 +75,16 @@ final class MapViewModel {
     var isCalculatingRoute = false
     var routeError: String?
 
+    // Navigation
+    var isNavigating: Bool = false
+    var navigationEngine: NavigationEngine?
+    var navigationSteps: [NavigationStep] = []
+    var currentStepIndex: Int = 0
+    var distanceToNextStep: CLLocationDistance = 0
+    private var voiceService: NavigationVoiceService?
+    /// Destination coordinate of the active navigation route
+    var activeRouteDestination: CLLocationCoordinate2D?
+
     // Transport overlays
     var flightArcs: [FlightArc] = []
     var trainRoutes: [TrainRoute] = []
@@ -314,6 +324,20 @@ final class MapViewModel {
             }
             zoomToRoute(result)
 
+            // Store destination for rerouting
+            activeRouteDestination = destination
+
+            // Fetch turn-by-turn steps in background
+            Task {
+                let steps = await RoutingService.shared.fetchNavigationSteps(
+                    from: origin,
+                    to: destination,
+                    mode: selectedTransportMode,
+                    existingTransitSteps: result.transitSteps
+                )
+                self.navigationSteps = steps
+            }
+
             // Load ETA previews for other modes in background
             Task { await RoutingService.shared.fetchETAPreviews(from: origin, to: destination) }
         } else {
@@ -346,6 +370,20 @@ final class MapViewModel {
             }
             zoomToRoute(result)
 
+            // Store destination for rerouting
+            activeRouteDestination = destination
+
+            // Fetch turn-by-turn steps in background
+            Task {
+                let steps = await RoutingService.shared.fetchNavigationSteps(
+                    from: origin,
+                    to: destination,
+                    mode: selectedTransportMode,
+                    existingTransitSteps: result.transitSteps
+                )
+                self.navigationSteps = steps
+            }
+
             // Load ETA previews for other modes in background
             Task { await RoutingService.shared.fetchETAPreviews(from: origin, to: destination) }
         } else {
@@ -356,9 +394,13 @@ final class MapViewModel {
     }
 
     func clearRoute() {
+        if isNavigating {
+            stopNavigation()
+        }
         withAnimation(.spring(response: 0.3)) {
             activeRoute = nil
-            // Return to previous detail or idle
+            navigationSteps = []
+            activeRouteDestination = nil
             if selectedPlace != nil {
                 sheetContent = .placeDetail
             } else if searchedItem != nil {
@@ -368,6 +410,115 @@ final class MapViewModel {
                 sheetDetent = .peek
             }
         }
+    }
+
+    // MARK: - Navigation
+
+    /// Start turn-by-turn navigation on the active route.
+    /// If navigation steps have not been fetched yet (e.g., user taps Start before
+    /// the background fetch completes), this method awaits the fetch inline to
+    /// prevent a silent no-op.
+    func startNavigation() async {
+        guard let route = activeRoute else { return }
+
+        // If steps not yet fetched, await them now instead of silently failing
+        if navigationSteps.isEmpty, let destination = activeRouteDestination {
+            let origin = LocationManager.shared.currentLocation
+                ?? route.polyline.first ?? CLLocationCoordinate2D()
+            navigationSteps = await RoutingService.shared.fetchNavigationSteps(
+                from: origin,
+                to: destination,
+                mode: selectedTransportMode,
+                existingTransitSteps: route.transitSteps
+            )
+        }
+
+        guard !navigationSteps.isEmpty else { return }
+
+        let voice = NavigationVoiceService()
+        voiceService = voice
+
+        let engine = NavigationEngine(route: route, steps: navigationSteps, voiceService: voice)
+        engine.onStepAdvanced = { [weak self] index, distance in
+            self?.currentStepIndex = index
+            self?.distanceToNextStep = distance
+        }
+        engine.onRerouteNeeded = { [weak self] from in
+            Task { @MainActor in
+                await self?.rerouteNavigation(from: from)
+            }
+        }
+        engine.onNavigationFinished = { [weak self] in
+            self?.stopNavigation()
+        }
+
+        navigationEngine = engine
+        isNavigating = true
+
+        // Switch LocationManager to navigation mode and wire GPS callback.
+        // CRITICAL: capture [weak self] and use self?.navigationEngine to avoid
+        // capturing the local `engine` variable — once startNavigation() returns,
+        // the local binding is released and a [weak engine] capture becomes nil.
+        LocationManager.shared.startNavigationMode()
+        LocationManager.shared.onLocationUpdate = { [weak self] location in
+            self?.navigationEngine?.processLocation(location)
+        }
+
+        // Announce first step
+        if let firstStep = navigationSteps.first {
+            voice.announceStep(instruction: firstStep.instruction, distanceRemaining: firstStep.distance)
+        }
+    }
+
+    /// Stop navigation and clean up
+    func stopNavigation() {
+        navigationEngine = nil
+        voiceService?.resetAll()
+        voiceService = nil
+        isNavigating = false
+        currentStepIndex = 0
+        distanceToNextStep = 0
+        activeRouteDestination = nil
+
+        // Revert LocationManager to standard mode and clear callback
+        LocationManager.shared.onLocationUpdate = nil
+        LocationManager.shared.stopNavigationMode()
+    }
+
+    /// Reroute after off-route detection
+    private func rerouteNavigation(from origin: CLLocationCoordinate2D) async {
+        guard let destination = activeRouteDestination else {
+            navigationEngine?.cancelReroute()
+            return
+        }
+
+        // Fetch new route via RoutingService
+        let newRoute = await RoutingService.shared.calculateRoute(
+            from: origin,
+            to: destination,
+            mode: selectedTransportMode
+        )
+
+        guard let newRoute else {
+            navigationEngine?.cancelReroute()
+            return
+        }
+
+        // Fetch new navigation steps
+        let newSteps = await RoutingService.shared.fetchNavigationSteps(
+            from: origin,
+            to: destination,
+            mode: selectedTransportMode,
+            existingTransitSteps: newRoute.transitSteps
+        )
+
+        // Update route display
+        activeRoute = newRoute
+        navigationSteps = newSteps
+
+        // Update engine with new route data
+        navigationEngine?.didReceiveNewRoute(newRoute, steps: newSteps)
+        currentStepIndex = 0
     }
 
     // MARK: - Camera
