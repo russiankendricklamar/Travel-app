@@ -34,11 +34,12 @@ struct MapSearchContent: View {
                 completerSuggestionsList
             }
 
-            // Category chips — only in idle with empty query
-            if vm.completerResults.isEmpty && vm.searchQuery.isEmpty,
+            // Category chips — only when focused, in idle with empty query
+            if isSearchFocused && vm.completerResults.isEmpty && vm.searchQuery.isEmpty,
                vm.sheetContent == .idle || vm.sheetContent == .searchResults {
                 categoryChips
                     .padding(.bottom, 8)
+                    .transition(.opacity)
             }
 
             if vm.sheetContent == .searchResults, !vm.searchResults.isEmpty {
@@ -55,6 +56,7 @@ struct MapSearchContent: View {
                 aiMessages
             }
         }
+        .animation(.spring(response: 0.3), value: isSearchFocused)
     }
 
     // MARK: - Category Chips
@@ -83,10 +85,10 @@ struct MapSearchContent: View {
                         .background(
                             Capsule()
                                 .fill(vm.selectedCategory == cat.name
-                                      ? AppTheme.sakuraPink
-                                      : Color.primary.opacity(0.08))
+                                      ? Color(.label)
+                                      : Color(.label).opacity(0.12))
                         )
-                        .foregroundStyle(vm.selectedCategory == cat.name ? .white : .primary)
+                        .foregroundStyle(vm.selectedCategory == cat.name ? Color(.systemBackground) : Color(.label).opacity(0.7))
                     }
                     .buttonStyle(.plain)
                 }
@@ -216,7 +218,7 @@ struct MapSearchContent: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            Capsule()
                 .fill(.quaternary.opacity(0.5))
         )
     }

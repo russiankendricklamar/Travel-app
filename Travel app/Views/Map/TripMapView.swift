@@ -61,20 +61,17 @@ struct TripMapView: View {
                     mapContent
                 }
 
-                // MARK: - Pre-cache button (floating, above sheet)
-                if !isOfflineWithCache && isIdleMode, let day = currentDayForPrecache {
+                // MARK: - Offline cache indicator (floating, above sheet)
+                if !isOfflineWithCache && isIdleMode, let day = currentDayForPrecache,
+                   RoutingCacheService.shared.isDayCached(day, tripID: trip.id, context: modelContext) {
                     VStack {
                         Spacer()
                         HStack {
                             Spacer()
-                            if RoutingCacheService.shared.isDayCached(day, tripID: trip.id, context: modelContext) {
-                                Image(systemName: "checkmark.icloud.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(AppTheme.bambooGreen)
-                                    .accessibilityLabel("День подготовлен офлайн")
-                            } else {
-                                OfflinePrecacheButton(day: day, tripID: trip.id)
-                            }
+                            Image(systemName: "checkmark.icloud.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(AppTheme.bambooGreen)
+                                .accessibilityLabel("День подготовлен офлайн")
                         }
                         .padding(.horizontal, AppTheme.spacingM)
                         .padding(.bottom, 128) // Above sheet peek
@@ -135,6 +132,7 @@ struct TripMapView: View {
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isIdleMode)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar { toolbarContent }
             // Hide tab bar when sheet is active (solid fill to bottom)
             .toolbar(isIdleMode ? .visible : .hidden, for: .tabBar)
