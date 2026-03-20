@@ -38,6 +38,7 @@ struct MapBottomSheet<Content: View>: View {
         GeometryReader { geo in
             let availableHeight = geo.size.height
             let sheetHeight = detent.height(in: availableHeight) + dragOffset
+            let safeAreaTop = geo.safeAreaInsets.top
 
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
@@ -59,6 +60,7 @@ struct MapBottomSheet<Content: View>: View {
                 }
                 .frame(height: max(sheetHeight, 60), alignment: .top)
                 .frame(maxWidth: .infinity)
+                .padding(.top, detent == .full ? safeAreaTop : 0)
                 .background(
                     UnevenRoundedRectangle(
                         topLeadingRadius: 30,
