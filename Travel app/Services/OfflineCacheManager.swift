@@ -77,6 +77,103 @@ final class OfflineCacheManager {
         }
     }
 
+    // MARK: - Route Pre-Cache
+
+    /// Pre-cache all N^2 Place pairs for a day in walking + automobile modes.
+    /// Fetches routes in parallel, then stores on @MainActor (ModelContext thread safety).
+    func preCacheDay(
+        _ day: TripDay,
+        tripID: UUID,
+        context: ModelContext,
+        progress: @escaping @MainActor (Double) -> Void
+    ) async {
+        let places = day.sortedPlaces
+        guard places.count >= 2 else { return }
+
+        // Build all ordered pairs (A->B and B->A both needed)
+        var pairs: [(Place, Place)] = []
+        for i in 0..<places.count {
+            for j in 0..<places.count where i != j {
+                pairs.append((places[i], places[j]))
+            }
+        }
+
+        let modes: [TransportMode] = [.walking, .automobile]
+        let totalRequests = pairs.count * modes.count
+        guard totalRequests > 0 else { return }
+
+        // Collect results from parallel tasks (thread-safe collection)
+        struct CacheEntry: Sendable {
+            let result: RouteResult
+            let originID: UUID
+            let destID: UUID
+        }
+
+        var completed = 0
+
+        // Fetch routes in parallel, collect results
+        let entries: [CacheEntry] = await withTaskGroup(of: CacheEntry?.self, returning: [CacheEntry].self) { group in
+            for (origin, dest) in pairs {
+                for mode in modes {
+                    let originCoord = origin.coordinate
+                    let destCoord = dest.coordinate
+                    let originID = origin.id
+                    let destID = dest.id
+                    group.addTask {
+                        // Fetch route from API
+                        let results = await RoutingService.shared.calculateRoute(
+                            from: originCoord,
+                            to: destCoord,
+                            mode: mode
+                        )
+                        guard var route = results.first else { return nil }
+
+                        // Fetch navigation steps if not already present
+                        if route.navigationSteps.isEmpty {
+                            let steps = await RoutingService.shared.fetchNavigationSteps(
+                                from: originCoord,
+                                to: destCoord,
+                                mode: mode,
+                                existingTransitSteps: route.transitSteps
+                            )
+                            route = RouteResult(
+                                polyline: route.polyline,
+                                distance: route.distance,
+                                expectedTravelTime: route.expectedTravelTime,
+                                mode: route.mode,
+                                transitSteps: route.transitSteps,
+                                trafficDuration: route.trafficDuration,
+                                originAddress: route.originAddress,
+                                navigationSteps: steps
+                            )
+                        }
+
+                        return CacheEntry(result: route, originID: originID, destID: destID)
+                    }
+                }
+            }
+
+            var collected: [CacheEntry] = []
+            for await entry in group {
+                completed += 1
+                await progress(Double(completed) / Double(totalRequests))
+                if let entry { collected.append(entry) }
+            }
+            return collected
+        }
+
+        // Store all results on @MainActor (ModelContext is main-actor-bound)
+        for entry in entries {
+            RoutingCacheService.shared.store(
+                entry.result,
+                origin: entry.originID,
+                dest: entry.destID,
+                tripID: tripID,
+                context: context
+            )
+        }
+    }
+
     func preCacheTrip(_ trip: Trip, context: ModelContext, progress: @escaping (Double) -> Void) async {
         let daysWithPlaces = trip.sortedDays.filter { !$0.places.isEmpty }
         guard !daysWithPlaces.isEmpty else { return }
