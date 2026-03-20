@@ -87,8 +87,15 @@ None yet.
 - UIBackgroundModes location must be configured manually in Xcode before Phase 1 testing
 - Physical device required for validating background GPS and audio session behavior (simulator insufficient)
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260320-x71 | Apple Maps UX polish (material sheet, map controls, category chips, Look Around) | 2026-03-20 | 63103d8 | [260320-x71-user-friendly-apple-maps](./quick/260320-x71-user-friendly-apple-maps/) |
+
 ## Session Continuity
 
+Last activity: 2026-03-20 - Completed quick task 260320-x71: Apple Maps UX polish
 Last session: 2026-03-20T15:03:10.195Z
 Stopped at: Completed quick/260320-x71-user-friendly-apple-maps
 Resume file: None
