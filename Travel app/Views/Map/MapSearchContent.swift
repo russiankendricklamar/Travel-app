@@ -8,13 +8,35 @@ struct MapSearchContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Search pill
-            searchBar
-                .padding(.horizontal, 16)
-                .padding(.bottom, 10)
+            // Search bar + cancel button row
+            HStack(spacing: 10) {
+                searchFieldContent
+                    .frame(maxWidth: .infinity)
 
-            // Category chips — shown in idle and search results states
-            if vm.sheetContent == .idle || vm.sheetContent == .searchResults {
+                // "Отмена" — shown when search is active
+                if isSearchFocused || !vm.searchQuery.isEmpty {
+                    Button("Отмена") {
+                        vm.dismissSearch()
+                        isSearchFocused = false
+                    }
+                    .font(.system(size: 16))
+                    .foregroundStyle(AppTheme.sakuraPink)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+            .animation(.spring(response: 0.3), value: isSearchFocused || !vm.searchQuery.isEmpty)
+
+            // Typeahead completer suggestions — shown while typing (before submit)
+            if vm.isCompleterActive && !vm.completerResults.isEmpty {
+                Divider().padding(.horizontal, 14)
+                completerSuggestionsList
+            }
+
+            // Category chips — only in idle with empty query
+            if vm.completerResults.isEmpty && vm.searchQuery.isEmpty,
+               vm.sheetContent == .idle || vm.sheetContent == .searchResults {
                 categoryChips
                     .padding(.bottom, 8)
             }
@@ -73,9 +95,64 @@ struct MapSearchContent: View {
         }
     }
 
-    // MARK: - Search Bar (Apple Maps style)
+    // MARK: - Completer Suggestions (instant typeahead)
 
-    private var searchBar: some View {
+    private var completerSuggestionsList: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            LazyVStack(spacing: 0) {
+                ForEach(Array(vm.completerResults.enumerated()), id: \.offset) { index, completion in
+                    Button {
+                        Task { await vm.selectCompleterResult(completion) }
+                        isSearchFocused = false
+                    } label: {
+                        completerRow(completion)
+                    }
+                    .buttonStyle(.plain)
+
+                    if index < vm.completerResults.count - 1 {
+                        Divider().padding(.leading, 48)
+                    }
+                }
+            }
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    private func completerRow(_ completion: MKLocalSearchCompletion) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 16))
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(completion.title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                if !completion.subtitle.isEmpty {
+                    Text(completion.subtitle)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    // MARK: - Search Field Content (Apple Maps style)
+    // Note: the outer Cancel button lives in `body` alongside this view.
+
+    private var searchFieldContent: some View {
         HStack(spacing: 8) {
             Image(systemName: vm.isAISearchMode ? "sparkles" : "magnifyingglass")
                 .font(.system(size: 15, weight: .medium))
@@ -94,24 +171,13 @@ struct MapSearchContent: View {
                 ProgressView().scaleEffect(0.65)
             }
 
-            if !vm.searchQuery.isEmpty {
-                Button {
-                    vm.dismissDetail()
-                    withAnimation(.spring(response: 0.3)) { vm.sheetDetent = .peek }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 17))
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
             // AI toggle
             Button {
                 withAnimation(.spring(response: 0.3)) {
                     vm.isAISearchMode.toggle()
                     vm.searchResults = []
                     vm.searchedItem = nil
+                    vm.completerResults = []
                     if !vm.isAISearchMode {
                         AIMapSearchService.shared.clear()
                         vm.selectedAIResult = nil

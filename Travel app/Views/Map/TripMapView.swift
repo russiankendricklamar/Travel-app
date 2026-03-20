@@ -57,7 +57,7 @@ struct TripMapView: View {
                         Spacer()
                         MapFloatingSearchPill(vm: vm) {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                vm.sheetDetent = .half
+                                vm.sheetDetent = .full
                             }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                 isSearchFocused = true
@@ -185,16 +185,9 @@ struct TripMapView: View {
                 guard !vm.isAISearchMode else { return }
                 vm.searchTask?.cancel()
                 vm.searchedItem = nil
-                let trimmed = newValue.trimmingCharacters(in: .whitespaces)
-                guard trimmed.count >= 2 else {
-                    vm.searchResults = []
-                    return
-                }
-                vm.searchTask = Task {
-                    try? await Task.sleep(for: .milliseconds(400))
-                    guard !Task.isCancelled else { return }
-                    await vm.performMapSearch(query: trimmed)
-                }
+                // Drive the instant typeahead completer — no debounce needed.
+                // Explicit MKLocalSearch is only triggered on keyboard submit (vm.submitSearch).
+                vm.updateCompleterQuery(newValue)
             }
         }
     }
