@@ -5,7 +5,7 @@ milestone_name: milestone
 status: unknown
 stopped_at: Completed 04-offline-routes 04-03-PLAN.md
 last_updated: "2026-03-20T15:17:58.093Z"
-last_activity: "2026-03-20 - Completed quick task 260321-00h: Apple Maps-style search UX"
+last_activity: "2026-03-21 - Completed quick task 260321-0ib: Preserve search state on sheet swipe-down"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -104,6 +104,7 @@ None yet.
 | 260320-x71 | Apple Maps UX polish (material sheet, map controls, category chips, Look Around) | 2026-03-20 | 63103d8 | | [260320-x71-user-friendly-apple-maps](./quick/260320-x71-user-friendly-apple-maps/) |
 | 260321-00h | Apple Maps-style search UX (MKLocalSearchCompleter typeahead, full sheet, cancel) | 2026-03-20 | 00cc35e | Verified | [260321-00h-apple-maps-style-search-ux-in-maps](./quick/260321-00h-apple-maps-style-search-ux-in-maps/) |
 | 260321-0a1 | Apple Maps-style place card (hero Look Around, circular buttons, inline hours, unified layout) | 2026-03-21 | 5511575 | Verified | [260321-0a1-place-card-redesign](./quick/260321-0a1-place-card-redesign/) |
+| 260321-0ib | Preserve search state on sheet swipe-down (no reset on minimize) | 2026-03-21 | pending | Verified | [260321-0ib-preserve-search-state-on-sheet-swipe-dow](./quick/260321-0ib-preserve-search-state-on-sheet-swipe-dow/) |
 
 ## Session Continuity
 

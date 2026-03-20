@@ -224,9 +224,23 @@ struct TripMapView: View {
                 Task { await vm.fetchLookAround(coordinate: coord) }
             }
             .onChange(of: vm.sheetDetent) { oldDetent, newDetent in
-                // Swipe down to peek → full reset (clear pins, search, selections)
                 // Guard: do NOT dismiss during active navigation — user may collapse sheet to peek
-                if newDetent == .peek && oldDetent != .peek && !vm.isNavigating {
+                guard newDetent == .peek && oldDetent != .peek && !vm.isNavigating else { return }
+
+                let hasActiveSearch = !vm.searchQuery.isEmpty || !vm.searchResults.isEmpty || !vm.completerResults.isEmpty
+                let isInDetailMode = vm.sheetContent == .placeDetail || vm.sheetContent == .searchItemDetail || vm.sheetContent == .aiResultDetail
+
+                if isInDetailMode {
+                    // Viewing place detail → full reset (Apple Maps: swipe down closes detail)
+                    vm.dismissDetail()
+                } else if hasActiveSearch {
+                    // Active search/typeahead → preserve search, just minimize
+                    // Bounce to half so search bar stays visible (74pt peek is too small)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        vm.sheetDetent = .half
+                    }
+                } else {
+                    // No search, no detail → full reset
                     vm.dismissDetail()
                 }
             }
