@@ -3,13 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed quick/260320-x71-user-friendly-apple-maps
-last_updated: "2026-03-20T15:03:10.199Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-20T15:05:42.888Z"
+last_activity: "2026-03-20 - Completed quick task 260320-x71: Apple Maps UX polish"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -53,6 +54,7 @@ Plan: 1 of 3
 | Phase 02-navigation-ui P02 | 2 | 2 tasks | 1 files |
 | Phase 03 P01 | 3 | 2 tasks | 3 files |
 | Phase 03 P02 | 25 | 3 tasks | 2 files |
+| Phase 04-offline-routes P01 | 3 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -77,6 +79,8 @@ Recent decisions affecting current work:
 - [Phase 03-02]: Card tap sets both vm.selectedRouteIndex and vm.activeRoute in withAnimation(.easeInOut(0.35)) for smooth polyline transition
 - [Phase 03-02]: Fastest badge takes priority over shortest when same route wins both metrics (per UI-SPEC)
 - [Phase 03-02]: Carousel hidden entirely when alternativeRoutes is empty and not loading — avoids empty-state clutter
+- [Phase 04-offline-routes]: CachedRoute uses JSON-encoded Data fields (not externalStorage) — route data is small and needs predicate queries on UUIDs
+- [Phase 04-offline-routes]: calculateRoute(fromPlace:) is a new overload — coordinate-based method untouched for GPS-origin routes
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-20 - Completed quick task 260320-x71: Apple Maps UX polish
-Last session: 2026-03-20T15:03:10.195Z
-Stopped at: Completed quick/260320-x71-user-friendly-apple-maps
+Last session: 2026-03-20T15:05:42.886Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

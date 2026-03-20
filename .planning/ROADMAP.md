@@ -92,4 +92,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Navigation Engine | 3/3 | Complete   | 2026-03-20 |
 | 2. Navigation UI | 1/2 | In Progress|  |
 | 3. Route Selection | 2/2 | Complete   | 2026-03-20 |
-| 4. Offline Routes | 0/3 | Not started | - |
+| 4. Offline Routes | 1/3 | In Progress|  |
