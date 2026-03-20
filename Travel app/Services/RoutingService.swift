@@ -567,4 +567,51 @@ final class RoutingService {
         cache.removeAll()
         etaPreviews.removeAll()
     }
+
+    // MARK: - Turn-by-turn Navigation Steps
+
+    /// Fetch turn-by-turn navigation steps via MKDirections (free, offline-capable).
+    /// For transit mode, converts existing TransitStep array instead.
+    func fetchNavigationSteps(
+        from origin: CLLocationCoordinate2D,
+        to destination: CLLocationCoordinate2D,
+        mode: TransportMode,
+        existingTransitSteps: [TransitStep] = []
+    ) async -> [NavigationStep] {
+        // Transit: convert existing TransitStep to NavigationStep
+        if mode == .transit {
+            return existingTransitSteps.map { step in
+                NavigationStep(
+                    instruction: step.instruction,
+                    distance: step.distance,
+                    polyline: step.polyline,
+                    isTransit: true
+                )
+            }
+        }
+
+        // Walk / Drive / Bike: use MKDirections
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: origin))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: destination))
+        request.transportType = mode.mkTransportType
+
+        let directions = MKDirections(request: request)
+        guard let response = try? await directions.calculate(),
+              let route = response.routes.first else {
+            print("[RoutingService] MKDirections step fetch failed for \(mode.rawValue)")
+            return []
+        }
+
+        return route.steps
+            .filter { !$0.instructions.isEmpty }
+            .map { step in
+                NavigationStep(
+                    instruction: step.instructions,
+                    distance: step.distance,
+                    polyline: step.polyline.coordinates,
+                    isTransit: false
+                )
+            }
+    }
 }

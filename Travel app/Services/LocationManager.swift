@@ -11,6 +11,8 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     var isTracking = false
     var currentLocation: CLLocationCoordinate2D?
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    /// Callback invoked on every location update — used by NavigationEngine for step matching
+    var onLocationUpdate: ((CLLocation) -> Void)?
     private(set) var activeDay: TripDay?
     private var modelContext: ModelContext?
     private var trackingActivity: Activity<TrackingActivityAttributes>?
@@ -175,6 +177,26 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         return total
     }
 
+    // MARK: - Navigation Mode
+
+    /// Switch to high-accuracy navigation GPS mode
+    func startNavigationMode() {
+        manager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
+        manager.activityType = .otherNavigation
+        manager.distanceFilter = kCLDistanceFilterNone
+        manager.startUpdatingLocation()
+    }
+
+    /// Revert to standard tracking GPS mode
+    func stopNavigationMode() {
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.activityType = .fitness
+        manager.distanceFilter = 10
+        if !isTracking {
+            manager.stopUpdatingLocation()
+        }
+    }
+
     // MARK: - One-shot location
 
     func requestCurrentLocation() async -> CLLocationCoordinate2D? {
@@ -212,6 +234,9 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         guard let location = locations.last else { return }
         currentLocation = location.coordinate
 
+        // Navigation engine callback
+        onLocationUpdate?(location)
+
         // One-shot completion
         if let cont = oneShotContinuation {
             oneShotContinuation = nil
@@ -248,6 +273,11 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         authorizationStatus = manager.authorizationStatus
+    }
+
+    func locationManagerDidPauseLocationUpdates(_ manager: CLLocationManager) {
+        // Safety net: immediately restart if iOS pauses during navigation
+        manager.startUpdatingLocation()
     }
 }
 
