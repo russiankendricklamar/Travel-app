@@ -118,6 +118,10 @@ final class MapViewModel {
     var lookAroundScene: MKLookAroundScene?
     var isLoadingLookAround = false
 
+    // Inline AI description
+    var inlineAIDescription: String?
+    var isLoadingAIDescription = false
+
     // Routing
     var activeRoute: RouteResult?
     var selectedTransportMode: TransportMode = .walking
@@ -242,6 +246,8 @@ final class MapViewModel {
         showAllHours = false
         showAllReviews = false
         lookAroundScene = nil
+        inlineAIDescription = nil
+        isLoadingAIDescription = false
 
         guard selectedPlace != nil else {
             if sheetContent == .placeDetail {
@@ -257,6 +263,8 @@ final class MapViewModel {
     func selectSearchResult(_ item: MKMapItem) {
         searchedItem = item
         sheetContent = .searchItemDetail
+        inlineAIDescription = nil
+        isLoadingAIDescription = false
         withAnimation(.spring(response: 0.3)) { sheetDetent = .half }
 
         if let coord = item.placemark.location?.coordinate {
@@ -274,6 +282,8 @@ final class MapViewModel {
     func selectAIResult(_ rec: PlaceRecommendation) {
         selectedAIResult = rec
         sheetContent = .aiResultDetail
+        inlineAIDescription = nil
+        isLoadingAIDescription = false
         withAnimation(.spring(response: 0.3)) { sheetDetent = .half }
 
         if rec.latitude != 0, rec.longitude != 0 {
@@ -295,6 +305,8 @@ final class MapViewModel {
         activeRoute = nil
         alternativeRoutes = []
         selectedRouteIndex = 0
+        inlineAIDescription = nil
+        isLoadingAIDescription = false
         sheetContent = .idle
         withAnimation(.spring(response: 0.3)) { sheetDetent = .peek }
     }
@@ -408,6 +420,23 @@ final class MapViewModel {
         let request = MKLookAroundSceneRequest(coordinate: coordinate)
         lookAroundScene = try? await request.scene
         isLoadingLookAround = false
+    }
+
+    @MainActor
+    func loadInlineAIDescription(name: String, category: String, city: String?) async {
+        guard inlineAIDescription == nil, !isLoadingAIDescription else { return }
+        isLoadingAIDescription = true
+        defer { isLoadingAIDescription = false }
+        if let info = await PlaceInfoService.shared.fetchInfo(
+            placeName: name, category: category, city: city, tripID: nil
+        ) {
+            if let firstSection = info.sections.first {
+                let text = firstSection.text
+                inlineAIDescription = text.count > 250
+                    ? String(text.prefix(250)).appending("...")
+                    : text
+            }
+        }
     }
 
     /// Feed a new query fragment to the completer for instant typeahead suggestions.

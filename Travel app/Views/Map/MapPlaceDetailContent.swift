@@ -156,6 +156,10 @@ struct MapPlaceDetailContent: View {
             quickStatusRow(visitedBadge: visitedBadge)
                 .padding(.top, 8)
 
+            // AI description (lazy-loaded inline)
+            aiDescriptionSection(name: name, categoryIconName: categoryIconName)
+                .padding(.top, 10)
+
             // Circular action buttons
             actionButtons()
                 .padding(.top, 14)
@@ -532,6 +536,71 @@ struct MapPlaceDetailContent: View {
             Text(label)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(color)
+        }
+    }
+
+    // MARK: - AI Description Section
+
+    @ViewBuilder
+    private func aiDescriptionSection(name: String, categoryIconName: String) -> some View {
+        // Don't show for aiResultDetail (already has rec.description)
+        if vm.sheetContent != .aiResultDetail {
+            VStack(alignment: .leading, spacing: 8) {
+                if vm.isLoadingAIDescription {
+                    HStack(spacing: 8) {
+                        ProgressView().scaleEffect(0.7)
+                        Text("AI описание...")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                } else if let description = vm.inlineAIDescription {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(AppTheme.sakuraPink)
+                            Text("AI")
+                                .font(.system(size: 11, weight: .bold))
+                                .tracking(1)
+                                .foregroundStyle(AppTheme.sakuraPink)
+                        }
+                        Text(description)
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(12)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.radiusMedium, style: .continuous)
+                            .stroke(AppTheme.sakuraPink.opacity(0.15), lineWidth: 0.5)
+                    )
+                    .padding(.horizontal, 16)
+                }
+            }
+            .task(id: name) {
+                let categoryStr: String = {
+                    switch vm.sheetContent {
+                    case .placeDetail:
+                        return vm.selectedPlace?.category.rawValue ?? ""
+                    case .searchItemDetail:
+                        return vm.searchedItem?.pointOfInterestCategory?.rawValue ?? ""
+                    default:
+                        return ""
+                    }
+                }()
+                let city: String? = {
+                    switch vm.sheetContent {
+                    case .placeDetail:
+                        return vm.selectedPlace?.day?.cityName
+                    default:
+                        return nil
+                    }
+                }()
+                await vm.loadInlineAIDescription(name: name, category: categoryStr, city: city)
+            }
         }
     }
 
