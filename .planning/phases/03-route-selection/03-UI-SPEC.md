@@ -34,9 +34,9 @@ Declared values — all multiples of 4, matching `AppTheme` spacing constants:
 
 | Token | Swift Constant | Value | Usage |
 |-------|---------------|-------|-------|
-| xs | `AppTheme.spacingXS` | 4pt | Icon gaps, label-to-value gaps inside cards |
-| sm | `AppTheme.spacingS` | 8pt | Inter-element gaps within carousel cards |
-| md | `AppTheme.spacingM` | 16pt | Horizontal sheet padding, card internal padding |
+| xs | `AppTheme.spacingXS` | 4pt | Icon gaps, label-to-value gaps inside cards, badge padding |
+| sm | `AppTheme.spacingS` | 8pt | Inter-element gaps within carousel cards, card gap in carousel |
+| md | `AppTheme.spacingM` | 16pt | Horizontal sheet padding, card internal padding, spacing before stats row |
 | lg | `AppTheme.spacingL` | 24pt | Section gaps (pills → carousel → stats) |
 | xl | `AppTheme.spacingXL` | 32pt | Not used in this phase |
 
@@ -44,7 +44,7 @@ Exceptions:
 - Carousel horizontal padding: 16pt left/right (matches existing `transportModePills` padding)
 - Route card width: 140pt fixed (scrollable, cards must be narrow enough to hint at overflow)
 - Route card height: 88pt fixed (ETA + distance/transfers + label badge, compact)
-- Card gap in carousel: 12pt (between cards)
+- Card gap in carousel: 8pt (between cards — keeps 2+ cards visible simultaneously)
 - Transport pill vertical padding: 8pt (matches existing pill minimum touch comfort)
 - Touch targets: minimum 44×44pt for all interactive elements (transport pills, route cards, close button)
 
@@ -61,11 +61,11 @@ Declared weights: `.bold` and `.medium` only (2 weights maximum).
 | ETA value | 22pt | `.bold`, `.rounded` design | 1.1 | Primary ETA number inside route card |
 | Card secondary | 13pt | `.medium` | 1.3 | Distance / transfer count label in card |
 | Badge label | 10pt | `.bold` | 1.0 | «Быстрый» / «Короткий» pill badge |
-| Section label | 11pt | `.medium` | 1.0 | «МАРШРУТЫ» carousel header label |
+| Section label | 12pt | `.medium` | 1.0 | «МАРШРУТЫ» carousel header label |
 | Pill ETA | 10pt | `.medium`, `.rounded` design | 1.0 | ETA preview inside transport pills (existing, no change) |
 | Pill mode label | 11pt | `.medium` | 1.0 | Mode label in inactive transport pills (existing, no change) |
 
-Note: Existing route stats row uses 18pt bold rounded for ETA and 11pt for labels — the carousel ETA at 22pt is intentionally larger to be the hero number in each card.
+Note: Existing route stats row uses 18pt bold rounded for ETA and 11pt for labels — the carousel ETA at 22pt is intentionally larger to be the hero number in each card. Section label moved from 11pt to 12pt to provide a clearer visual step above the 10pt badge label.
 
 ---
 
@@ -108,7 +108,7 @@ Layout (fixed 140pt wide × 88pt tall, vertical stack):
 [distance OR transfer count, 13pt medium, secondary]
 ```
 
-Badge pill: 10pt bold, `sakuraPink` text, `sakuraPink.opacity(0.10)` fill, `cornerRadius: 6`, horizontal padding 6pt, vertical 2pt. Only one badge per set of alternatives (fastest gets «Быстрый», shortest gets «Короткий»; if same route wins both, show «Быстрый»).
+Badge pill: 10pt bold, `sakuraPink` text, `sakuraPink.opacity(0.10)` fill, `cornerRadius: 6`, horizontal padding 4pt, vertical padding 4pt. Only one badge per set of alternatives (fastest gets «Быстрый», shortest gets «Короткий»; if same route wins both, show «Быстрый»).
 
 Transit variant: replace distance line with "N пересадок" (N = `transitSteps.filter { $0.travelMode == "TRANSIT" }.count`). Format: "1 пересадка", "2 пересадки", "5 пересадок" (apply standard Russian declension).
 
@@ -122,7 +122,7 @@ Location: inline in `MapRouteContent.swift` (not a standalone file — inserted 
 
 ```
 ScrollView(.horizontal, showsIndicators: false) {
-    HStack(spacing: 12) {
+    HStack(spacing: 8) {
         ForEach(alternatives) { RouteAlternativeCard }
     }
     .padding(.horizontal, 16)
@@ -130,7 +130,7 @@ ScrollView(.horizontal, showsIndicators: false) {
 ```
 
 Position in `MapRouteContent` VStack: after `transportModePills`, before `routeStatsRow`.
-Vertical spacing: `.padding(.top, 12)` above carousel, `.padding(.top, 14)` before stats row (existing stats spacing preserved).
+Vertical spacing: `.padding(.top, 12)` above carousel (existing spacing token, nearest multiple-of-4 above the carousel block), `.padding(.top, 16)` before stats row (matches `md` token).
 
 Loading state: show 2 skeleton `RouteAlternativeCard` instances with shimmer animation while `isCalculatingRoute == true`.
 
@@ -181,7 +181,7 @@ Polyline rendering: `TripMapView` reads `activeRoute` for polyline source — no
 | Element | Copy |
 |---------|------|
 | Primary CTA | «НАЧАТЬ НАВИГАЦИЮ» (existing, no change — `location.fill` icon + tracking 1) |
-| Carousel section label | «МАРШРУТЫ» (11pt, medium, tracking 1.5, secondary color — matches GlassSectionHeader pattern) |
+| Carousel section label | «МАРШРУТЫ» (12pt, medium, tracking 1.5, secondary color — matches GlassSectionHeader pattern) |
 | Badge: fastest route | «Быстрый» |
 | Badge: shortest route | «Короткий» |
 | Transfer count: 1 | «1 пересадка» |
