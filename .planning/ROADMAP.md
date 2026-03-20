@@ -32,9 +32,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — NavigationStep model, MKDirections step fetch, LocationManager navigation mode
-- [ ] 01-02-PLAN.md — NavigationVoiceService with distance-triggered announcements
-- [ ] 01-03-PLAN.md — NavigationEngine state machine + MapViewModel integration
+- [x] 01-01-PLAN.md — NavigationStep model, MKDirections step fetch, LocationManager navigation mode
+- [x] 01-02-PLAN.md — NavigationVoiceService with distance-triggered announcements
+- [x] 01-03-PLAN.md — NavigationEngine state machine + MapViewModel integration
 
 ### Phase 2: Navigation UI
 **Goal**: User sees a floating HUD with the next maneuver, can start/stop navigation, and the map follows their position with heading lock
@@ -46,11 +46,11 @@ Plans:
   3. The map camera auto-pans to follow the user's position with heading lock during navigation
   4. The bottom sheet collapses to a minimal navigation detent showing current step, and can be expanded for the full step list
   5. The trip context label ("День 2 из 7 — Токио") is visible during navigation
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Navigation UI components: MapViewModel state, NavigationHUDView, MapRecenterButton, NavigationSheetContent, start button
+- [ ] 02-02-PLAN.md — TripMapView wiring: HUD overlay, recenter button, sheet case, dismiss guard, pan detection
 
 ### Phase 3: Route Selection
 **Goal**: User can compare alternative routes and transport modes before starting navigation
@@ -87,6 +87,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Navigation Engine | 3/3 | Complete   | 2026-03-20 |
-| 2. Navigation UI | 0/? | Not started | - |
+| 2. Navigation UI | 0/2 | Planning complete | - |
 | 3. Route Selection | 0/? | Not started | - |
 | 4. Offline Routes | 0/? | Not started | - |
