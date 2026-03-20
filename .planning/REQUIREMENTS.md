@@ -7,8 +7,8 @@
 
 ### Маршрутизация
 
-- [ ] **ROUTE-01**: Построение маршрута через MKDirections с 2-3 альтернативными вариантами
-- [ ] **ROUTE-02**: Переключение транспортного режима (пешком, авто, транспорт, велосипед)
+- [x] **ROUTE-01**: Построение маршрута через MKDirections с 2-3 альтернативными вариантами
+- [x] **ROUTE-02**: Переключение транспортного режима (пешком, авто, транспорт, велосипед)
 - [ ] **ROUTE-03**: Отображение ETA и расстояния для каждого транспортного режима одновременно
 - [x] **ROUTE-04**: Список пошаговых инструкций (turn-by-turn step list) в bottom sheet
 
@@ -66,8 +66,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ROUTE-01 | Phase 3 | Pending |
-| ROUTE-02 | Phase 3 | Pending |
+| ROUTE-01 | Phase 3 | Complete |
+| ROUTE-02 | Phase 3 | Complete |
 | ROUTE-03 | Phase 3 | Pending |
 | ROUTE-04 | Phase 1 | Complete |
 | NAV-01 | Phase 1 | Complete |

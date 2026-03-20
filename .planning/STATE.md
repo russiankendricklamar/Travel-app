@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-20T13:13:20.253Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-20T13:49:30.372Z"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Путешественник может построить маршрут между любыми точками, получить пошаговую навигацию с голосом на любом транспорте, и всё это работает офлайн в чужой стране без интернета.
-**Current focus:** Phase 02 — navigation-ui
+**Current focus:** Phase 03 — route-selection
 
 ## Current Position
 
-Phase: 02 (navigation-ui) — EXECUTING
+Phase: 03 (route-selection) — EXECUTING
 Plan: 1 of 2
 
 ## Performance Metrics
@@ -51,6 +51,7 @@ Plan: 1 of 2
 | Phase 01 P03 | 15 | 2 tasks | 2 files |
 | Phase 02-navigation-ui P01 | 5 | 2 tasks | 6 files |
 | Phase 02-navigation-ui P02 | 2 | 2 tasks | 1 files |
+| Phase 03 P01 | 3 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - [Phase 02-01]: iconForInstruction as static func on NavigationHUDView for reuse by NavigationSheetContent without duplication
 - [Phase 02-navigation-ui]: No changes to isIdleMode/bottom sheet visibility: during navigation sheetContent==.navigation, so isIdleMode is false and sheet renders correctly
 - [Phase 02-navigation-ui]: Recenter button .padding(.bottom, 100) clears peek sheet height without safeAreaInset conflicts
+- [Phase 03]: calculateRoute returns [RouteResult] not Optional — callers use results.first pattern for backward compat with activeRoute
+- [Phase 03]: rerouteNavigation clears alternativeRoutes to prevent stale carousel during active navigation
 
 ### Pending Todos
 
@@ -82,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T13:13:20.251Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-route-selection/03-CONTEXT.md
+Last session: 2026-03-20T13:49:30.370Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None
