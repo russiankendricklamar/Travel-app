@@ -220,7 +220,7 @@ struct MapSearchContent: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, vm.sheetDetent == .peek ? 4 : 8)
         // In peek mode the sheet itself IS the dark bar — no inner capsule background needed
         .background(
             Group {

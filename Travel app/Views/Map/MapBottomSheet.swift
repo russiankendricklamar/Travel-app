@@ -8,7 +8,7 @@ enum SheetDetent: Equatable {
 
     func height(in screenHeight: CGFloat) -> CGFloat {
         switch self {
-        case .peek: return 74
+        case .peek: return 50
         case .half: return screenHeight * 0.47
         case .full: return screenHeight
         }

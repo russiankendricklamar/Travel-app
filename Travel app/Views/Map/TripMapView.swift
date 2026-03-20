@@ -417,7 +417,7 @@ struct TripMapView: View {
             MapScaleView()
             MapCompass()
         }
-        .safeAreaPadding(.bottom, isIdleMode ? 90 : 0)
+        .safeAreaPadding(.bottom, isIdleMode ? 66 : 0)
         .onMapCameraChange { context in
             vm.visibleRegion = context.region
             // Detect manual pan during navigation — show recenter button if > 50m from user location
