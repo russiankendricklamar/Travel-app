@@ -19,14 +19,14 @@
 - [x] **NAV-03**: Детекция отклонения от маршрута (>30м) с автоматическим перестроением
 - [x] **NAV-04**: Дебаунс перестроения маршрута (минимум 8с между запросами)
 - [x] **NAV-05**: Корректная работа GPS в фоне (allowsBackgroundLocationUpdates + UIBackgroundModes plist)
-- [ ] **NAV-06**: Кнопка "Начать навигацию" в UI маршрута
+- [x] **NAV-06**: Кнопка "Начать навигацию" в UI маршрута
 
 ### UI карты
 
-- [ ] **UI-01**: NavigationHUD — floating карточка следующего манёвра с расстоянием и иконкой направления
+- [x] **UI-01**: NavigationHUD — floating карточка следующего манёвра с расстоянием и иконкой направления
 - [ ] **UI-02**: Навигационный detent (.small) в bottom sheet при активной навигации
 - [ ] **UI-03**: Контекст поездки в навигации — "День 2 из 7 — Токио"
-- [ ] **UI-04**: Glassmorphism стиль для всех новых навигационных компонентов
+- [x] **UI-04**: Glassmorphism стиль для всех новых навигационных компонентов
 
 ### Офлайн
 
@@ -75,11 +75,11 @@
 | NAV-03 | Phase 1 | Complete |
 | NAV-04 | Phase 1 | Complete |
 | NAV-05 | Phase 1 | Complete |
-| NAV-06 | Phase 2 | Pending |
-| UI-01 | Phase 2 | Pending |
+| NAV-06 | Phase 2 | Complete |
+| UI-01 | Phase 2 | Complete |
 | UI-02 | Phase 2 | Pending |
 | UI-03 | Phase 2 | Pending |
-| UI-04 | Phase 2 | Pending |
+| UI-04 | Phase 2 | Complete |
 | OFFL-01 | Phase 4 | Pending |
 | OFFL-02 | Phase 4 | Pending |
 | OFFL-03 | Phase 4 | Pending |
