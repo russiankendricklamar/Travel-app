@@ -24,6 +24,11 @@
 - ✓ Пошаговые инструкции поворотов (NavigationStep модель) — Validated in Phase 1
 - ✓ Автоматическое перестроение маршрута при отклонении (30м + 8с debounce) — Validated in Phase 1
 - ✓ Фоновый GPS при заблокированном экране — Validated in Phase 1
+- ✓ Floating HUD с иконкой манёвра, инструкцией и расстоянием — Validated in Phase 2: Navigation UI
+- ✓ Старт/стоп навигации из карточки маршрута — Validated in Phase 2
+- ✓ Камера следует за пользователем с heading lock — Validated in Phase 2
+- ✓ Bottom sheet в навигационном режиме (peek + expanded step list) — Validated in Phase 2
+- ✓ Контекст поездки "День N из M" во время навигации — Validated in Phase 2
 
 ### Active
 
@@ -32,7 +37,7 @@
 - [ ] ETA и расстояние на каждом варианте маршрута
 - [ ] Комбинированные маршруты (метро + пешком) в одном маршруте
 - [ ] Lane guidance (подсказки полос) где доступно
-- [ ] Apple Maps UI: выдвижной bottom sheet с detents (.small, .medium, .large)
+- [x] Apple Maps UI: выдвижной bottom sheet с detents (.small, .medium, .large) — Validated in Phase 2
 - [ ] Floating search bar поверх карты
 - [ ] Карточки мест в стиле Apple Maps
 - [ ] Полный офлайн: предзагрузка карт региона (MKTileOverlay или MapKit offline)
@@ -77,6 +82,6 @@
 ---
 ## Current State
 
-Phase 1 (Navigation Engine) complete — NavigationStep модель, NavigationVoiceService, NavigationEngine state machine интегрированы в MapViewModel. Вся логика навигации работает без нового UI.
+Phase 2 (Navigation UI) complete — NavigationHUDView (glassmorphism HUD), MapRecenterButton, NavigationSheetContent (peek/expanded), кнопка "Начать навигацию" в MapRouteContent. Всё интегрировано в TripMapView с heading-lock камерой, dismiss guard, и pan detection.
 
-*Last updated: 2026-03-20 after Phase 1 completion*
+*Last updated: 2026-03-20 after Phase 2 completion*
