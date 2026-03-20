@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed quick/260321-0a1-place-card-redesign
-last_updated: "2026-03-20T15:25:26.998Z"
-last_activity: "2026-03-21 - Completed quick task 260321-0a1: Place card redesign"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-03-20T15:39:39.933Z"
+last_activity: 2026-03-20
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Путешественник может построить маршрут между любыми точками, получить пошаговую навигацию с голосом на любом транспорте, и всё это работает офлайн в чужой стране без интернета.
-**Current focus:** Phase 04 — offline-routes
+**Current focus:** Phase 05 — offline-route-fixes
 
 ## Current Position
 
-Phase: 04 (offline-routes) — EXECUTING
-Plan: 1 of 3
+Phase: 05 (offline-route-fixes) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Plan: 1 of 3
 | Phase 04-offline-routes P01 | 3 | 2 tasks | 4 files |
 | Phase 04-offline-routes P02 | 3 | 2 tasks | 3 files |
 | Phase 04-offline-routes P03 | 22 | 2 tasks | 6 files |
+| Phase 05 P01 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,8 @@ Recent decisions affecting current work:
 - [Phase 04-offline-routes]: TripMapView shows checkmark.icloud.fill badge when isDayCached=true, otherwise OfflinePrecacheButton — no redundant state
 - [Phase 04-offline-routes]: NavigationEngine uses stored isOfflineMode:Bool (set at nav start) to avoid @MainActor isolation issue in GPS thread
 - [Phase 04-offline-routes]: Carousel hidden entirely offline — avoids empty-state clutter, matches CONTEXT.md single-route-per-mode offline constraint
+- [Phase 05]: offlineNoCacheMessage moved to top-level else-if branch — only reachable when vm.activeRoute == nil AND offline
+- [Phase 05]: RouteResult rebuilt immutably with navigationSteps before caching — mirrors OfflineCacheManager.preCacheDay pattern
 
 ### Pending Todos
 
@@ -108,7 +111,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-03-21 - Completed quick task 260321-0a1: Place card redesign
-Last session: 2026-03-21T00:00:00.000Z
-Stopped at: Completed quick/260321-0a1-place-card-redesign
+Last activity: 2026-03-20
+Last session: 2026-03-20T15:39:39.931Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None

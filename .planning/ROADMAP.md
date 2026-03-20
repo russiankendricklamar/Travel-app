@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Navigation UI** - HUD overlay, start button, map camera lock, navigation sheet detent, trip context (completed 2026-03-20)
 - [x] **Phase 3: Route Selection** - Alternative routes picker, transport mode ETA bar, step list in bottom sheet (completed 2026-03-20)
 - [x] **Phase 4: Offline Routes** - SwiftData route cache, pre-calculation, cache-first lookup, offline degradation (completed 2026-03-20)
-- [ ] **Phase 5: Offline Route Fixes** - Gap closure: fix auto-cached navigationSteps + unreachable offlineNoCacheMessage
+- [x] **Phase 5: Offline Route Fixes** - Gap closure: fix auto-cached navigationSteps + unreachable offlineNoCacheMessage (completed 2026-03-20)
 
 ## Phase Details
 
@@ -104,4 +104,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Navigation UI | 2/2 | Complete   | 2026-03-20 |
 | 3. Route Selection | 2/2 | Complete   | 2026-03-20 |
 | 4. Offline Routes | 3/3 | Complete   | 2026-03-20 |
-| 5. Offline Route Fixes | 0/0 | Pending   |  |
+| 5. Offline Route Fixes | 1/1 | Complete   | 2026-03-20 |
