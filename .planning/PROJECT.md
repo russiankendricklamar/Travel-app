@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Полная переработка навигационной механики в Travel app — iOS приложении для планирования путешествий. Улучшаем существующую карту до уровня Apple Maps: мультимодальные маршруты, полная turn-by-turn навигация с голосовыми подсказками, современный UI с bottom sheet и floating search, полный офлайн с предзагрузкой карт.
+Полная переработка навигационной механики в Travel app — iOS приложении для планирования путешествий. Реализована полноценная turn-by-turn навигация уровня Apple Maps: мультимодальные маршруты с альтернативами, голосовые подсказки на любом языке, glassmorphism UI с floating HUD и bottom sheet, полный офлайн с двухуровневым кэшированием маршрутов.
 
 ## Core Value
 
@@ -19,29 +19,31 @@
 - ✓ Bottom sheet с деталями мест — existing
 - ✓ Офлайн кэш снимков карты (MKMapSnapshotter) — existing
 - ✓ MapViewModel с состояниями — existing
-- ✓ Turn-by-turn навигация с отслеживанием положения — Validated in Phase 1: Navigation Engine
-- ✓ Голосовые подсказки через AVSpeechSynthesizer (500м/200м/прибытие) — Validated in Phase 1
-- ✓ Пошаговые инструкции поворотов (NavigationStep модель) — Validated in Phase 1
-- ✓ Автоматическое перестроение маршрута при отклонении (30м + 8с debounce) — Validated in Phase 1
-- ✓ Фоновый GPS при заблокированном экране — Validated in Phase 1
-- ✓ Floating HUD с иконкой манёвра, инструкцией и расстоянием — Validated in Phase 2: Navigation UI
-- ✓ Старт/стоп навигации из карточки маршрута — Validated in Phase 2
-- ✓ Камера следует за пользователем с heading lock — Validated in Phase 2
-- ✓ Bottom sheet в навигационном режиме (peek + expanded step list) — Validated in Phase 2
-- ✓ Контекст поездки "День N из M" во время навигации — Validated in Phase 2
+- ✓ Turn-by-turn навигация с отслеживанием положения — v1.0 (Phase 1)
+- ✓ Голосовые подсказки через AVSpeechSynthesizer (500м/200м/прибытие) — v1.0 (Phase 1)
+- ✓ Пошаговые инструкции поворотов (NavigationStep модель) — v1.0 (Phase 1)
+- ✓ Автоматическое перестроение маршрута при отклонении (30м + 8с debounce) — v1.0 (Phase 1)
+- ✓ Фоновый GPS при заблокированном экране — v1.0 (Phase 1)
+- ✓ Floating HUD с иконкой манёвра, инструкцией и расстоянием — v1.0 (Phase 2)
+- ✓ Старт/стоп навигации из карточки маршрута — v1.0 (Phase 2)
+- ✓ Камера следует за пользователем с heading lock — v1.0 (Phase 2)
+- ✓ Bottom sheet в навигационном режиме (peek + expanded step list) — v1.0 (Phase 2)
+- ✓ Контекст поездки "День N из M" во время навигации — v1.0 (Phase 2)
+- ✓ Построение маршрутов с 2-3 альтернативами — v1.0 (Phase 3)
+- ✓ Мультимодальные маршруты (пешком, авто, транспорт, велосипед) — v1.0 (Phase 3)
+- ✓ ETA и расстояние на каждом варианте маршрута — v1.0 (Phase 3)
+- ✓ CachedRoute @Model для хранения маршрутов в SwiftData — v1.0 (Phase 4)
+- ✓ Cache-first lookup в RoutingService — v1.0 (Phase 4, 6)
+- ✓ "Подготовить офлайн" предзагрузка маршрутов дня — v1.0 (Phase 4)
+- ✓ Graceful degradation без сети — v1.0 (Phase 4, 5)
 
 ### Active
 
-- [x] Построение маршрутов через Google Routes API с несколькими вариантами (2-3 альтернативы) — Validated in Phase 3: Route Selection
-- [x] Мультимодальные маршруты (пешком, авто, транспорт) с переключением — Validated in Phase 3
-- [x] ETA и расстояние на каждом варианте маршрута — Validated in Phase 3
 - [ ] Комбинированные маршруты (метро + пешком) в одном маршруте
 - [ ] Lane guidance (подсказки полос) где доступно
-- [x] Apple Maps UI: выдвижной bottom sheet с detents (.small, .medium, .large) — Validated in Phase 2
 - [ ] Floating search bar поверх карты
 - [ ] Карточки мест в стиле Apple Maps
-- [ ] Полный офлайн: предзагрузка карт региона (MKTileOverlay или MapKit offline)
-- [ ] Офлайн маршрутизация по закэшированным данным
+- [ ] Полный офлайн: предзагрузка тайлов карты региона
 - [ ] Live Activity при активной навигации (Dynamic Island)
 
 ### Out of Scope
@@ -49,39 +51,37 @@
 - AR-навигация — отдельный scope, не связан с картами
 - Свой рендеринг карт (MapLibre/Mapbox) — используем нативный MapKit
 - Навигация для грузовиков/мотоциклов — только пешком, авто, транспорт
-- Платные дороги / избегание автомагистралей — Apple Maps не даёт этого через MKDirections
 - Свой собственный TTS движок — системный AVSpeechSynthesizer достаточен
+- CarPlay — сложные entitlements, минимальная потребность путешественников
 
 ## Context
 
-- Существующий MapViewModel и Map views нужно улучшить, не переписывать с нуля
-- Текущие файлы карты: MapViewModel.swift, TripMapView.swift, MapBottomSheet.swift, MapFloatingSearchPill.swift, MapPinViews.swift, MapPlaceDetailContent.swift, MapRouteContent.swift, MapSearchContent.swift, MapTransportOverlays.swift
-- RoutingService.swift уже существует с базовой маршрутизацией
-- Приложение работает на Swift/SwiftUI с @Observable pattern
-- Glassmorphism дизайн-система (blur + semi-transparent + gradients)
-- Русскоязычный интерфейс
-- iOS 17+ minimum target
-
-## Constraints
-
-- **Platform**: iOS only, MapKit only (no third-party map SDKs)
-- **Offline**: MKMapSnapshotter для тайлов; Apple не предоставляет офлайн routing API напрямую — потребуется кэширование предпостроенных маршрутов
-- **Voice**: AVSpeechSynthesizer — системный, бесплатный, поддерживает все языки iOS
-- **Design**: Glassmorphism стиль приложения должен сохраняться в новых компонентах карты
-- **Architecture**: @Observable pattern, SwiftData для persistence
+Shipped v1.0 with 44,806 LOC Swift.
+Tech stack: SwiftUI, MapKit, SwiftData, AVFoundation, @Observable pattern.
+Navigation system: NavigationEngine (state machine) + NavigationVoiceService + RoutingService (multi-source).
+Offline: Two-tier L1/L2 cache (memory + SwiftData), OfflineCacheManager with NWPathMonitor.
+Glassmorphism design system throughout.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| MapKit вместо Mapbox/MapLibre | Нативная интеграция, бесплатно, Apple Maps стиль из коробки | — Pending |
-| AVSpeechSynthesizer для голоса | Бесплатный, офлайн, все языки iOS | — Pending |
-| Улучшение а не переписывание | Сохраняем рабочий функционал, меньше риск регрессий | — Pending |
-| Кэш маршрутов для офлайн | Apple не даёт офлайн routing, кэшируем построенные маршруты | — Pending |
+| MapKit вместо Mapbox/MapLibre | Нативная интеграция, бесплатно, Apple Maps стиль | ✓ Good — glassmorphism + MapKit отлично сочетаются |
+| AVSpeechSynthesizer для голоса | Бесплатный, офлайн, все языки iOS | ✓ Good — работает на всех языках без API ключей |
+| Улучшение а не переписывание | Сохраняем рабочий функционал, меньше риск регрессий | ✓ Good — 2,880 строк добавлено в существующую архитектуру |
+| Кэш маршрутов для офлайн | Apple не даёт офлайн routing | ✓ Good — L1+L2 cache покрывает все use cases |
+| NavigationEngine как pure logic (Phase 1) | Стабильный API до UI работы | ✓ Good — Phase 2 UI построен без изменений engine |
+| Google Routes API для альтернатив | MKDirections не даёт альтернативы надёжно | ✓ Good — 2-3 альтернативы через Edge Function |
+| JSON Data вместо externalStorage | Маршруты маленькие, нужны predicate queries | ✓ Good — быстрый поиск по UUID |
+| modelContext injection через .onAppear | Earliest safe point для SwiftData контекста | ✓ Good — решило @MainActor isolation |
+
+## Constraints
+
+- **Platform**: iOS only, MapKit only (no third-party map SDKs)
+- **Offline**: MKMapSnapshotter для тайлов; кэширование предпостроенных маршрутов в SwiftData
+- **Voice**: AVSpeechSynthesizer — системный, бесплатный, все языки iOS
+- **Design**: Glassmorphism стиль приложения
+- **Architecture**: @Observable pattern, SwiftData для persistence
 
 ---
-## Current State
-
-Phase 3 (Route Selection) complete — RouteAlternativeCard (glassmorphism карты 140×88pt с бейджами «Быстрый»/«Короткий»), горизонтальная карусель «МАРШРУТЫ» в MapRouteContent, RoutingService возвращает до 3 альтернатив через Google Routes API (`computeAlternativeRoutes: true`), MapViewModel отслеживает selectedRouteIndex. Polyline анимируется при выборе маршрута.
-
-*Last updated: 2026-03-20 after Phase 3 completion*
+*Last updated: 2026-03-21 after v1.0 milestone*
