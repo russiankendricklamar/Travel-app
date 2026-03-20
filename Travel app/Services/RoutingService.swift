@@ -207,12 +207,29 @@ final class RoutingService {
                 to: destination.coordinate,
                 mode: mode
             )
-            // Store first result for future offline use
-            if let first = results.first {
+            // Fetch and attach navigation steps before caching
+            if var first = results.first {
+                let steps = await fetchNavigationSteps(
+                    from: origin.coordinate,
+                    to: destination.coordinate,
+                    mode: mode,
+                    existingTransitSteps: first.transitSteps
+                )
+                first = RouteResult(
+                    polyline: first.polyline,
+                    distance: first.distance,
+                    expectedTravelTime: first.expectedTravelTime,
+                    mode: first.mode,
+                    transitSteps: first.transitSteps,
+                    trafficDuration: first.trafficDuration,
+                    originAddress: first.originAddress,
+                    navigationSteps: steps
+                )
                 await RoutingCacheService.shared.store(
                     first, origin: origin.id, dest: destination.id,
                     tripID: tripID, context: context
                 )
+                return [first] + results.dropFirst()
             }
             return results
         }
