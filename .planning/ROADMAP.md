@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Navigation Engine** - Core navigation logic: step tracking, off-route detection, voice guidance, background GPS (completed 2026-03-20)
 - [ ] **Phase 2: Navigation UI** - HUD overlay, start button, map camera lock, navigation sheet detent, trip context
-- [ ] **Phase 3: Route Selection** - Alternative routes picker, transport mode ETA bar, step list in bottom sheet
+- [x] **Phase 3: Route Selection** - Alternative routes picker, transport mode ETA bar, step list in bottom sheet (completed 2026-03-20)
 - [ ] **Phase 4: Offline Routes** - SwiftData route cache, pre-calculation, cache-first lookup, offline degradation
 
 ## Phase Details
@@ -89,5 +89,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Navigation Engine | 3/3 | Complete   | 2026-03-20 |
 | 2. Navigation UI | 1/2 | In Progress|  |
-| 3. Route Selection | 1/2 | In Progress|  |
+| 3. Route Selection | 2/2 | Complete   | 2026-03-20 |
 | 4. Offline Routes | 0/? | Not started | - |

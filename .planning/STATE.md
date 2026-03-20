@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-03-20T13:49:30.372Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-20T14:10:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 ## Current Position
 
-Phase: 03 (route-selection) — EXECUTING
-Plan: 1 of 2
+Phase: 03 (route-selection) — COMPLETE
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Plan: 1 of 2
 | Phase 02-navigation-ui P01 | 5 | 2 tasks | 6 files |
 | Phase 02-navigation-ui P02 | 2 | 2 tasks | 1 files |
 | Phase 03 P01 | 3 | 2 tasks | 3 files |
+| Phase 03 P02 | 25 | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - [Phase 02-navigation-ui]: Recenter button .padding(.bottom, 100) clears peek sheet height without safeAreaInset conflicts
 - [Phase 03]: calculateRoute returns [RouteResult] not Optional — callers use results.first pattern for backward compat with activeRoute
 - [Phase 03]: rerouteNavigation clears alternativeRoutes to prevent stale carousel during active navigation
+- [Phase 03-02]: Card tap sets both vm.selectedRouteIndex and vm.activeRoute in withAnimation(.easeInOut(0.35)) for smooth polyline transition
+- [Phase 03-02]: Fastest badge takes priority over shortest when same route wins both metrics (per UI-SPEC)
+- [Phase 03-02]: Carousel hidden entirely when alternativeRoutes is empty and not loading — avoids empty-state clutter
 
 ### Pending Todos
 
@@ -85,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T13:49:30.370Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-03-20T14:10:00.000Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None
