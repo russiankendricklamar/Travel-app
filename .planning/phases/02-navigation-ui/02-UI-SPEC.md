@@ -52,6 +52,7 @@ All tokens match existing `AppTheme` constants. Use these token names in code.
 | "НАЧАТЬ НАВИГАЦИЮ" button vertical padding | 16pt | Standard tap target height |
 | Navigation sheet peek row horizontal padding | 16pt | Matches sheet shell |
 | Navigation sheet peek row vertical padding | 12pt | Compact strip height |
+| StepRow vertical padding | 8pt | Compact list row — 12pt would increase list height unnecessarily |
 | Safe area inset top (HUD positioning) | 8pt | Gap between Dynamic Island / notch and HUD card |
 
 ---
@@ -304,7 +305,7 @@ VStack spacing: 0
           ├── VStack alignment: .leading spacing: 4
           │   ├── Text(instruction) — 14pt semibold if current else regular
           │   └── Text(distance) — 12pt regular, .secondary
-          padding: horizontal 16, vertical 10
+          padding: horizontal 16, vertical 8
   Divider
   Button("Завершить навигацию")
     frame: maxWidth .infinity
@@ -377,6 +378,7 @@ No third-party registries, SPM packages, or external dependencies are introduced
 | Trip context label format "День N из M — Город" | REQUIREMENTS.md UI-03 |
 | Typography collapsed to 2 weights (400/600) | checker revision — dimension 4 |
 | Spacing non-multiples corrected to 4pt grid | checker revision — dimension 5 |
+| StepRow vertical padding: 10pt → 8pt | checker revision — dimension 5 (4pt grid compliance) |
 | xmark.circle.fill accessibilityLabel added | checker revision — dimension 1/2 |
 
 ---
