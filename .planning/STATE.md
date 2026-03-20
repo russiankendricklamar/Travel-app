@@ -40,9 +40,10 @@ None
 | 260321-4vl | Rich place detail card: glass buttons, 84pt thumbnails, gradient hero, lazy AI description | 2026-03-21 | 9a70e97 | Complete | [260321-4vl-rich-place-detail-card-on-map-with-photo](./quick/260321-4vl-rich-place-detail-card-on-map-with-photo/) |
 | 260321-50a | Move toolbar to sheet, add today's places, seamless map | 2026-03-21 | f50f6cf | Complete | [260321-50a-toolbar-sheet-toolbar](./quick/260321-50a-toolbar-sheet-toolbar/) |
 | 260321-55p | Fix Japan transit routing — Apple Maps fallback | 2026-03-20 | 94b566f | Complete | [260321-55p-fix-japan-transit-routing-add-apple-maps](./quick/260321-55p-fix-japan-transit-routing-add-apple-maps/) |
+| 260321-5bz | Apple Maps style dark fullscreen map with transit overlay | 2026-03-20 | af6ff48 | Verified | [260321-5bz-apple-maps-style-dark-fullscreen-map-wit](./quick/260321-5bz-apple-maps-style-dark-fullscreen-map-wit/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-21 - Completed quick task 260321-55p: Fix Japan transit routing
-Stopped at: Quick task 260321-55p completed
+Last activity: 2026-03-21 - Completed quick task 260321-5bz: Apple Maps style dark map
+Stopped at: Quick task 260321-5bz completed
 Resume file: None
