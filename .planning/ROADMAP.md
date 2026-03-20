@@ -29,11 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Voice announcements play at 500m, 200m, and arrival distance for each maneuver, and background music resumes after each announcement
   4. GPS tracking continues when the app is backgrounded or the screen is locked
   5. The turn-by-turn step list (text instructions from MKRouteStep) is available as data for UI consumption
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — NavigationStep model, MKDirections step fetch, LocationManager navigation mode
+- [ ] 01-02-PLAN.md — NavigationVoiceService with distance-triggered announcements
+- [ ] 01-03-PLAN.md — NavigationEngine state machine + MapViewModel integration
 
 ### Phase 2: Navigation UI
 **Goal**: User sees a floating HUD with the next maneuver, can start/stop navigation, and the map follows their position with heading lock
@@ -85,7 +86,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Navigation Engine | 0/? | Not started | - |
+| 1. Navigation Engine | 0/3 | Planning complete | - |
 | 2. Navigation UI | 0/? | Not started | - |
 | 3. Route Selection | 0/? | Not started | - |
 | 4. Offline Routes | 0/? | Not started | - |
