@@ -1,6 +1,28 @@
 import SwiftUI
 import MapKit
 
+// MARK: - Search Completer Delegate
+
+/// NSObject-based delegate that forwards MKLocalSearchCompleter callbacks to MapViewModel.
+/// Stored strongly on the view model to keep it alive for the completer's lifetime.
+private final class SearchCompleterDelegate: NSObject, MKLocalSearchCompleterDelegate {
+    weak var viewModel: MapViewModel?
+
+    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        Task { @MainActor [weak self] in
+            self?.viewModel?.completerResults = completer.results
+        }
+    }
+
+    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        Task { @MainActor [weak self] in
+            self?.viewModel?.completerResults = []
+        }
+    }
+}
+
+// MARK: - Sheet Content Enum
+
 /// Что показывать в bottom sheet
 enum MapSheetContent: Equatable {
     case idle
@@ -68,6 +90,16 @@ final class MapViewModel {
     var selectedAIResult: PlaceRecommendation?
     var showDayPickerForAI: PlaceRecommendation?
 
+    // Typeahead completer
+    var completerResults: [MKLocalSearchCompletion] = []
+    private let searchCompleter = MKLocalSearchCompleter()
+    private var completerDelegate: SearchCompleterDelegate?
+
+    /// True when typeahead suggestions should be shown in the UI
+    var isCompleterActive: Bool {
+        !searchQuery.isEmpty && searchedItem == nil && sheetContent != .searchResults
+    }
+
     // Category quick search
     var selectedCategory: String?
     var isLoadingCategory = false
@@ -126,6 +158,11 @@ final class MapViewModel {
 
     init(trip: Trip) {
         self.trip = trip
+        let delegate = SearchCompleterDelegate()
+        completerDelegate = delegate
+        searchCompleter.delegate = delegate
+        searchCompleter.resultTypes = [.pointOfInterest, .address]
+        delegate.viewModel = self
     }
 
     // MARK: - Computed Properties
@@ -266,6 +303,8 @@ final class MapViewModel {
         selectedRouteIndex = 0
         searchQuery = ""
         searchResults = []
+        completerResults = []
+        searchCompleter.queryFragment = ""
         lookAroundScene = nil
         selectedCategory = nil
         AIMapSearchService.shared.clear()
@@ -365,12 +404,46 @@ final class MapViewModel {
         isLoadingLookAround = false
     }
 
+    /// Feed a new query fragment to the completer for instant typeahead suggestions.
+    /// Call this on every keystroke (no debounce needed — MKLocalSearchCompleter is throttled internally).
+    func updateCompleterQuery(_ query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count >= 2 else {
+            completerResults = []
+            searchCompleter.queryFragment = ""
+            return
+        }
+        if let region = visibleRegion {
+            searchCompleter.region = region
+        }
+        searchCompleter.queryFragment = trimmed
+    }
+
+    /// Resolve a completer completion to a full MKMapItem and show it as a selected search result.
+    func selectCompleterResult(_ completion: MKLocalSearchCompletion) async {
+        let request = MKLocalSearch.Request(completion: completion)
+        do {
+            let search = MKLocalSearch(request: request)
+            let response = try await search.start()
+            if let item = response.mapItems.first {
+                completerResults = []
+                selectSearchResult(item)
+            }
+        } catch {
+            // If resolution fails, fill the text field so user can submit manually
+            searchQuery = completion.title
+            completerResults = []
+        }
+    }
+
     func dismissSearch() {
         searchQuery = ""
         searchResults = []
         searchedItem = nil
         isAISearchMode = false
         selectedAIResult = nil
+        completerResults = []
+        searchCompleter.queryFragment = ""
         AIMapSearchService.shared.clear()
         sheetContent = .idle
         withAnimation(.spring(response: 0.3)) { sheetDetent = .peek }
