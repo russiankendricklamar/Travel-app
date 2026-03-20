@@ -75,6 +75,13 @@ final class MapViewModel {
     var routeOriginPlaceID: Place.ID?
     var isCalculatingRoute = false
     var routeError: String?
+    var alternativeRoutes: [RouteResult] = []
+    var selectedRouteIndex: Int = 0
+
+    var selectedRoute: RouteResult? {
+        guard selectedRouteIndex < alternativeRoutes.count else { return nil }
+        return alternativeRoutes[selectedRouteIndex]
+    }
 
     // Navigation
     var isNavigating: Bool = false
@@ -170,6 +177,8 @@ final class MapViewModel {
         appleMapsInfo = nil
         googleDetail = nil
         activeRoute = nil
+        alternativeRoutes = []
+        selectedRouteIndex = 0
         showAllHours = false
         showAllReviews = false
 
@@ -223,6 +232,8 @@ final class MapViewModel {
         searchedItem = nil
         selectedAIResult = nil
         activeRoute = nil
+        alternativeRoutes = []
+        selectedRouteIndex = 0
         sheetContent = .idle
         withAnimation(.spring(response: 0.3)) { sheetDetent = .peek }
     }
@@ -233,6 +244,8 @@ final class MapViewModel {
         searchedItem = nil
         selectedAIResult = nil
         activeRoute = nil
+        alternativeRoutes = []
+        selectedRouteIndex = 0
         searchQuery = ""
         searchResults = []
         AIMapSearchService.shared.clear()
@@ -338,17 +351,19 @@ final class MapViewModel {
             return
         }
 
-        let result = await RoutingService.shared.calculateRoute(
+        let results = await RoutingService.shared.calculateRoute(
             from: origin, to: destination, mode: selectedTransportMode
         )
 
-        if let result {
+        if let firstRoute = results.first {
             withAnimation(.spring(response: 0.3)) {
-                activeRoute = result
+                alternativeRoutes = results
+                selectedRouteIndex = 0
+                activeRoute = firstRoute
                 sheetContent = .routeInfo
                 sheetDetent = .half
             }
-            zoomToRoute(result)
+            zoomToRoute(firstRoute)
 
             // Store destination for rerouting
             activeRouteDestination = destination
@@ -359,7 +374,7 @@ final class MapViewModel {
                     from: origin,
                     to: destination,
                     mode: selectedTransportMode,
-                    existingTransitSteps: result.transitSteps
+                    existingTransitSteps: firstRoute.transitSteps
                 )
                 self.navigationSteps = steps
             }
@@ -384,17 +399,19 @@ final class MapViewModel {
             return
         }
 
-        let result = await RoutingService.shared.calculateRoute(
+        let results = await RoutingService.shared.calculateRoute(
             from: origin, to: destination, mode: selectedTransportMode
         )
 
-        if let result {
+        if let firstRoute = results.first {
             withAnimation(.spring(response: 0.3)) {
-                activeRoute = result
+                alternativeRoutes = results
+                selectedRouteIndex = 0
+                activeRoute = firstRoute
                 sheetContent = .routeInfo
                 sheetDetent = .half
             }
-            zoomToRoute(result)
+            zoomToRoute(firstRoute)
 
             // Store destination for rerouting
             activeRouteDestination = destination
@@ -405,7 +422,7 @@ final class MapViewModel {
                     from: origin,
                     to: destination,
                     mode: selectedTransportMode,
-                    existingTransitSteps: result.transitSteps
+                    existingTransitSteps: firstRoute.transitSteps
                 )
                 self.navigationSteps = steps
             }
@@ -425,6 +442,8 @@ final class MapViewModel {
         }
         withAnimation(.spring(response: 0.3)) {
             activeRoute = nil
+            alternativeRoutes = []
+            selectedRouteIndex = 0
             navigationSteps = []
             activeRouteDestination = nil
             if selectedPlace != nil {
@@ -519,6 +538,8 @@ final class MapViewModel {
         currentStepIndex = 0
         distanceToNextStep = 0
         activeRouteDestination = nil
+        alternativeRoutes = []
+        selectedRouteIndex = 0
         isUrgent = false
         isOffNavCenter = false
 
@@ -554,16 +575,20 @@ final class MapViewModel {
         }
 
         // Fetch new route via RoutingService
-        let newRoute = await RoutingService.shared.calculateRoute(
+        let results = await RoutingService.shared.calculateRoute(
             from: origin,
             to: destination,
             mode: selectedTransportMode
         )
 
-        guard let newRoute else {
+        guard let newRoute = results.first else {
             navigationEngine?.cancelReroute()
             return
         }
+
+        // Clear alternatives during navigation reroute (no carousel in nav mode)
+        alternativeRoutes = []
+        selectedRouteIndex = 0
 
         // Fetch new navigation steps
         let newSteps = await RoutingService.shared.fetchNavigationSteps(
