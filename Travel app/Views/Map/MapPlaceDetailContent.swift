@@ -140,7 +140,7 @@ struct MapPlaceDetailContent: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             // Hero section: Look Around or first photo full-width
-            heroSection
+            heroSection(categoryIcon: categoryIconName)
 
             // Photo thumbnails below hero
             photoThumbnails
@@ -188,7 +188,7 @@ struct MapPlaceDetailContent: View {
     // MARK: - Hero Section
 
     @ViewBuilder
-    private var heroSection: some View {
+    private func heroSection(categoryIcon: String) -> some View {
         if let scene = vm.lookAroundScene {
             LookAroundPreview(initialScene: scene)
                 .frame(height: 200)
@@ -223,6 +223,24 @@ struct MapPlaceDetailContent: View {
                     EmptyView()
                 }
             }
+        } else {
+            // Gradient placeholder with category icon
+            LinearGradient(
+                colors: [AppTheme.sakuraPink.opacity(0.15), AppTheme.sakuraPink.opacity(0.05)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .frame(height: 160)
+            .overlay {
+                VStack(spacing: 8) {
+                    Image(systemName: categoryIcon)
+                        .font(.system(size: 36, weight: .light))
+                        .foregroundStyle(AppTheme.sakuraPink.opacity(0.4))
+                    Text("Нет фото")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.tertiary)
+                }
+            }
         }
     }
 
@@ -252,12 +270,12 @@ struct MapPlaceDetailContent: View {
                                 image
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
-                                    .frame(width: 56, height: 56)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .frame(width: 84, height: 84)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             case .failure, .empty:
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
                                     .fill(Color.primary.opacity(0.06))
-                                    .frame(width: 56, height: 56)
+                                    .frame(width: 84, height: 84)
                             @unknown default:
                                 EmptyView()
                             }
@@ -492,14 +510,24 @@ struct MapPlaceDetailContent: View {
 
     private func circularButton(icon: String, label: String, filled: Bool, color: Color = AppTheme.sakuraPink) -> some View {
         VStack(spacing: 6) {
-            Circle()
-                .fill(filled ? color : color.opacity(0.12))
-                .frame(width: 44, height: 44)
-                .overlay {
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(filled ? .white : color)
+            ZStack {
+                if filled {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 48, height: 48)
+                } else {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
+                        )
                 }
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(filled ? .white : color)
+            }
 
             Text(label)
                 .font(.system(size: 11, weight: .medium))
