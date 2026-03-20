@@ -63,9 +63,9 @@ Declared weights: `.bold` and `.medium` only (2 weights maximum).
 | Badge label | 10pt | `.bold` | 1.0 | «Быстрый» / «Короткий» pill badge |
 | Section label | 12pt | `.medium` | 1.0 | «МАРШРУТЫ» carousel header label |
 | Pill ETA | 10pt | `.medium`, `.rounded` design | 1.0 | ETA preview inside transport pills (existing, no change) |
-| Pill mode label | 11pt | `.medium` | 1.0 | Mode label in inactive transport pills (existing, no change) |
+| Pill mode label | 12pt | `.medium` | 1.0 | Mode label in inactive transport pills (aligned with section label) |
 
-Note: Existing route stats row uses 18pt bold rounded for ETA and 11pt for labels — the carousel ETA at 22pt is intentionally larger to be the hero number in each card. Section label moved from 11pt to 12pt to provide a clearer visual step above the 10pt badge label.
+Note: Existing route stats row uses 18pt bold rounded for ETA. Carousel ETA at 22pt is intentionally larger as the hero number. Type scale: 10pt (badge, pill ETA) / 12pt (section label, pill mode label) / 13pt (card secondary) / 22pt (ETA hero) — 4 distinct sizes, 2 weights.
 
 ---
 
@@ -130,7 +130,7 @@ ScrollView(.horizontal, showsIndicators: false) {
 ```
 
 Position in `MapRouteContent` VStack: after `transportModePills`, before `routeStatsRow`.
-Vertical spacing: `.padding(.top, 12)` above carousel (existing spacing token, nearest multiple-of-4 above the carousel block), `.padding(.top, 16)` before stats row (matches `md` token).
+Vertical spacing: `.padding(.top, AppTheme.spacingS)` (8pt) above carousel, `.padding(.top, AppTheme.spacingM)` (16pt) before stats row.
 
 Loading state: show 2 skeleton `RouteAlternativeCard` instances with shimmer animation while `isCalculatingRoute == true`.
 
@@ -224,11 +224,11 @@ These notes are for the executor and planner — not design tokens but implement
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS (4 sizes, 2 weights after revision)
+- [x] Dimension 5 Spacing: PASS (all values in standard set after revision)
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved (2 revision iterations)
