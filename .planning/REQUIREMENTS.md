@@ -24,8 +24,8 @@
 ### UI карты
 
 - [x] **UI-01**: NavigationHUD — floating карточка следующего манёвра с расстоянием и иконкой направления
-- [ ] **UI-02**: Навигационный detent (.small) в bottom sheet при активной навигации
-- [ ] **UI-03**: Контекст поездки в навигации — "День 2 из 7 — Токио"
+- [x] **UI-02**: Навигационный detent (.small) в bottom sheet при активной навигации
+- [x] **UI-03**: Контекст поездки в навигации — "День 2 из 7 — Токио"
 - [x] **UI-04**: Glassmorphism стиль для всех новых навигационных компонентов
 
 ### Офлайн
@@ -77,8 +77,8 @@
 | NAV-05 | Phase 1 | Complete |
 | NAV-06 | Phase 2 | Complete |
 | UI-01 | Phase 2 | Complete |
-| UI-02 | Phase 2 | Pending |
-| UI-03 | Phase 2 | Pending |
+| UI-02 | Phase 2 | Complete |
+| UI-03 | Phase 2 | Complete |
 | UI-04 | Phase 2 | Complete |
 | OFFL-01 | Phase 4 | Pending |
 | OFFL-02 | Phase 4 | Pending |

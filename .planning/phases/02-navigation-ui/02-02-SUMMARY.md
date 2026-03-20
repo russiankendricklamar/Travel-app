@@ -53,7 +53,7 @@ completed: 2026-03-20
 - **Duration:** ~5 min
 - **Started:** 2026-03-20T08:28:00Z
 - **Completed:** 2026-03-20T08:30:36Z
-- **Tasks:** 1/2 (Task 2 is human-verify checkpoint)
+- **Tasks:** 2/2
 - **Files modified:** 1
 
 ## Accomplishments
@@ -67,7 +67,9 @@ completed: 2026-03-20
 
 1. **Task 1: Wire HUD, recenter button, navigation sheet, dismiss guard, pan detection** - `7ace04d` (feat)
 
-**Plan metadata:** pending (awaiting human-verify checkpoint approval)
+2. **Task 2: Verify full navigation UI flow on device** - checkpoint approved by user (no code commit)
+
+**Plan metadata:** pending (docs commit follows state update)
 
 ## Files Created/Modified
 - `Travel app/Views/Map/TripMapView.swift` - Added HUD overlay, recenter button overlay, dismiss guard, pan detection (33 lines added)
@@ -90,8 +92,8 @@ None - no external service configuration required.
 
 ## Next Phase Readiness
 - Navigation UI fully wired: start navigation → HUD visible → camera locks → sheet shows navigation content → manual pan → recenter button → stop → return to route info
-- Awaiting human verification on device (Task 2 checkpoint)
-- After verification, Phase 02 is complete; Phase 03 (route selection) can begin
+- Human verification approved: full navigation flow confirmed working on device
+- Phase 02 complete; Phase 03 (route selection) can begin
 
 ## Self-Check: PASSED
 
