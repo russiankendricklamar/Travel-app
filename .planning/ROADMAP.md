@@ -43,7 +43,9 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details.
   3. Half mode открывается на ~40% высоты экрана с непрозрачным тёмным фоном и скруглением только сверху
   4. Full mode занимает весь экран, поиск виден сразу под status bar
   5. Все три состояния используют единую `UnevenRoundedRectangle` форму без snap при переходе
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 07-01-PLAN.md — Refactor MapBottomSheet geometry, materials, and unified shape
 
 ### Phase 8: Search Bar + Handle
 **Goal**: Drag handle и search bar имеют правильные пропорции и поведение
@@ -101,7 +103,7 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details.
 | 4. Offline Routes | v1.0 | 3/3 | Complete | 2026-03-20 |
 | 5. Offline Route Fixes | v1.0 | 1/1 | Complete | 2026-03-20 |
 | 6. Offline Cache Wiring | v1.0 | 1/1 | Complete | 2026-03-20 |
-| 7. Sheet Geometry | v1.1 | 0/? | Not started | - |
+| 7. Sheet Geometry | v1.1 | 0/1 | Planning | - |
 | 8. Search Bar + Handle | v1.1 | 0/? | Not started | - |
 | 9. Floating Controls | v1.1 | 0/? | Not started | - |
 | 10. Sheet Content | v1.1 | 0/? | Not started | - |
