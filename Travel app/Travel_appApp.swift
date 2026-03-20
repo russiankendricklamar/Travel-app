@@ -22,7 +22,7 @@ struct Travel_appApp: App {
         _ = supabase.client
 
         // Create shared model container and pass to SyncManager
-        let container = try! ModelContainer(for: Trip.self, TripPhoto.self, JournalEntry.self, BucketListItem.self, PackingItem.self, OfflineMapCache.self)
+        let container = try! ModelContainer(for: Trip.self, TripPhoto.self, JournalEntry.self, BucketListItem.self, PackingItem.self, OfflineMapCache.self, CachedRoute.self)
         self.sharedModelContainer = container
         SyncManager.shared.modelContainer = container
         // Corporate mode disabled
