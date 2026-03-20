@@ -13,9 +13,10 @@ Transform the Travel app's existing MapKit integration into a complete turn-by-t
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Navigation Engine** - Core navigation logic: step tracking, off-route detection, voice guidance, background GPS (completed 2026-03-20)
-- [ ] **Phase 2: Navigation UI** - HUD overlay, start button, map camera lock, navigation sheet detent, trip context
+- [x] **Phase 2: Navigation UI** - HUD overlay, start button, map camera lock, navigation sheet detent, trip context (completed 2026-03-20)
 - [x] **Phase 3: Route Selection** - Alternative routes picker, transport mode ETA bar, step list in bottom sheet (completed 2026-03-20)
 - [x] **Phase 4: Offline Routes** - SwiftData route cache, pre-calculation, cache-first lookup, offline degradation (completed 2026-03-20)
+- [ ] **Phase 5: Offline Route Fixes** - Gap closure: fix auto-cached navigationSteps + unreachable offlineNoCacheMessage
 
 ## Phase Details
 
@@ -82,14 +83,25 @@ Plans:
 - [ ] 04-02-PLAN.md — preCacheDay parallel fetching + OfflinePrecacheButton + TripMapView integration
 - [ ] 04-03-PLAN.md — Offline graceful degradation: carousel hide, no-cache message, reroute suppression, Settings cache clear
 
+### Phase 5: Offline Route Fixes
+**Goal**: Fix two integration bugs found during milestone audit: auto-cached routes missing navigationSteps and unreachable offline no-cache message
+**Depends on**: Phase 4
+**Requirements**: OFFL-02, OFFL-04
+**Gap Closure**: Closes gaps from v1.0-MILESTONE-AUDIT.md
+**Success Criteria** (what must be TRUE):
+  1. Auto-cached routes (stored during online browsing) include navigationSteps, enabling offline navigation startup
+  2. When offline with no cached route, user sees "Маршрут недоступен офлайн" message with pre-cache suggestion
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Navigation Engine | 3/3 | Complete   | 2026-03-20 |
-| 2. Navigation UI | 1/2 | In Progress|  |
+| 2. Navigation UI | 2/2 | Complete   | 2026-03-20 |
 | 3. Route Selection | 2/2 | Complete   | 2026-03-20 |
 | 4. Offline Routes | 3/3 | Complete   | 2026-03-20 |
+| 5. Offline Route Fixes | 0/0 | Pending   |  |
