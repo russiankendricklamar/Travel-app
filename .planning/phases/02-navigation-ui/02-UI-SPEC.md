@@ -44,12 +44,12 @@ All tokens match existing `AppTheme` constants. Use these token names in code.
 
 | Context | Value | Reason |
 |---------|-------|--------|
-| HUD card horizontal padding | 14pt | Tighter than md — preserves compact HUD width |
+| HUD card horizontal padding | 12pt | Tighter than md — preserves compact HUD width |
 | HUD card vertical padding | 12pt | Tighter than md — keeps HUD height ≤ 80pt |
 | HUD direction icon container | 52×52pt | Touch-safe icon target for urgency zone |
-| MapRecenterButton horizontal padding | 14pt | Matches HUD internal rhythm |
+| MapRecenterButton horizontal padding | 12pt | Matches HUD internal rhythm |
 | MapRecenterButton vertical padding | 8pt | Capsule pill height constraint |
-| "НАЧАТЬ НАВИГАЦИЮ" button vertical padding | 14pt | Standard tap target height |
+| "НАЧАТЬ НАВИГАЦИЮ" button vertical padding | 16pt | Standard tap target height |
 | Navigation sheet peek row horizontal padding | 16pt | Matches sheet shell |
 | Navigation sheet peek row vertical padding | 12pt | Compact strip height |
 | Safe area inset top (HUD positioning) | 8pt | Gap between Dynamic Island / notch and HUD card |
@@ -60,24 +60,24 @@ All tokens match existing `AppTheme` constants. Use these token names in code.
 
 All sizes use `.system(size:weight:)` — no custom font loading required.
 
+**Weights:** exactly 2 — regular (400) and semibold (600).
+
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | HUD instruction | 15pt | semibold (600) | 1.3 (lineLimit 2) | Primary maneuver text in HUD card |
-| HUD distance | 13pt | medium (500) | 1.0 | Distance below instruction in HUD |
+| HUD distance | 13pt | regular (400) | 1.0 | Distance below instruction in HUD |
 | Sheet peek instruction | 14pt | semibold (600) | 1.0 (lineLimit 1) | Current step in collapsed sheet |
-| Sheet peek secondary | 12pt | regular (400) | 1.0 | Trip context label + "прибытие" label |
-| Sheet peek ETA | 14pt | bold (700) | 1.0 | Arrival time in sheet peek |
+| Sheet peek secondary | 12pt | regular (400) | 1.0 | Trip context label + "прибытие" label + sheet peek ETA value |
 | Step list instruction | 14pt | regular (400) | 1.4 | Individual steps in expanded step list |
 | Step list current | 14pt | semibold (600) | 1.4 | Highlighted current step in list |
 | Step list distance | 12pt | regular (400) | 1.0 | Per-step distance in step list |
-| Start button label | 15pt | bold (700) | 1.0 | "НАЧАТЬ НАВИГАЦИЮ" button text |
-| Section label caps | 11pt | bold (700) | 1.0 | Section headers (tracking: 2) |
+| Start button label | 15pt | semibold (600) | 1.0 | "НАЧАТЬ НАВИГАЦИЮ" button text |
 
 **Tracking exceptions:**
 - "НАЧАТЬ НАВИГАЦИЮ" button text: `tracking(1)` — letter-spaced uppercase
-- Section headers: `tracking(2)` — matches `GlassSectionHeader` pattern
+- Section headers: `tracking(2)` — matches `GlassSectionHeader` pattern (use 12pt regular for any section label caps)
 
-**Design note:** Exactly 4 distinct size roles (15, 14, 13, 12pt) and exactly 3 weight roles (regular 400, medium/semibold 500/600, bold 700). Consistent with the project's existing typography approach.
+**Design note:** Exactly 4 distinct size roles (15, 14, 13, 12pt) and exactly 2 weight roles (regular 400, semibold 600). Consistent with the project's existing typography approach.
 
 ---
 
@@ -202,9 +202,9 @@ Direction icons parsed from `MKRouteStep.instructions` string. Always reference 
 | "пункт" / "прибыт" / "destination" | `mappin.circle.fill` |
 | default (no match) | `arrow.up` |
 
-Dismiss button (HUD X): `xmark.circle.fill` — `.symbolRenderingMode(.hierarchical)`, `.secondary` foreground.
-Recenter button icon: `location.fill` — 13pt bold, `.white`.
-Start button icon: `location.fill` — 14pt bold, `.white`.
+Dismiss button (HUD X): `xmark.circle.fill` — `.symbolRenderingMode(.hierarchical)`, `.secondary` foreground. Apply `.accessibilityLabel("Завершить навигацию")` — icon-only control requires explicit VoiceOver label.
+Recenter button icon: `location.fill` — 13pt semibold, `.white`.
+Start button icon: `location.fill` — 14pt semibold, `.white`.
 
 ---
 
@@ -216,7 +216,7 @@ All copy is in Russian (project UI language — source: MEMORY.md).
 |---------|------|
 | Primary CTA — start navigation | **"НАЧАТЬ НАВИГАЦИЮ"** (uppercase, tracking 1) |
 | Stop navigation — sheet button | **"Завершить навигацию"** |
-| Stop navigation — HUD X | Icon only (xmark.circle.fill), no label |
+| Stop navigation — HUD X | Icon only (`xmark.circle.fill`); `.accessibilityLabel("Завершить навигацию")` required |
 | Recenter button | **"Вернуться"** |
 | Trip context label format | **"День {N} из {M} — {Город}"** (e.g. "День 2 из 7 — Токио") |
 | Sheet peek ETA label | **"прибытие"** (lowercase, below ETA time) |
@@ -251,15 +251,16 @@ All copy is in Russian (project UI language — source: MEMORY.md).
 
 ```
 [HUD card — CardStyle]
-  HStack spacing: 14
+  HStack spacing: 12
   ├── ZStack (52×52pt)
   │   ├── RoundedRectangle(cornerRadius: 12) — urgency fill
-  │   └── Image(systemName: maneuverIcon) — 24pt bold
-  ├── VStack alignment: .leading spacing: 3 (maxWidth: .infinity)
+  │   └── Image(systemName: maneuverIcon) — 24pt semibold
+  ├── VStack alignment: .leading spacing: 4 (maxWidth: .infinity)
   │   ├── Text(instruction) — 15pt semibold, lineLimit 2
-  │   └── Text(distance) — 13pt medium rounded
+  │   └── Text(distance) — 13pt regular rounded
   └── Button (xmark.circle.fill) — 22pt hierarchical
-  padding: horizontal 14, vertical 12
+      .accessibilityLabel("Завершить навигацию")
+  padding: horizontal 12, vertical 12
 ```
 
 Position in ZStack: Between map and bottom sheet. Pinned to top via:
@@ -276,14 +277,14 @@ VStack {
 
 ```
 VStack spacing: 0
-  HStack spacing: 12
-  ├── Image(systemName: icon) — 18pt bold, sakuraPink, frame 32×32
-  ├── VStack alignment: .leading spacing: 2 (maxWidth: .infinity)
+  HStack spacing: 8
+  ├── Image(systemName: icon) — 18pt semibold, sakuraPink, frame 32×32
+  ├── VStack alignment: .leading spacing: 4 (maxWidth: .infinity)
   │   ├── Text(instruction) — 14pt semibold, lineLimit 1
   │   └── Text(tripContextLabel) — 12pt regular, .secondary
-  └── VStack alignment: .trailing spacing: 2
-      ├── Text(etaString) — 14pt bold rounded, sakuraPink
-      └── Text("прибытие") — 11pt regular, .secondary
+  └── VStack alignment: .trailing spacing: 4
+      ├── Text(etaString) — 14pt semibold rounded, sakuraPink
+      └── Text("прибытие") — 12pt regular, .secondary
   padding: horizontal 16, vertical 12
 ```
 
@@ -296,18 +297,18 @@ VStack spacing: 0
       ForEach(vm.navigationSteps)
         StepRow
           HStack spacing: 12
-          ├── [current step] AccentBar 3×32pt sakuraPink
+          ├── [current step] AccentBar 4×32pt sakuraPink
           │   OR
-          │   [other step] Spacer 3×32pt .clear
+          │   [other step] Spacer 4×32pt .clear
           ├── Image(systemName: icon) — 16pt, sakuraPink if current else .secondary
-          ├── VStack alignment: .leading spacing: 2
+          ├── VStack alignment: .leading spacing: 4
           │   ├── Text(instruction) — 14pt semibold if current else regular
           │   └── Text(distance) — 12pt regular, .secondary
           padding: horizontal 16, vertical 10
   Divider
   Button("Завершить навигацию")
     frame: maxWidth .infinity
-    padding: vertical 14, horizontal 16
+    padding: vertical 16, horizontal 16
     background: AppTheme.sakuraPink
     foreground: .white
     cornerRadius: AppTheme.radiusMedium
@@ -318,11 +319,11 @@ VStack spacing: 0
 
 ```
 Button
-  HStack spacing: 6
-  ├── Image("location.fill") — 13pt bold
+  HStack spacing: 8
+  ├── Image("location.fill") — 13pt semibold
   └── Text("Вернуться") — 13pt semibold
   foreground: .white
-  padding: horizontal 14, vertical 8
+  padding: horizontal 12, vertical 8
   background: Capsule — AppTheme.sakuraPink fill
   shadow: sakuraPink.opacity(0.4), radius 8, y 4
 ```
@@ -370,10 +371,13 @@ No third-party registries, SPM packages, or external dependencies are introduced
 | Direction SF Symbol mapping | RESEARCH.md Claude's Discretion |
 | Urgency hysteresis (50m/65m threshold) | RESEARCH.md Pitfall 4 |
 | Recenter threshold (> 50m divergence) | RESEARCH.md Pattern 4 |
-| HUD padding (14/12pt) | RESEARCH.md Claude's Discretion (tight HUD sizing) |
+| HUD padding (12/12pt) | checker revision — aligned to 4pt grid |
 | Sheet dismiss guard logic | RESEARCH.md Pitfall 3 |
 | ETA computation (route.expectedTravelTime + Date()) | RESEARCH.md Pattern 8 |
 | Trip context label format "День N из M — Город" | REQUIREMENTS.md UI-03 |
+| Typography collapsed to 2 weights (400/600) | checker revision — dimension 4 |
+| Spacing non-multiples corrected to 4pt grid | checker revision — dimension 5 |
+| xmark.circle.fill accessibilityLabel added | checker revision — dimension 1/2 |
 
 ---
 
