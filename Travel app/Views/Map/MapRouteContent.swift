@@ -15,9 +15,13 @@ struct MapRouteContent: View {
                 transportModePills(route: route)
                     .padding(.top, 12)
 
+                // Route alternatives carousel
+                routeAlternativesCarousel
+                    .padding(.top, AppTheme.spacingS)
+
                 // Route stats
                 routeStatsRow(route: route)
-                    .padding(.top, 14)
+                    .padding(.top, AppTheme.spacingM)
 
                 // Transit steps
                 if route.mode == .transit, !route.transitSteps.isEmpty {
@@ -137,6 +141,58 @@ struct MapRouteContent: View {
             }
         }
         .padding(.horizontal, 16)
+    }
+
+    // MARK: - Route Alternatives Carousel
+
+    @ViewBuilder
+    private var routeAlternativesCarousel: some View {
+        VStack(alignment: .leading, spacing: AppTheme.spacingS) {
+            // Section label
+            Text("МАРШРУТЫ")
+                .font(.system(size: 12, weight: .medium))
+                .tracking(1.5)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppTheme.spacingS) {
+                    if vm.isCalculatingRoute {
+                        ForEach(0..<2, id: \.self) { _ in
+                            RouteAlternativeCardSkeleton()
+                        }
+                    } else if !vm.alternativeRoutes.isEmpty {
+                        ForEach(Array(vm.alternativeRoutes.enumerated()), id: \.offset) { index, route in
+                            RouteAlternativeCard(
+                                route: route,
+                                isSelected: index == vm.selectedRouteIndex,
+                                badge: badgeFor(index: index),
+                                onTap: {
+                                    withAnimation(.easeInOut(duration: 0.35)) {
+                                        vm.selectedRouteIndex = index
+                                        vm.activeRoute = route
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    private func badgeFor(index: Int) -> RouteBadge? {
+        let routes = vm.alternativeRoutes
+        guard routes.count > 1 else { return nil }
+
+        let fastestIdx = routes.indices.min(by: { routes[$0].expectedTravelTime < routes[$1].expectedTravelTime })
+        let shortestIdx = routes.indices.min(by: { routes[$0].distance < routes[$1].distance })
+
+        // If same route wins both metrics, show "Быстрый" only (per UI-SPEC)
+        if index == fastestIdx { return .fastest }
+        if index == shortestIdx { return .shortest }
+        return nil
     }
 
     // MARK: - Route Stats
