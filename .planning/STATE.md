@@ -38,9 +38,10 @@ None
 | 260321-4ke | Smooth and aesthetic route polylines on map | 2026-03-20 | 949d105 | Verified | [260321-4ke-smooth-and-aesthetic-route-polylines-on-](./quick/260321-4ke-smooth-and-aesthetic-route-polylines-on-/) |
 | 260321-4u8 | Map search pill refactor (pill field, dark chips, no offline button, no black bar) | 2026-03-21 | ff5f740 | Complete | [260321-4u8-map-search-pill-refactor](./quick/260321-4u8-map-search-pill-refactor/) |
 | 260321-4vl | Rich place detail card: glass buttons, 84pt thumbnails, gradient hero, lazy AI description | 2026-03-21 | 9a70e97 | Complete | [260321-4vl-rich-place-detail-card-on-map-with-photo](./quick/260321-4vl-rich-place-detail-card-on-map-with-photo/) |
+| 260321-50a | Move toolbar to sheet, add today's places, seamless map | 2026-03-21 | f50f6cf | Complete | [260321-50a-toolbar-sheet-toolbar](./quick/260321-50a-toolbar-sheet-toolbar/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-21 - Completed quick task 260321-4vl: Rich place detail card on map with photo
-Stopped at: Quick task 260321-4vl completed
+Last activity: 2026-03-21 - Completed quick task 260321-50a: Move toolbar to sheet, seamless map
+Stopped at: Quick task 260321-50a completed
 Resume file: None
