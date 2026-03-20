@@ -63,6 +63,7 @@ struct SettingsView: View {
     @State private var showResetConfirmation = false
     @State private var showSignOutConfirmation = false
     @State private var showAuthSheet = false
+    @State private var showClearCacheConfirmation = false
 
     private let authManager = AuthManager.shared
     private let syncManager = SyncManager.shared
@@ -116,6 +117,16 @@ struct SettingsView: View {
             ) {
                 Button("Выйти", role: .destructive) {
                     Task { await authManager.signOut() }
+                }
+                Button("Отмена", role: .cancel) {}
+            }
+            .confirmationDialog(
+                "Удалить кэш маршрутов?",
+                isPresented: $showClearCacheConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Удалить", role: .destructive) {
+                    RoutingCacheService.shared.clearAll(context: modelContext)
                 }
                 Button("Отмена", role: .cancel) {}
             }
@@ -987,6 +998,40 @@ struct SettingsView: View {
     private var dataSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("ДАННЫЕ", icon: "externaldrive.fill")
+
+            Button(role: .destructive) {
+                showClearCacheConfirmation = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            LinearGradient(
+                                colors: [AppTheme.toriiRed.opacity(0.7), AppTheme.toriiRed.opacity(0.5)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusSmall))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Очистить кэш маршрутов")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(AppTheme.toriiRed)
+                        Text("Удалить сохранённые офлайн-маршруты")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+                }
+                .padding(10)
+                .background(.thinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.radiusMedium))
+            }
+            .buttonStyle(.plain)
 
             Button {
                 showResetConfirmation = true

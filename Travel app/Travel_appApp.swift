@@ -77,6 +77,7 @@ struct Travel_appApp: App {
                 authManager.lockIfNeeded()
             }
             if newPhase == .active {
+                RoutingCacheService.shared.clearL1()
                 Task {
                     await SyncManager.shared.syncIfNeeded()
                 }
