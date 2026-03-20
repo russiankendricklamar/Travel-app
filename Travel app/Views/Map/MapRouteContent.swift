@@ -15,12 +15,6 @@ struct MapRouteContent: View {
                 transportModePills(route: route)
                     .padding(.top, 12)
 
-                // Offline no-cache message
-                if !OfflineCacheManager.shared.isOnline && vm.activeRoute == nil {
-                    offlineNoCacheMessage
-                        .padding(.top, AppTheme.spacingS)
-                }
-
                 // Route alternatives carousel (hidden offline — only one cached route per mode)
                 if OfflineCacheManager.shared.isOnline {
                     routeAlternativesCarousel
@@ -81,6 +75,9 @@ struct MapRouteContent: View {
                 .disabled(vm.navigationSteps.isEmpty && vm.isCalculatingRoute)
             }
             .padding(.bottom, 20)
+        } else if !OfflineCacheManager.shared.isOnline {
+            offlineNoCacheMessage
+                .padding(.top, AppTheme.spacingS)
         }
     }
 
