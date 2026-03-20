@@ -44,8 +44,8 @@ Exceptions:
 - Carousel horizontal padding: 16pt left/right (matches existing `transportModePills` padding)
 - Route card width: 140pt fixed (scrollable, cards must be narrow enough to hint at overflow)
 - Route card height: 88pt fixed (ETA + distance/transfers + label badge, compact)
-- Card gap in carousel: 10pt (between cards)
-- Transport pill vertical padding: 10pt (matches existing pills, no change)
+- Card gap in carousel: 12pt (between cards)
+- Transport pill vertical padding: 8pt (matches existing pill minimum touch comfort)
 - Touch targets: minimum 44×44pt for all interactive elements (transport pills, route cards, close button)
 
 ---
@@ -54,13 +54,15 @@ Exceptions:
 
 All sizes use `.system(size:weight:)` — SF Pro, no custom font.
 
+Declared weights: `.bold` and `.medium` only (2 weights maximum).
+
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | ETA value | 22pt | `.bold`, `.rounded` design | 1.1 | Primary ETA number inside route card |
 | Card secondary | 13pt | `.medium` | 1.3 | Distance / transfer count label in card |
 | Badge label | 10pt | `.bold` | 1.0 | «Быстрый» / «Короткий» pill badge |
-| Section label | 11pt | `.semibold` | 1.0 | «МАРШРУТЫ» carousel header label |
-| Pill ETA | 10pt | `.semibold`, `.rounded` design | 1.0 | ETA preview inside transport pills (existing, no change) |
+| Section label | 11pt | `.medium` | 1.0 | «МАРШРУТЫ» carousel header label |
+| Pill ETA | 10pt | `.medium`, `.rounded` design | 1.0 | ETA preview inside transport pills (existing, no change) |
 | Pill mode label | 11pt | `.medium` | 1.0 | Mode label in inactive transport pills (existing, no change) |
 
 Note: Existing route stats row uses 18pt bold rounded for ETA and 11pt for labels — the carousel ETA at 22pt is intentionally larger to be the hero number in each card.
@@ -120,7 +122,7 @@ Location: inline in `MapRouteContent.swift` (not a standalone file — inserted 
 
 ```
 ScrollView(.horizontal, showsIndicators: false) {
-    HStack(spacing: 10) {
+    HStack(spacing: 12) {
         ForEach(alternatives) { RouteAlternativeCard }
     }
     .padding(.horizontal, 16)
@@ -179,7 +181,7 @@ Polyline rendering: `TripMapView` reads `activeRoute` for polyline source — no
 | Element | Copy |
 |---------|------|
 | Primary CTA | «НАЧАТЬ НАВИГАЦИЮ» (existing, no change — `location.fill` icon + tracking 1) |
-| Carousel section label | «МАРШРУТЫ» (11pt, semibold, tracking 1.5, secondary color — matches GlassSectionHeader pattern) |
+| Carousel section label | «МАРШРУТЫ» (11pt, medium, tracking 1.5, secondary color — matches GlassSectionHeader pattern) |
 | Badge: fastest route | «Быстрый» |
 | Badge: shortest route | «Короткий» |
 | Transfer count: 1 | «1 пересадка» |
