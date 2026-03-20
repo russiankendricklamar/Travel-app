@@ -70,8 +70,8 @@ struct MapBottomSheet<Content: View>: View {
                     Group {
                         if isPeek {
                             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .fill(Color(.secondarySystemGroupedBackground).opacity(0.97))
-                                .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
+                                .fill(Color.black.opacity(0.75))
+                                .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
                                 .padding(.horizontal, 16)
                                 .padding(.bottom, 4)
                         } else {
