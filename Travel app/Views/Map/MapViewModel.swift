@@ -68,6 +68,23 @@ final class MapViewModel {
     var selectedAIResult: PlaceRecommendation?
     var showDayPickerForAI: PlaceRecommendation?
 
+    // Category quick search
+    var selectedCategory: String?
+    var isLoadingCategory = false
+
+    static let quickCategories: [(name: String, icon: String, query: String)] = [
+        ("Рестораны", "fork.knife", "restaurant"),
+        ("Кафе", "cup.and.saucer.fill", "cafe"),
+        ("Музеи", "building.columns.fill", "museum"),
+        ("Парки", "leaf.fill", "park"),
+        ("Магазины", "bag.fill", "shop"),
+        ("Отели", "bed.double.fill", "hotel"),
+    ]
+
+    // Look Around
+    var lookAroundScene: MKLookAroundScene?
+    var isLoadingLookAround = false
+
     // Routing
     var activeRoute: RouteResult?
     var selectedTransportMode: TransportMode = .walking
@@ -181,6 +198,7 @@ final class MapViewModel {
         selectedRouteIndex = 0
         showAllHours = false
         showAllReviews = false
+        lookAroundScene = nil
 
         guard selectedPlace != nil else {
             if sheetContent == .placeDetail {
@@ -248,6 +266,8 @@ final class MapViewModel {
         selectedRouteIndex = 0
         searchQuery = ""
         searchResults = []
+        lookAroundScene = nil
+        selectedCategory = nil
         AIMapSearchService.shared.clear()
         isAISearchMode = false
         sheetContent = .idle
@@ -306,6 +326,43 @@ final class MapViewModel {
             searchResults = []
         }
         isSearching = false
+    }
+
+    func performCategorySearch(query: String, category: String) async {
+        isLoadingCategory = true
+        selectedCategory = category
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        request.resultTypes = [.pointOfInterest]
+
+        if let region = visibleRegion {
+            request.region = region
+        } else if let first = allPlaces.first {
+            request.region = MKCoordinateRegion(
+                center: first.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
+            )
+        }
+
+        do {
+            let search = MKLocalSearch(request: request)
+            let response = try await search.start()
+            searchResults = response.mapItems
+            sheetContent = .searchResults
+            withAnimation(.spring(response: 0.3)) { sheetDetent = .half }
+            zoomToSearchResults()
+        } catch {
+            searchResults = []
+        }
+        isLoadingCategory = false
+    }
+
+    func fetchLookAround(coordinate: CLLocationCoordinate2D) async {
+        isLoadingLookAround = true
+        lookAroundScene = nil
+        let request = MKLookAroundSceneRequest(coordinate: coordinate)
+        lookAroundScene = try? await request.scene
+        isLoadingLookAround = false
     }
 
     func dismissSearch() {

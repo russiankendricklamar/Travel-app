@@ -165,6 +165,14 @@ struct TripMapView: View {
                 vm.isLoadingInfo = false
                 vm.googleDetail = await googleInfo
                 vm.isLoadingGoogleDetail = false
+                await vm.fetchLookAround(coordinate: place.coordinate)
+            }
+            .onChange(of: vm.searchedItem) { _, newItem in
+                guard let coord = newItem?.placemark.location?.coordinate else {
+                    vm.lookAroundScene = nil
+                    return
+                }
+                Task { await vm.fetchLookAround(coordinate: coord) }
             }
             .onChange(of: vm.sheetDetent) { oldDetent, newDetent in
                 // Swipe down to peek → full reset (clear pins, search, selections)

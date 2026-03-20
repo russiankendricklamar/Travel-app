@@ -13,6 +13,12 @@ struct MapSearchContent: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 10)
 
+            // Category chips — shown in idle and search results states
+            if vm.sheetContent == .idle || vm.sheetContent == .searchResults {
+                categoryChips
+                    .padding(.bottom, 8)
+            }
+
             if vm.sheetContent == .searchResults, !vm.searchResults.isEmpty {
                 Divider().padding(.horizontal, 14)
                 searchResultsList
@@ -26,6 +32,44 @@ struct MapSearchContent: View {
             if vm.isAISearchMode {
                 aiMessages
             }
+        }
+    }
+
+    // MARK: - Category Chips
+
+    private var categoryChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(MapViewModel.quickCategories, id: \.name) { cat in
+                    Button {
+                        Task { await vm.performCategorySearch(query: cat.query, category: cat.name) }
+                    } label: {
+                        HStack(spacing: 5) {
+                            if vm.isLoadingCategory && vm.selectedCategory == cat.name {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                    .frame(width: 14, height: 14)
+                            } else {
+                                Image(systemName: cat.icon)
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            Text(cat.name)
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(vm.selectedCategory == cat.name
+                                      ? AppTheme.sakuraPink
+                                      : Color.primary.opacity(0.08))
+                        )
+                        .foregroundStyle(vm.selectedCategory == cat.name ? .white : .primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
         }
     }
 

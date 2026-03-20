@@ -38,6 +38,9 @@ struct MapPlaceDetailContent: View {
                 photoCarousel(photos)
             }
 
+            // Look Around preview
+            lookAroundSection
+
             // Header (centered like Apple Maps)
             placeHeader(
                 name: place.name,
@@ -88,6 +91,9 @@ struct MapPlaceDetailContent: View {
             if let photos = vm.googleDetail?.photoURLs, !photos.isEmpty {
                 photoCarousel(photos)
             }
+
+            // Look Around preview
+            lookAroundSection
 
             placeHeader(
                 name: item.name ?? "",
@@ -541,6 +547,26 @@ struct MapPlaceDetailContent: View {
                 }
             }
             .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Look Around
+
+    @ViewBuilder
+    private var lookAroundSection: some View {
+        if let scene = vm.lookAroundScene {
+            LookAroundPreview(initialScene: scene)
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+        } else if vm.isLoadingLookAround {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+                .frame(height: 180)
+                .overlay { ProgressView() }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
         }
     }
 
