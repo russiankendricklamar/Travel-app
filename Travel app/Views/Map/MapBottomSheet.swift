@@ -8,7 +8,7 @@ enum SheetDetent: Equatable {
 
     func height(in screenHeight: CGFloat) -> CGFloat {
         switch self {
-        case .peek: return 120
+        case .peek: return 74
         case .half: return screenHeight * 0.47
         case .full: return screenHeight
         }
@@ -39,38 +39,53 @@ struct MapBottomSheet<Content: View>: View {
             let availableHeight = geo.size.height
             let sheetHeight = detent.height(in: availableHeight) + dragOffset
             let safeAreaTop = geo.safeAreaInsets.top
+            let isPeek = detent == .peek
 
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
 
                 VStack(spacing: 0) {
-                    // Drag handle — always captures drag, above scroll
-                    Capsule()
-                        .fill(Color.secondary.opacity(0.5))
-                        .frame(width: 60, height: 5)
-                        .padding(.top, 10)
-                        .padding(.bottom, 8)
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                        .gesture(dragGesture(totalHeight: availableHeight))
+                    // Drag handle — only visible in half/full mode
+                    if !isPeek {
+                        Capsule()
+                            .fill(Color.secondary.opacity(0.5))
+                            .frame(width: 60, height: 5)
+                            .padding(.top, 10)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                            .gesture(dragGesture(totalHeight: availableHeight))
+                    }
 
                     content()
                         .frame(maxWidth: .infinity, alignment: .top)
+                        // In peek mode, attach drag gesture to content area (handle is hidden)
+                        .gesture(isPeek ? dragGesture(totalHeight: availableHeight) : nil)
                     Spacer(minLength: 0)
                 }
                 .frame(height: max(sheetHeight, 60), alignment: .top)
-                .frame(maxWidth: .infinity)
-                .padding(.top, detent == .full ? safeAreaTop : 0)
+                .frame(maxWidth: isPeek ? nil : .infinity)
+                .padding(.horizontal, isPeek ? 16 : 0)
+                .padding(.bottom, isPeek ? 4 : 0)
+                .padding(.top, isPeek ? 0 : (detent == .full ? safeAreaTop : 0))
                 .background(
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: 30,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: 0,
-                        topTrailingRadius: 30
-                    )
-                    .fill(.ultraThinMaterial)
-                    .shadow(color: .black.opacity(0.15), radius: 10, y: -5)
-                    .ignoresSafeArea(edges: .bottom)
+                    Group {
+                        if isPeek {
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .fill(Color(.secondarySystemGroupedBackground).opacity(0.97))
+                                .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
+                        } else {
+                            UnevenRoundedRectangle(
+                                topLeadingRadius: 30,
+                                bottomLeadingRadius: 0,
+                                bottomTrailingRadius: 0,
+                                topTrailingRadius: 30
+                            )
+                            .fill(.ultraThinMaterial)
+                            .shadow(color: .black.opacity(0.15), radius: 10, y: -5)
+                            .ignoresSafeArea(edges: .bottom)
+                        }
+                    }
                 )
             }
             .onAppear { screenHeight = availableHeight }

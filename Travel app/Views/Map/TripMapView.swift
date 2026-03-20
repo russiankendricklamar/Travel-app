@@ -385,7 +385,7 @@ struct TripMapView: View {
             MapUserLocationButton()
             MapPitchToggle()
         }
-        .safeAreaPadding(.bottom, isIdleMode ? 120 : 0)
+        .safeAreaPadding(.bottom, isIdleMode ? 74 : 0)
         .onMapCameraChange { context in
             vm.visibleRegion = context.region
             // Detect manual pan during navigation — show recenter button if > 50m from user location

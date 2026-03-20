@@ -198,34 +198,39 @@ struct MapSearchContent: View {
                 ProgressView().scaleEffect(0.65)
             }
 
-            // AI toggle — hide in peek to save space
-            if vm.sheetDetent != .peek {
-                Button {
-                    withAnimation(.spring(response: 0.3)) {
-                        vm.isAISearchMode.toggle()
-                        vm.searchResults = []
-                        vm.searchedItem = nil
-                        vm.completerResults = []
-                        if !vm.isAISearchMode {
-                            AIMapSearchService.shared.clear()
-                            vm.selectedAIResult = nil
-                        }
+            // AI toggle — visible in all detent states
+            Button {
+                withAnimation(.spring(response: 0.3)) {
+                    vm.isAISearchMode.toggle()
+                    vm.searchResults = []
+                    vm.searchedItem = nil
+                    vm.completerResults = []
+                    if !vm.isAISearchMode {
+                        AIMapSearchService.shared.clear()
+                        vm.selectedAIResult = nil
                     }
-                } label: {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(vm.isAISearchMode ? .white : AppTheme.sakuraPink)
-                        .frame(width: 30, height: 30)
-                        .background(vm.isAISearchMode ? AppTheme.sakuraPink : .clear)
-                        .clipShape(Circle())
                 }
+            } label: {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(vm.isAISearchMode ? .white : AppTheme.sakuraPink)
+                    .frame(width: 30, height: 30)
+                    .background(vm.isAISearchMode ? AppTheme.sakuraPink : .clear)
+                    .clipShape(Circle())
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        // In peek mode the sheet itself IS the dark bar — no inner capsule background needed
         .background(
-            Capsule()
-                .fill(.quaternary.opacity(0.5))
+            Group {
+                if vm.sheetDetent != .peek {
+                    Capsule()
+                        .fill(.quaternary.opacity(0.5))
+                } else {
+                    Color.clear
+                }
+            }
         )
     }
 
