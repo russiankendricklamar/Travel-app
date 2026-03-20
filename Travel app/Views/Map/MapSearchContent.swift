@@ -158,44 +158,65 @@ struct MapSearchContent: View {
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(vm.isAISearchMode ? AppTheme.sakuraPink : .secondary)
 
-            TextField(
-                vm.isAISearchMode ? "Спросите ИИ..." : "Поиск на карте",
-                text: $vm.searchQuery
-            )
-            .font(.system(size: 16))
-            .autocorrectionDisabled()
-            .focused($isSearchFocused)
-            .onSubmit { vm.submitSearch() }
+            // In peek: show tappable placeholder that expands sheet
+            // In half/full: show real TextField
+            if vm.sheetDetent == .peek && !isSearchFocused {
+                Text(vm.searchQuery.isEmpty ? "Поиск на карте" : vm.searchQuery)
+                    .font(.system(size: 16))
+                    .foregroundStyle(vm.searchQuery.isEmpty ? .secondary : .primary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            vm.sheetDetent = .full
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            isSearchFocused = true
+                        }
+                    }
+            } else {
+                TextField(
+                    vm.isAISearchMode ? "Спросите ИИ..." : "Поиск на карте",
+                    text: $vm.searchQuery
+                )
+                .font(.system(size: 16))
+                .autocorrectionDisabled()
+                .focused($isSearchFocused)
+                .onSubmit { vm.submitSearch() }
+            }
 
             if vm.isSearching || AIMapSearchService.shared.isLoading {
                 ProgressView().scaleEffect(0.65)
             }
 
-            // AI toggle
-            Button {
-                withAnimation(.spring(response: 0.3)) {
-                    vm.isAISearchMode.toggle()
-                    vm.searchResults = []
-                    vm.searchedItem = nil
-                    vm.completerResults = []
-                    if !vm.isAISearchMode {
-                        AIMapSearchService.shared.clear()
-                        vm.selectedAIResult = nil
+            // AI toggle — hide in peek to save space
+            if vm.sheetDetent != .peek {
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
+                        vm.isAISearchMode.toggle()
+                        vm.searchResults = []
+                        vm.searchedItem = nil
+                        vm.completerResults = []
+                        if !vm.isAISearchMode {
+                            AIMapSearchService.shared.clear()
+                            vm.selectedAIResult = nil
+                        }
                     }
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(vm.isAISearchMode ? .white : AppTheme.sakuraPink)
+                        .frame(width: 30, height: 30)
+                        .background(vm.isAISearchMode ? AppTheme.sakuraPink : .clear)
+                        .clipShape(Circle())
                 }
-            } label: {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(vm.isAISearchMode ? .white : AppTheme.sakuraPink)
-                    .frame(width: 30, height: 30)
-                    .background(vm.isAISearchMode ? AppTheme.sakuraPink : .clear)
-                    .clipShape(Circle())
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(.quaternary.opacity(0.5))
         )
     }

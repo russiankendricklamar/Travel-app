@@ -30,7 +30,7 @@ struct TripMapView: View {
         !OfflineCacheManager.shared.isOnline && !cachedSnapshotsForTrip.isEmpty
     }
 
-    /// Idle mode: поисковая таблетка над tab bar, sheet скрыт
+    /// Idle mode: sheet at peek with no active content — tab bar visible
     private var isIdleMode: Bool {
         vm.sheetDetent == .peek && vm.sheetContent == .idle
     }
@@ -61,40 +61,24 @@ struct TripMapView: View {
                     mapContent
                 }
 
-                // MARK: - Search Pill (idle, above tab bar)
-                if !isOfflineWithCache && isIdleMode {
-                    VStack(spacing: 0) {
+                // MARK: - Pre-cache button (floating, above sheet)
+                if !isOfflineWithCache && isIdleMode, let day = currentDayForPrecache {
+                    VStack {
                         Spacer()
-
-                        // Pre-cache button row (trailing-aligned, above search pill)
-                        if let day = currentDayForPrecache {
-                            HStack {
-                                Spacer()
-                                if RoutingCacheService.shared.isDayCached(day, tripID: trip.id, context: modelContext) {
-                                    Image(systemName: "checkmark.icloud.fill")
-                                        .font(.system(size: 16))
-                                        .foregroundStyle(AppTheme.bambooGreen)
-                                        .accessibilityLabel("День подготовлен офлайн")
-                                } else {
-                                    OfflinePrecacheButton(day: day, tripID: trip.id)
-                                }
-                            }
-                            .padding(.horizontal, AppTheme.spacingM)
-                            .padding(.bottom, AppTheme.spacingS)
-                        }
-
-                        MapFloatingSearchPill(vm: vm) {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                vm.sheetDetent = .full
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                isSearchFocused = true
+                        HStack {
+                            Spacer()
+                            if RoutingCacheService.shared.isDayCached(day, tripID: trip.id, context: modelContext) {
+                                Image(systemName: "checkmark.icloud.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(AppTheme.bambooGreen)
+                                    .accessibilityLabel("День подготовлен офлайн")
+                            } else {
+                                OfflinePrecacheButton(day: day, tripID: trip.id)
                             }
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 6)
+                        .padding(.horizontal, AppTheme.spacingM)
+                        .padding(.bottom, 128) // Above sheet peek
                     }
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
 
                 // MARK: - Navigation HUD (floating top card)
@@ -141,12 +125,11 @@ struct TripMapView: View {
                     .animation(.spring(response: 0.3), value: vm.isOffNavCenter)
                 }
 
-                // MARK: - Bottom Sheet (active content: search, detail, route)
-                if !isOfflineWithCache && !isIdleMode {
+                // MARK: - Bottom Sheet (always visible — Apple Maps style)
+                if !isOfflineWithCache {
                     MapBottomSheet(detent: $vm.sheetDetent) {
                         sheetBody
                     }
-                    .transition(.move(edge: .bottom))
                 }
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isIdleMode)
@@ -375,7 +358,7 @@ struct TripMapView: View {
             MapUserLocationButton()
             MapPitchToggle()
         }
-        .safeAreaPadding(.bottom, isIdleMode ? 48 : 0)
+        .safeAreaPadding(.bottom, isIdleMode ? 120 : 0)
         .onMapCameraChange { context in
             vm.visibleRegion = context.region
             // Detect manual pan during navigation — show recenter button if > 50m from user location

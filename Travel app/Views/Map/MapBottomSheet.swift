@@ -2,13 +2,13 @@ import SwiftUI
 
 /// Позиции bottom sheet (как в Apple Maps)
 enum SheetDetent: Equatable {
-    case peek       // ~74pt — только поисковая таблетка
+    case peek       // ~120pt — search bar + category chips visible (Apple Maps style)
     case half       // 47% экрана — результаты поиска / краткая инфо
     case full       // весь экран — полная детализация
 
     func height(in screenHeight: CGFloat) -> CGFloat {
         switch self {
-        case .peek: return 74
+        case .peek: return 120
         case .half: return screenHeight * 0.47
         case .full: return screenHeight
         }
