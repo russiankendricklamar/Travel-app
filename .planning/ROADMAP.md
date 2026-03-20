@@ -75,10 +75,12 @@ Plans:
   2. When offline, RoutingService returns cached routes transparently (user sees no difference in route display)
   3. When offline with no cached route available, user sees a clear message explaining that routes are unavailable offline and suggesting to pre-cache while connected
   4. Cached routes persist across app restarts via SwiftData
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: TBD
+- [ ] 04-01-PLAN.md — CachedRoute @Model + RoutingCacheService L1/L2 cache + RoutingService offline overload
+- [ ] 04-02-PLAN.md — preCacheDay parallel fetching + OfflinePrecacheButton + TripMapView integration
+- [ ] 04-03-PLAN.md — Offline graceful degradation: carousel hide, no-cache message, reroute suppression, Settings cache clear
 
 ## Progress
 
@@ -90,4 +92,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Navigation Engine | 3/3 | Complete   | 2026-03-20 |
 | 2. Navigation UI | 1/2 | In Progress|  |
 | 3. Route Selection | 2/2 | Complete   | 2026-03-20 |
-| 4. Offline Routes | 0/? | Not started | - |
+| 4. Offline Routes | 0/3 | Not started | - |
