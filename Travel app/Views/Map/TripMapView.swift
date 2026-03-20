@@ -300,6 +300,8 @@ struct TripMapView: View {
             MapPlaceDetailContent(vm: vm)
         case .routeInfo:
             MapRouteContent(vm: vm)
+        case .navigation:
+            MapRouteContent(vm: vm)
         }
     }
 

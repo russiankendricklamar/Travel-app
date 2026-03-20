@@ -10,13 +10,14 @@ enum MapSheetContent: Equatable {
     case searchItemDetail
     case aiResultDetail
     case routeInfo
+    case navigation
 
     static func == (lhs: MapSheetContent, rhs: MapSheetContent) -> Bool {
         switch (lhs, rhs) {
         case (.idle, .idle), (.searchResults, .searchResults),
              (.aiSearchResults, .aiSearchResults), (.placeDetail, .placeDetail),
              (.searchItemDetail, .searchItemDetail), (.aiResultDetail, .aiResultDetail),
-             (.routeInfo, .routeInfo):
+             (.routeInfo, .routeInfo), (.navigation, .navigation):
             return true
         default:
             return false
@@ -84,6 +85,10 @@ final class MapViewModel {
     private var voiceService: NavigationVoiceService?
     /// Destination coordinate of the active navigation route
     var activeRouteDestination: CLLocationCoordinate2D?
+    /// HUD urgency state — hysteresis: activates < 50m, deactivates > 65m
+    var isUrgent: Bool = false
+    /// True when user manually panned away from their location during navigation
+    var isOffNavCenter: Bool = false
 
     // Transport overlays
     var flightArcs: [FlightArc] = []
@@ -136,6 +141,27 @@ final class MapViewModel {
 
     var flightAirportAnnotations: [FlightAirportPin] {
         TransportOverlayLoader.flightAirportAnnotations(from: flightArcs)
+    }
+
+    /// "День N из M — Город" label for navigation context
+    var tripContextLabel: String {
+        let days = trip.sortedDays
+        guard !days.isEmpty else { return "" }
+        let todayIndex = days.firstIndex(where: { Calendar.current.isDateInToday($0.date) })
+        let idx = (todayIndex ?? 0) + 1
+        let city = days.first(where: { Calendar.current.isDateInToday($0.date) })?.cityName
+                   ?? days.first?.cityName ?? trip.country
+        return "День \(idx) из \(days.count) — \(city)"
+    }
+
+    /// ETA as time-of-arrival string (e.g. "14:32")
+    var etaString: String {
+        guard let route = activeRoute else { return "" }
+        let arrival = Date().addingTimeInterval(route.expectedTravelTime)
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.locale = Locale(identifier: "ru_RU")
+        return formatter.string(from: arrival)
     }
 
     // MARK: - Sheet State Machine
@@ -442,6 +468,9 @@ final class MapViewModel {
         engine.onStepAdvanced = { [weak self] index, distance in
             self?.currentStepIndex = index
             self?.distanceToNextStep = distance
+            // Urgency hysteresis: activate < 50m, deactivate > 65m
+            if distance < 50 { self?.isUrgent = true }
+            else if distance > 65 { self?.isUrgent = false }
         }
         engine.onRerouteNeeded = { [weak self] from in
             Task { @MainActor in
@@ -454,6 +483,17 @@ final class MapViewModel {
 
         navigationEngine = engine
         isNavigating = true
+
+        // Camera heading lock
+        withAnimation(.easeInOut(duration: 0.8)) {
+            cameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
+        }
+
+        // Switch sheet to navigation mode
+        withAnimation(.spring(response: 0.3)) {
+            sheetContent = .navigation
+            sheetDetent = .peek
+        }
 
         // Switch LocationManager to navigation mode and wire GPS callback.
         // CRITICAL: capture [weak self] and use self?.navigationEngine to avoid
@@ -479,10 +519,31 @@ final class MapViewModel {
         currentStepIndex = 0
         distanceToNextStep = 0
         activeRouteDestination = nil
+        isUrgent = false
+        isOffNavCenter = false
+
+        // Restore camera to automatic
+        withAnimation(.easeInOut(duration: 0.5)) {
+            cameraPosition = .automatic
+        }
+
+        // Return to route info sheet
+        withAnimation(.spring(response: 0.3)) {
+            sheetContent = .routeInfo
+            sheetDetent = .half
+        }
 
         // Revert LocationManager to standard mode and clear callback
         LocationManager.shared.onLocationUpdate = nil
         LocationManager.shared.stopNavigationMode()
+    }
+
+    /// Re-center map on user location with heading lock after manual pan
+    func recenterNavigation() {
+        withAnimation(.easeInOut(duration: 0.5)) {
+            cameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
+            isOffNavCenter = false
+        }
     }
 
     /// Reroute after off-route detection
