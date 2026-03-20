@@ -40,6 +40,12 @@ struct MapSearchContent: View {
                 categoryChips
                     .padding(.bottom, 8)
                     .transition(.opacity)
+
+                todayPlacesSection
+                    .transition(.opacity)
+
+                mapControlsSection
+                    .transition(.opacity)
             }
 
             if vm.sheetContent == .searchResults, !vm.searchResults.isEmpty {
@@ -332,6 +338,186 @@ struct MapSearchContent: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    // MARK: - Today's Places Section
+
+    @ViewBuilder
+    private var todayPlacesSection: some View {
+        if let today = vm.trip.todayDay, !today.sortedPlaces.isEmpty {
+            VStack(spacing: 0) {
+                // Section header
+                HStack(spacing: 6) {
+                    Text("Сегодня")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text("·")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                    Text(today.cityName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(today.visitedCount)/\(today.sortedPlaces.count)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+
+                Divider().padding(.horizontal, 14)
+
+                ForEach(Array(today.sortedPlaces.enumerated()), id: \.element.id) { index, place in
+                    Button {
+                        vm.selectedPlaceID = place.id
+                        isSearchFocused = false
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            vm.sheetDetent = .peek
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            // Category icon in circle
+                            Image(systemName: place.category.systemImage)
+                                .font(.system(size: 14))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28, height: 28)
+                                .background(.quaternary)
+                                .clipShape(Circle())
+
+                            Text(place.name)
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+
+                            Spacer()
+
+                            // Visited indicator
+                            Image(systemName: place.isVisited ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 18))
+                                .foregroundStyle(place.isVisited ? AnyShapeStyle(AppTheme.bambooGreen) : AnyShapeStyle(.tertiary))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.plain)
+
+                    if index < today.sortedPlaces.count - 1 {
+                        Divider().padding(.leading, 52)
+                    }
+                }
+            }
+            .padding(.bottom, 4)
+        }
+    }
+
+    // MARK: - Map Controls Section
+
+    private var mapControlsSection: some View {
+        VStack(spacing: 0) {
+            // Section header
+            HStack {
+                Text("Карта")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    // Layers menu button
+                    Menu {
+                        Section("Слои") {
+                            Toggle(isOn: $vm.showPlaces) {
+                                Label("Места", systemImage: "mappin.and.ellipse")
+                            }
+                            if vm.trip.isActive {
+                                Toggle(isOn: $vm.showAllCities) {
+                                    Label("Все города", systemImage: "globe")
+                                }
+                            }
+                            Toggle(isOn: $vm.showRoutes) {
+                                Label("GPS-треки", systemImage: "figure.walk")
+                            }
+                            if !vm.trainRoutes.isEmpty {
+                                Toggle(isOn: $vm.showTrainRoutes) {
+                                    Label("Поезда", systemImage: "tram.fill")
+                                }
+                            }
+                            if !vm.flightArcs.isEmpty {
+                                Toggle(isOn: $vm.showFlightArcs) {
+                                    Label("Перелёты", systemImage: "airplane")
+                                }
+                            }
+                        }
+                        Section("Навигация") {
+                            Button {
+                                vm.zoomToAll()
+                            } label: {
+                                Label("Показать все", systemImage: "map")
+                            }
+                            ForEach(vm.uniqueCities, id: \.self) { city in
+                                Button {
+                                    vm.zoomToCity(city)
+                                } label: {
+                                    Label(city, systemImage: "building.2")
+                                }
+                            }
+                        }
+                    } label: {
+                        mapControlButton(icon: "line.3.horizontal.decrease.circle", label: "Слои", tint: nil)
+                    }
+
+                    // Precipitation toggle
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            vm.showPrecipitation.toggle()
+                        }
+                    } label: {
+                        mapControlButton(
+                            icon: "cloud.rain",
+                            label: "Осадки",
+                            tint: vm.showPrecipitation ? AppTheme.oceanBlue : nil
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    // Discover nearby
+                    Button {
+                        vm.showDiscoverNearby = true
+                    } label: {
+                        mapControlButton(icon: "location.magnifyingglass", label: "Обзор", tint: nil)
+                    }
+                    .buttonStyle(.plain)
+
+                    // Zoom to all
+                    Button {
+                        vm.zoomToAll()
+                    } label: {
+                        mapControlButton(icon: "map", label: "Все места", tint: nil)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
+        }
+    }
+
+    private func mapControlButton(icon: String, label: String, tint: Color?) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 15))
+                .foregroundStyle(tint ?? Color(.label).opacity(0.7))
+                .frame(width: 36, height: 36)
+                .background(.quaternary.opacity(0.5))
+                .clipShape(Circle())
+
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(tint ?? .secondary)
+        }
     }
 
     // MARK: - AI Messages

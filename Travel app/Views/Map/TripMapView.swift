@@ -110,6 +110,30 @@ struct TripMapView: View {
                     .animation(.easeInOut, value: vm.isNavigating)
                 }
 
+                // MARK: - Precipitation Overlay Label (floating capsule)
+                if vm.showPrecipitation {
+                    VStack {
+                        HStack(spacing: 6) {
+                            Image(systemName: "cloud.rain.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(AppTheme.oceanBlue)
+                            Text("ОСАДКИ")
+                                .font(.system(size: 13, weight: .bold))
+                                .tracking(3)
+                                .foregroundStyle(AppTheme.oceanBlue)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+                        .padding(.top, 60)
+
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .animation(.easeInOut(duration: 0.25), value: vm.showPrecipitation)
+                }
+
                 // MARK: - Recenter Button (appears on manual pan during navigation)
                 if vm.isNavigating && vm.isOffNavCenter {
                     VStack {
@@ -131,9 +155,7 @@ struct TripMapView: View {
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isIdleMode)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar { toolbarContent }
+            .toolbar(.hidden, for: .navigationBar)
             // Hide tab bar when sheet is active (solid fill to bottom)
             .toolbar(isIdleMode ? .visible : .hidden, for: .tabBar)
             #if !targetEnvironment(simulator)
@@ -388,96 +410,6 @@ struct TripMapView: View {
             MapRouteContent(vm: vm)
         case .navigation:
             NavigationSheetContent(vm: vm)
-        }
-    }
-
-    // MARK: - Toolbar
-
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .principal) {
-            if vm.showPrecipitation {
-                HStack(spacing: 6) {
-                    Image(systemName: "cloud.rain.fill")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(AppTheme.oceanBlue)
-                    Text("ОСАДКИ")
-                        .font(.system(size: 13, weight: .bold))
-                        .tracking(3)
-                        .foregroundStyle(AppTheme.oceanBlue)
-                }
-            } else {
-                EmptyView()
-            }
-        }
-
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Section("Слои") {
-                    Toggle(isOn: $vm.showPlaces) {
-                        Label("Места", systemImage: "mappin.and.ellipse")
-                    }
-                    if trip.isActive {
-                        Toggle(isOn: $vm.showAllCities) {
-                            Label("Все города", systemImage: "globe")
-                        }
-                    }
-                    Toggle(isOn: $vm.showRoutes) {
-                        Label("GPS-треки", systemImage: "figure.walk")
-                    }
-                    if !vm.trainRoutes.isEmpty {
-                        Toggle(isOn: $vm.showTrainRoutes) {
-                            Label("Поезда", systemImage: "tram.fill")
-                        }
-                    }
-                    if !vm.flightArcs.isEmpty {
-                        Toggle(isOn: $vm.showFlightArcs) {
-                            Label("Перелёты", systemImage: "airplane")
-                        }
-                    }
-                }
-
-                Section {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            vm.showPrecipitation.toggle()
-                        }
-                    } label: {
-                        Label(
-                            vm.showPrecipitation ? "Скрыть осадки" : "Карта осадков",
-                            systemImage: vm.showPrecipitation ? "cloud.rain.fill" : "cloud.rain"
-                        )
-                    }
-
-                    Button {
-                        vm.showDiscoverNearby = true
-                    } label: {
-                        Label("Обзор", systemImage: "location.magnifyingglass")
-                    }
-                }
-
-                Section("Навигация") {
-                    Button {
-                        vm.zoomToAll()
-                    } label: {
-                        Label("Показать все", systemImage: "map")
-                    }
-
-                    ForEach(vm.uniqueCities, id: \.self) { city in
-                        Button {
-                            vm.zoomToCity(city)
-                        } label: {
-                            Label(city, systemImage: "building.2")
-                        }
-                    }
-                }
-            } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle.fill")
-                    .font(.system(size: 26))
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, .gray.opacity(0.5))
-                    .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
-            }
         }
     }
 
