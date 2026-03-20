@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-20T15:05:42.888Z"
-last_activity: "2026-03-20 - Completed quick task 260320-x71: Apple Maps UX polish"
+stopped_at: Completed quick/260321-00h-apple-maps-style-search-ux-in-maps
+last_updated: "2026-03-20T15:09:14.000Z"
+last_activity: "2026-03-20 - Completed quick task 260321-00h: Apple Maps-style search UX"
 progress:
   total_phases: 4
   completed_phases: 3
@@ -96,10 +96,11 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260320-x71 | Apple Maps UX polish (material sheet, map controls, category chips, Look Around) | 2026-03-20 | 63103d8 | [260320-x71-user-friendly-apple-maps](./quick/260320-x71-user-friendly-apple-maps/) |
+| 260321-00h | Apple Maps-style search UX (MKLocalSearchCompleter typeahead, full sheet, cancel) | 2026-03-20 | 00cc35e | [260321-00h-apple-maps-style-search-ux-in-maps](./quick/260321-00h-apple-maps-style-search-ux-in-maps/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-20 - Completed quick task 260320-x71: Apple Maps UX polish
-Last session: 2026-03-20T15:05:42.886Z
-Stopped at: Completed 04-01-PLAN.md
+Last activity: 2026-03-20 - Completed quick task 260321-00h: Apple Maps-style search UX
+Last session: 2026-03-20T15:09:14.000Z
+Stopped at: Completed quick/260321-00h-apple-maps-style-search-ux-in-maps
 Resume file: None
