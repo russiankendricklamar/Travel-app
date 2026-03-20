@@ -155,10 +155,11 @@ final class RoutingService {
         inFlightKeys.insert(cacheKey)
         defer { inFlightKeys.remove(cacheKey) }
 
-        // Transit: use legacy Directions API (better Japan-like region detection)
-        // Falls back to AI-powered routing for regions without Google transit data
+        // Transit: cascade fallback — Google Directions → Apple Maps → AI (Japan)
         if mode == .transit {
             print("[RoutingService] 🚌 Transit route requested")
+
+            // 1) Google Directions API
             print("[RoutingService] Trying Google Directions API first...")
             let googleResult = await calculateGoogleTransitRoute(from: origin, to: destination, cacheKey: cacheKey)
             if let googleResult {
@@ -167,19 +168,26 @@ final class RoutingService {
             }
             print("[RoutingService] ❌ Google Directions failed. transitUnavailableRegion=\(transitUnavailableRegion), lastError=\(lastError ?? "nil")")
 
-            // If transit unavailable in region → try AI-powered routing (ODPT + Gemini)
-            if transitUnavailableRegion {
-                print("[RoutingService] 🤖 Falling back to JapanTransitService (AI + Overpass)...")
-                let aiResult = await JapanTransitService.shared.planTransitRoute(from: origin, to: destination)
-                if let aiResult {
-                    print("[RoutingService] ✅ AI transit route found! Duration=\(Self.formatDuration(aiResult.expectedTravelTime)), Steps=\(aiResult.transitSteps.count)")
-                    transitUnavailableRegion = false
-                    lastError = nil
-                    cache[cacheKey] = aiResult
-                    return [aiResult]
-                }
-                print("[RoutingService] ❌ AI transit route also failed")
+            // 2) Apple Maps MKDirections .transit (free, good Japan/EU/US coverage)
+            print("[RoutingService] 🍎 Trying Apple Maps transit...")
+            let appleResult = await calculateAppleTransitRoute(from: origin, to: destination, cacheKey: cacheKey)
+            if let appleResult {
+                print("[RoutingService] ✅ Apple Maps returned a transit route")
+                return [appleResult]
             }
+            print("[RoutingService] ❌ Apple Maps transit failed")
+
+            // 3) AI-powered routing via Overpass + Gemini (Japan-specific)
+            print("[RoutingService] 🤖 Falling back to JapanTransitService (AI + Overpass)...")
+            let aiResult = await JapanTransitService.shared.planTransitRoute(from: origin, to: destination)
+            if let aiResult {
+                print("[RoutingService] ✅ AI transit route found! Duration=\(Self.formatDuration(aiResult.expectedTravelTime)), Steps=\(aiResult.transitSteps.count)")
+                transitUnavailableRegion = false
+                lastError = nil
+                cache[cacheKey] = aiResult
+                return [aiResult]
+            }
+            print("[RoutingService] ❌ All transit providers failed")
 
             return []
         }
@@ -327,6 +335,63 @@ final class RoutingService {
     static func parseGoogleDuration(_ str: String) -> TimeInterval {
         let cleaned = str.replacingOccurrences(of: "s", with: "")
         return TimeInterval(cleaned) ?? 0
+    }
+
+    // MARK: - Apple Maps Transit
+
+    private func calculateAppleTransitRoute(
+        from origin: CLLocationCoordinate2D,
+        to destination: CLLocationCoordinate2D,
+        cacheKey: String
+    ) async -> RouteResult? {
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: origin))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: destination))
+        request.transportType = .transit
+
+        do {
+            let response = try await MKDirections(request: request).calculate()
+            guard let mkRoute = response.routes.first else { return nil }
+
+            var coords = [CLLocationCoordinate2D](
+                repeating: CLLocationCoordinate2D(),
+                count: mkRoute.polyline.pointCount
+            )
+            mkRoute.polyline.getCoordinates(&coords, range: NSRange(location: 0, length: mkRoute.polyline.pointCount))
+
+            // Extract transit steps from MKRoute steps
+            var transitSteps: [TransitStep] = []
+            for step in mkRoute.steps where !step.instructions.isEmpty {
+                var stepCoords = [CLLocationCoordinate2D](
+                    repeating: CLLocationCoordinate2D(),
+                    count: step.polyline.pointCount
+                )
+                step.polyline.getCoordinates(&stepCoords, range: NSRange(location: 0, length: step.polyline.pointCount))
+
+                let isTransit = step.transportType == .transit
+                transitSteps.append(TransitStep(
+                    instruction: step.instructions,
+                    distance: step.distance,
+                    duration: step.distance / 1.4, // estimate ~5km/h walking, transit varies
+                    travelMode: isTransit ? "TRANSIT" : "WALKING",
+                    transitLineName: step.notice,
+                    polyline: stepCoords
+                ))
+            }
+
+            let result = RouteResult(
+                polyline: coords,
+                distance: mkRoute.distance,
+                expectedTravelTime: mkRoute.expectedTravelTime,
+                mode: .transit,
+                transitSteps: transitSteps
+            )
+            cache[cacheKey] = result
+            return result
+        } catch {
+            print("[RoutingService] Apple Maps transit error: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     // MARK: - Google Directions (Transit)
