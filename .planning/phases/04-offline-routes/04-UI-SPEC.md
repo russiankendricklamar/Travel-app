@@ -52,12 +52,14 @@ Source: AppTheme.swift (codebase scan), RESEARCH.md Pattern 6
 
 SwiftUI `.system(size:weight:)` — no custom typeface. Phase 4 introduces no new type roles; all new UI reuses these four established sizes.
 
+Two weights only: `.semibold` for all readable text, `.bold` for compact badge/percentage labels.
+
 | Role | Size | Weight | Line Height | Usage in This Phase |
 |------|------|--------|-------------|---------------------|
 | Caption | 10pt | bold (.bold) | n/a (single line) | Progress ring percentage, ОФЛАЙН badge label, section headers with tracking |
-| Body | 13pt | medium (.medium) | 1.4 | Offline no-cache message body, transport pill disabled hint |
+| Body | 13pt | semibold (.semibold) | 1.4 | Offline no-cache message body, transport pill disabled hint, offline reroute warning text |
 | Label | 15pt | semibold (.semibold) | n/a (single line) | Precache button CTA text, "✓ Маршруты готовы" label |
-| Subheading | 11pt | bold (.bold) | n/a | "Загрузка маршрутов..." progress subtitle |
+| Subheading | 11pt | semibold (.semibold) | n/a | "Загрузка маршрутов..." progress subtitle, CTA disabled subtitle |
 
 Tracking:
 - ALL_CAPS labels (CTA button, OfflineBanner-style text): `.tracking(1)` or `.tracking(1.5)` per existing pattern
@@ -79,6 +81,7 @@ Entire palette comes from `AppTheme.swift`. Phase 4 introduces one new semantic 
 | Success state | `AppTheme.bambooGreen` | `#16A34A` | "✓ Маршруты готовы" button background and icon, day-cached badge |
 | Destructive | `AppTheme.toriiRed` | `#E11D48` | "Очистить кэш маршрутов" destructive button in Settings |
 | Error/Offline banner | `AppTheme.toriiRed` | `#E11D48` | Existing OfflineBanner (unchanged); no-cache inline message foreground |
+| Warning icon | `AppTheme.templeGold` | palette-adaptive | Warning icon in offline reroute toast only |
 
 Accent (`sakuraPink`) reserved for:
 - Precache button in idle state (background fill)
@@ -92,6 +95,9 @@ Accent (`sakuraPink`) reserved for:
 `toriiRed` reserved for:
 - "Очистить кэш маршрутов" button in Settings (destructive)
 - Inline error foreground in no-cache offline message
+
+`templeGold` reserved for:
+- Warning icon (`exclamationmark.triangle.fill`) in offline reroute toast only
 
 Source: AppTheme.swift (codebase scan), CONTEXT.md decisions, RESEARCH.md Pattern 6
 
@@ -108,8 +114,8 @@ Three visual states — single component with internal state machine:
 | State | Visual | Interaction |
 |-------|--------|-------------|
 | `idle` | Capsule button, `sakuraPink` fill. Icon: `arrow.down.circle.fill`. Text: "ПОДГОТОВИТЬ ОФЛАЙН" (15pt semibold, .white, tracking 1). | Tap → triggers `preCacheDay`; disabled when `isOnline == false` (see disabled state below) |
-| `idle (offline)` | Same capsule, `sakuraPink.opacity(0.4)` fill. Subtitle beneath: "Недоступно без сети" (11pt medium, `textSecondary`). | Tap does nothing (`.disabled(true)`). No CTA affordance. |
-| `loading` | 44×44pt circular progress ring (6pt stroke, `sakuraPink` track on `sakuraPink.opacity(0.15)` background). Text to the right: "Загрузка маршрутов..." (11pt bold, `textSecondary`). Percentage below ring: "N%" (10pt bold, `sakuraPink`). | Tap disabled. Cancel not offered. |
+| `idle (offline)` | Same capsule, `sakuraPink.opacity(0.4)` fill. Subtitle beneath: "Недоступно без сети" (11pt semibold, `textSecondary`). | Tap does nothing (`.disabled(true)`). No CTA affordance. |
+| `loading` | 44×44pt circular progress ring (6pt stroke, `sakuraPink` track on `sakuraPink.opacity(0.15)` background). Text to the right: "Загрузка маршрутов..." (11pt semibold, `textSecondary`). Percentage below ring: "N%" (10pt bold, `sakuraPink`). | Tap disabled. Cancel not offered. |
 | `done` | Capsule button, `bambooGreen` fill. Icon: `checkmark.circle.fill`. Text: "МАРШРУТЫ ГОТОВЫ" (15pt semibold, .white, tracking 1). | Tap re-triggers pre-cache (refresh). Badge on TripMapView day indicator also turns green. |
 
 Ring animation: `.animation(.easeInOut(duration: 0.3), value: progress)` — exact pattern from PackingListView.
@@ -126,8 +132,8 @@ Shown when `isOnline == false` AND no cached route available for selected mode.
 |----------|--------|
 | Container | `HStack` with icon + text block, 16pt horizontal padding |
 | Icon | `wifi.exclamationmark` (SF Symbols), 13pt, `toriiRed` |
-| Heading | "Маршрут недоступен офлайн" (13pt medium, `.primary`) |
-| Body | "Подготовьте маршруты заранее при наличии сети." (13pt medium, `textSecondary`) |
+| Heading | "Маршрут недоступен офлайн" (13pt semibold, `.primary`) |
+| Body | "Подготовьте маршруты заранее при наличии сети." (13pt semibold, `textSecondary`) |
 | Background | None — plain inline, no glass card |
 
 Source: CONTEXT.md offline UX decisions
@@ -140,7 +146,7 @@ When offline and the tapped transport mode has no cached route:
 |----------|--------|
 | Pill appearance | Existing pill shape, `opacity(0.5)` on entire pill |
 | ETA text | "—" at `textSecondary` color for uncached modes |
-| Tap feedback | `.sensoryFeedback(.warning, trigger: ...)` + inline message below pill strip: "Режим недоступен офлайн" (11pt medium, `textSecondary`) |
+| Tap feedback | `.sensoryFeedback(.warning, trigger: ...)` + inline message below pill strip: "Режим недоступен офлайн" (11pt semibold, `textSecondary`) |
 
 Cached modes show normal ETA from `RouteResult.expectedTravelTime` via `RoutingService.formatDuration`.
 
@@ -156,6 +162,7 @@ Small indicator showing a day has been pre-cached.
 | Color | `bambooGreen` |
 | Size | 16pt |
 | Position | Trailing edge of the day header row, next to the existing toolbar area |
+| Accessibility | `.accessibilityLabel("День подготовлен офлайн")` |
 
 Source: CONTEXT.md ("Иконка на карте дня показывает что день подготовлен офлайн")
 
@@ -179,7 +186,7 @@ Shown when user goes off-route while offline (replaces reroute behavior).
 |----------|--------|
 | Container | `HStack`, surfaceStyle() modifier (`.thinMaterial`), 12pt corner radius |
 | Icon | `exclamationmark.triangle.fill` (SF Symbols), 12pt, `templeGold` |
-| Text | "Перестроение недоступно офлайн" (13pt medium, `.primary`) |
+| Text | "Перестроение недоступно офлайн" (13pt semibold, `.primary`) |
 | Duration | Auto-dismiss after 4 seconds (`Task { try? await Task.sleep(nanoseconds: 4_000_000_000) }`) |
 | Position | Below NavigationHUDView, `.padding(.top, 8)` |
 
@@ -223,7 +230,7 @@ All strings in Russian (source: project MEMORY.md "Russian language UI").
 | Settings confirmation title | "Удалить кэш маршрутов?" |
 | Settings confirmation action | "Удалить" (destructive) |
 | Settings confirmation cancel | "Отмена" |
-| Day-cached badge tooltip | none (icon-only; bambooGreen checkmark.icloud.fill is self-explanatory) |
+| Day-cached badge tooltip | none (icon-only; `.accessibilityLabel("День подготовлен офлайн")` provides VoiceOver label) |
 
 Empty state: No dedicated empty state view. When no routes are cached, the `MapRouteContent` shows its normal "no active route" appearance (unchanged). The offline no-cache message appears only when a route is actively requested while offline without a cache hit.
 
