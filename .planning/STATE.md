@@ -103,10 +103,11 @@ None yet.
 |---|-------------|------|--------|--------|-----------|
 | 260320-x71 | Apple Maps UX polish (material sheet, map controls, category chips, Look Around) | 2026-03-20 | 63103d8 | | [260320-x71-user-friendly-apple-maps](./quick/260320-x71-user-friendly-apple-maps/) |
 | 260321-00h | Apple Maps-style search UX (MKLocalSearchCompleter typeahead, full sheet, cancel) | 2026-03-20 | 00cc35e | Verified | [260321-00h-apple-maps-style-search-ux-in-maps](./quick/260321-00h-apple-maps-style-search-ux-in-maps/) |
+| 260321-0a1 | Apple Maps-style place card (hero Look Around, circular buttons, inline hours, unified layout) | 2026-03-21 | 5511575 | Complete | [260321-0a1-place-card-redesign](./quick/260321-0a1-place-card-redesign/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-20 - Completed quick task 260321-00h: Apple Maps-style search UX
-Last session: 2026-03-20T15:17:58.091Z
-Stopped at: Completed 04-offline-routes 04-03-PLAN.md
+Last activity: 2026-03-21 - Completed quick task 260321-0a1: Place card redesign
+Last session: 2026-03-21T00:00:00.000Z
+Stopped at: Completed quick/260321-0a1-place-card-redesign
 Resume file: None
