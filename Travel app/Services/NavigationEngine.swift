@@ -22,10 +22,16 @@ final class NavigationEngine {
     // MARK: - Internal State
     private var lastRerouteTime: Date?
 
+    // MARK: - Offline Mode
+    /// Set to true when starting navigation without connectivity — suppresses reroute attempts
+    var isOfflineMode: Bool = false
+
     // MARK: - Callbacks (to MapViewModel)
     var onStepAdvanced: ((Int, CLLocationDistance) -> Void)?
     var onRerouteNeeded: ((CLLocationCoordinate2D) -> Void)?
     var onNavigationFinished: (() -> Void)?
+    /// Fired when user goes off-route while offline (instead of triggering a reroute)
+    var onOfflineRerouteWarning: (() -> Void)?
 
     // MARK: - Init
 
@@ -84,7 +90,11 @@ final class NavigationEngine {
 
         // 5. Off-route detection — NAV-03
         if perpendicularDist > offRouteThreshold {
-            triggerRerouteIfReady(from: coord)
+            if !isOfflineMode {
+                triggerRerouteIfReady(from: coord)
+            } else {
+                onOfflineRerouteWarning?()
+            }
         }
 
         // 6. Notify observer of current state

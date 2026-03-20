@@ -8,6 +8,7 @@ struct TripMapView: View {
     @Query var offlineCaches: [OfflineMapCache]
     @State private var vm: MapViewModel
     @FocusState private var isSearchFocused: Bool
+    @Environment(\.modelContext) private var modelContext
 
     init(trip: Trip) {
         self.trip = trip
@@ -34,6 +35,15 @@ struct TripMapView: View {
         vm.sheetDetent == .peek && vm.sheetContent == .idle
     }
 
+    /// Returns the most relevant day for pre-caching (today if active trip, else first day with >= 2 places).
+    private var currentDayForPrecache: TripDay? {
+        let days = trip.sortedDays.filter { $0.sortedPlaces.count >= 2 }
+        if let today = days.first(where: { Calendar.current.isDateInToday($0.date) }) {
+            return today
+        }
+        return days.first
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -55,6 +65,24 @@ struct TripMapView: View {
                 if !isOfflineWithCache && isIdleMode {
                     VStack(spacing: 0) {
                         Spacer()
+
+                        // Pre-cache button row (trailing-aligned, above search pill)
+                        if let day = currentDayForPrecache {
+                            HStack {
+                                Spacer()
+                                if RoutingCacheService.shared.isDayCached(day, tripID: trip.id, context: modelContext) {
+                                    Image(systemName: "checkmark.icloud.fill")
+                                        .font(.system(size: 16))
+                                        .foregroundStyle(AppTheme.bambooGreen)
+                                        .accessibilityLabel("День подготовлен офлайн")
+                                } else {
+                                    OfflinePrecacheButton(day: day, tripID: trip.id)
+                                }
+                            }
+                            .padding(.horizontal, AppTheme.spacingM)
+                            .padding(.bottom, AppTheme.spacingS)
+                        }
+
                         MapFloatingSearchPill(vm: vm) {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                                 vm.sheetDetent = .full
@@ -75,6 +103,26 @@ struct TripMapView: View {
                         NavigationHUDView(vm: vm)
                             .padding(.horizontal, 16)
                             .padding(.top, 8)
+
+                        // Offline reroute warning toast
+                        if vm.showOfflineRerouteWarning {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppTheme.templeGold)
+                                Text("Перестроение недоступно офлайн")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .animation(.easeOut(duration: 0.25), value: vm.showOfflineRerouteWarning)
+                        }
+
                         Spacer()
                     }
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -147,6 +195,7 @@ struct TripMapView: View {
                     await vm.geocodeCountryCamera()
                 }
                 await vm.loadTransportOverlays()
+                await backgroundRefreshIfNeeded()
             }
             .task(id: vm.selectedPlaceID) {
                 vm.onPlaceSelected()
@@ -429,6 +478,24 @@ struct TripMapView: View {
                     .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
             }
         }
+    }
+
+    // MARK: - Background Refresh
+
+    /// Silently refresh stale route caches when online (no progress UI).
+    private func backgroundRefreshIfNeeded() async {
+        guard OfflineCacheManager.shared.isOnline else { return }
+        guard let day = currentDayForPrecache else { return }
+        // Only refresh if day was previously cached but TTL expired
+        guard !RoutingCacheService.shared.isDayCached(day, tripID: trip.id, context: modelContext) else { return }
+        // Check if any routes exist for this trip (partial/stale cache)
+        // If isDayCached returns false but routes exist for the day, refresh silently
+        await OfflineCacheManager.shared.preCacheDay(
+            day,
+            tripID: trip.id,
+            context: modelContext,
+            progress: { _ in }  // Silent — no UI feedback
+        )
     }
 }
 

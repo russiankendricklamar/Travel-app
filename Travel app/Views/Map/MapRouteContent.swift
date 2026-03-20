@@ -15,9 +15,17 @@ struct MapRouteContent: View {
                 transportModePills(route: route)
                     .padding(.top, 12)
 
-                // Route alternatives carousel
-                routeAlternativesCarousel
-                    .padding(.top, AppTheme.spacingS)
+                // Offline no-cache message
+                if !OfflineCacheManager.shared.isOnline && vm.activeRoute == nil {
+                    offlineNoCacheMessage
+                        .padding(.top, AppTheme.spacingS)
+                }
+
+                // Route alternatives carousel (hidden offline — only one cached route per mode)
+                if OfflineCacheManager.shared.isOnline {
+                    routeAlternativesCarousel
+                        .padding(.top, AppTheme.spacingS)
+                }
 
                 // Route stats
                 routeStatsRow(route: route)
@@ -120,17 +128,23 @@ struct MapRouteContent: View {
                         Image(systemName: mode.icon)
                             .font(.system(size: 16, weight: .semibold))
 
-                        // Show ETA preview if available, otherwise label
+                        // Show ETA preview if available, "—" for uncached offline modes, or label
                         if route.mode != mode,
                            let preview = RoutingService.shared.etaPreviews[mode] {
                             Text(RoutingService.formatDuration(preview.duration))
                                 .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        } else if !OfflineCacheManager.shared.isOnline && route.mode != mode {
+                            // Offline: show "—" for uncached modes
+                            Text("—")
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .foregroundStyle(AppTheme.textSecondary)
                         } else {
                             Text(mode.label)
                                 .font(.system(size: 11, weight: .medium))
                         }
                     }
                     .foregroundStyle(route.mode == mode ? .white : .primary)
+                    .opacity(!OfflineCacheManager.shared.isOnline && route.mode != mode ? 0.5 : 1.0)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(
@@ -338,6 +352,28 @@ struct MapRouteContent: View {
             green: Double((rgb >> 8) & 0xFF) / 255,
             blue: Double(rgb & 0xFF) / 255
         )
+    }
+
+    // MARK: - Offline No-Cache Message
+
+    private var offlineNoCacheMessage: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 13))
+                .foregroundStyle(AppTheme.toriiRed)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Маршрут недоступен офлайн")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("Подготовьте маршруты заранее при наличии сети.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Computed

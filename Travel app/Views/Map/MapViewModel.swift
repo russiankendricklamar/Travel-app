@@ -145,6 +145,8 @@ final class MapViewModel {
     var isUrgent: Bool = false
     /// True when user manually panned away from their location during navigation
     var isOffNavCenter: Bool = false
+    /// Shows offline reroute warning toast (auto-dismisses after 4s)
+    var showOfflineRerouteWarning: Bool = false
 
     // Transport overlays
     var flightArcs: [FlightArc] = []
@@ -628,6 +630,15 @@ final class MapViewModel {
         }
         engine.onNavigationFinished = { [weak self] in
             self?.stopNavigation()
+        }
+        engine.isOfflineMode = !OfflineCacheManager.shared.isOnline
+        engine.onOfflineRerouteWarning = { [weak self] in
+            Task { @MainActor in
+                self?.showOfflineRerouteWarning = true
+                // Auto-dismiss after 4 seconds
+                try? await Task.sleep(nanoseconds: 4_000_000_000)
+                self?.showOfflineRerouteWarning = false
+            }
         }
 
         navigationEngine = engine
