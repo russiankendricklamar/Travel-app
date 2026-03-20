@@ -65,7 +65,7 @@ struct MapBottomSheet<Content: View>: View {
                 }
                 .frame(height: max(sheetHeight, 60), alignment: .top)
                 .frame(maxWidth: .infinity)
-                .padding(.top, isPeek ? 0 : (detent == .full ? safeAreaTop + 16 : 0))
+                .padding(.top, isPeek ? 0 : (detent == .full ? safeAreaTop : 0))
                 .background(
                     Group {
                         if isPeek {
@@ -81,7 +81,7 @@ struct MapBottomSheet<Content: View>: View {
                                 bottomTrailingRadius: 0,
                                 topTrailingRadius: 30
                             )
-                            .fill(Color.black.opacity(0.85))
+                            .fill(Color(red: 0.11, green: 0.11, blue: 0.12))
                             .shadow(color: .black.opacity(0.15), radius: 10, y: -5)
                             .ignoresSafeArea(edges: .bottom)
                         }
