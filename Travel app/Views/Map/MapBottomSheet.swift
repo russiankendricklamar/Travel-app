@@ -8,7 +8,7 @@ enum SheetDetent: Equatable {
 
     func height(in screenHeight: CGFloat) -> CGFloat {
         switch self {
-        case .peek: return 56
+        case .peek: return 36
         case .half: return screenHeight * 0.40
         case .full: return screenHeight
         }
@@ -38,9 +38,9 @@ struct MapBottomSheet<Content: View>: View {
         let sheetHeight = detent.height(in: screenHeight) + dragOffset
 
         ZStack(alignment: .bottom) {
-            // Zero-height geometry sensor — does not participate in layout
+            // Full-size geometry sensor — measures available screen height
             Color.clear
-                .frame(height: 0)
+                .allowsHitTesting(false)
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.size.height
                 } action: { newHeight in
@@ -53,18 +53,19 @@ struct MapBottomSheet<Content: View>: View {
                 }
 
             VStack(spacing: 0) {
-                // MARK: Drag handle — visible in ALL states
-                Capsule()
-                    .fill(Color(.systemFill))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, 8)
-                    .padding(.bottom, 6)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    // In half/full: drag gesture on handle only
-                    .gesture(isPeek ? nil : dragGesture(totalHeight: screenHeight))
-                    .accessibilityLabel("Переместить панель")
-                    .accessibilityHint("Потяните вверх или вниз для изменения размера")
+                // MARK: Drag handle — hidden in peek (pill is small enough), visible in half/full
+                if !isPeek {
+                    Capsule()
+                        .fill(Color(.systemFill))
+                        .frame(width: 36, height: 5)
+                        .padding(.top, 8)
+                        .padding(.bottom, 6)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                        .gesture(dragGesture(totalHeight: screenHeight))
+                        .accessibilityLabel("Переместить панель")
+                        .accessibilityHint("Потяните вверх или вниз для изменения размера")
+                }
 
                 content()
                     .frame(maxWidth: .infinity, alignment: .top)
@@ -73,33 +74,32 @@ struct MapBottomSheet<Content: View>: View {
 
                 Spacer(minLength: 0)
             }
-            .frame(height: max(sheetHeight, 60), alignment: .top)
-            .frame(maxWidth: .infinity)
+            .frame(height: max(sheetHeight, 36), alignment: .top)
+            // In peek: compact centered pill; in half/full: full width
+            .frame(maxWidth: isPeek ? 257 : .infinity)
             // Pad content below status bar in full mode
             .padding(.top, detent == .full ? safeAreaTop : 0)
-            // Floating horizontal margins in peek, full width in half/full
-            .padding(.horizontal, isPeek ? 16 : 0)
-            // Bottom gap in peek: 8pt above safe area / tab bar
-            .padding(.bottom, isPeek ? 8 : 0)
+            // Bottom gap in peek: clearance above tab bar
+            .padding(.bottom, isPeek ? 28 : 0)
             .background {
                 let progress = dragProgress(in: screenHeight)
                 ZStack {
                     // Peek background (solid black pill) — fades OUT as sheet rises
                     UnevenRoundedRectangle(
-                        topLeadingRadius: 22, bottomLeadingRadius: 22,
-                        bottomTrailingRadius: 22, topTrailingRadius: 22, style: .continuous
+                        topLeadingRadius: 30, bottomLeadingRadius: 30,
+                        bottomTrailingRadius: 30, topTrailingRadius: 30, style: .continuous
                     )
                     .fill(Color.black)
-                    .shadow(color: .black.opacity(0.35), radius: 14, x: 0, y: 4)
+                    .shadow(color: .black.opacity(0.28), radius: 30, x: 0, y: 4)
                     .opacity(1 - progress)
 
                     // Expanded background (opaque) — fades IN as sheet rises
                     // Bottom corners interpolate: 22pt → 0pt when fully expanded
                     UnevenRoundedRectangle(
-                        topLeadingRadius: 22,
-                        bottomLeadingRadius: 22 * (1 - progress),
-                        bottomTrailingRadius: 22 * (1 - progress),
-                        topTrailingRadius: 22,
+                        topLeadingRadius: 30,
+                        bottomLeadingRadius: 30 * (1 - progress),
+                        bottomTrailingRadius: 30 * (1 - progress),
+                        topTrailingRadius: 30,
                         style: .continuous
                     )
                     .fill(Color(uiColor: .systemBackground))
@@ -108,6 +108,7 @@ struct MapBottomSheet<Content: View>: View {
                     .opacity(progress)
                 }
             }
+            .clipped()
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: detent)
             .accessibilityElement(children: .contain)
         }
@@ -132,6 +133,7 @@ struct MapBottomSheet<Content: View>: View {
                 dragOffset = -value.translation.height
             }
             .onEnded { value in
+                guard totalHeight > 0 else { dragOffset = 0; return }
                 let currentHeight = detent.height(in: totalHeight) + dragOffset
                 let velocity = -value.predictedEndTranslation.height / totalHeight
 

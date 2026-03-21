@@ -25,14 +25,14 @@ struct FloatingControlsOverlay: View {
                 divider
                 locationButton
             }
-            .frame(width: 44)  // D-05
+            .frame(width: 40)  // D-05
             .background(.ultraThinMaterial)  // D-03
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))  // D-03
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))  // D-03
             .shadow(color: .black.opacity(0.35), radius: 14, y: 4)  // D-07
             .preferredColorScheme(.dark)
         }
-        .padding(.trailing, 16)   // D-36
-        .padding(.bottom, 88)     // D-37 resolved to 88pt
+        .padding(.trailing, 19)   // D-36
+        .padding(.bottom, 72)     // D-37
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .opacity(isVisible ? 1 : 0)  // D-27
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isVisible)  // D-28
@@ -48,7 +48,7 @@ struct FloatingControlsOverlay: View {
             Image(systemName: "bus.fill")  // D-13
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(vm.showTraffic ? AppTheme.sakuraPink : .white)  // D-16
-                .frame(width: 44, height: 44)  // D-06
+                .frame(width: 40, height: 40)  // D-06
         }
         .accessibilityLabel("Транспорт")  // D-34
         .accessibilityHint("Включает или выключает отображение транспортных маршрутов")  // D-35
@@ -64,7 +64,7 @@ struct FloatingControlsOverlay: View {
             Image(systemName: vm.show3DElevation ? "view.2d" : "view.3d")  // D-19
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(vm.show3DElevation ? AppTheme.sakuraPink : .white)  // D-20
-                .frame(width: 44, height: 44)  // D-06
+                .frame(width: 40, height: 40)  // D-06
                 .contentTransition(.symbolEffect(.replace))  // UI-SPEC icon animation
         }
         .accessibilityLabel("3D вид")  // D-34
@@ -92,7 +92,7 @@ struct FloatingControlsOverlay: View {
             Image(systemName: "location")  // D-23: outline, not fill
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)  // D-32: always white, no toggle
-                .frame(width: 44, height: 44)  // D-06
+                .frame(width: 40, height: 40)  // D-06
         }
         .accessibilityLabel("Моё местоположение")  // D-34
         .accessibilityHint("Центрирует карту на вашем текущем положении")  // D-35

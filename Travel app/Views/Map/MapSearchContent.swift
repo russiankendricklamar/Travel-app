@@ -23,22 +23,22 @@ struct MapSearchContent: View {
                 searchFieldContent
                     .frame(maxWidth: .infinity)
 
-                // "Отмена" — shown when search is active (D-44..D-49)
-                if isSearchFocused || !vm.searchQuery.isEmpty {
+                // "Отмена" — shown when search is active, hidden in peek
+                if vm.sheetDetent != .peek && (isSearchFocused || !vm.searchQuery.isEmpty) {
                     Button("Отмена") {
                         vm.searchQuery = ""
                         isSearchFocused = false
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            vm.sheetDetent = .half  // D-49: stay at half, do NOT call vm.dismissSearch()
+                            vm.sheetDetent = .half
                         }
                     }
-                    .font(.system(size: 17, weight: .regular))  // D-46
-                    .foregroundStyle(AppTheme.sakuraPink)         // D-47
-                    .transition(.move(edge: .trailing).combined(with: .opacity))  // D-48
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(AppTheme.sakuraPink)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
+            .padding(.horizontal, vm.sheetDetent == .peek ? 0 : 16)
+            .padding(.bottom, vm.sheetDetent == .peek ? 0 : 10)
             .animation(MapViewModel.sheetSpring, value: isSearchFocused || !vm.searchQuery.isEmpty)
 
             // Divider — only in full mode when scrolled (D-41)
@@ -82,7 +82,8 @@ struct MapSearchContent: View {
     // no search results loaded, and sheet is in idle state (not showing category/text results).
     // Removing isSearchFocused gate achieves Apple Maps parity (CONT-01 through CONT-03).
     private var showIdleContent: Bool {
-        vm.completerResults.isEmpty
+        vm.sheetDetent != .peek
+            && vm.completerResults.isEmpty
             && vm.searchQuery.isEmpty
             && vm.searchResults.isEmpty
             && vm.sheetContent == .idle
@@ -90,8 +91,8 @@ struct MapSearchContent: View {
 
     @ViewBuilder
     private var scrollableContent: some View {
-        // Typeahead completer suggestions — shown while typing (before submit)
-        if vm.isCompleterActive && !vm.completerResults.isEmpty {
+        // Typeahead completer suggestions — shown while typing, hidden in peek
+        if vm.sheetDetent != .peek && vm.isCompleterActive && !vm.completerResults.isEmpty {
             Divider().padding(.horizontal, 14)
             completerSuggestionsList
         }
@@ -230,27 +231,26 @@ struct MapSearchContent: View {
     // Note: the outer Cancel button lives in `body` alongside this view.
 
     private var searchFieldContent: some View {
-        HStack(spacing: 0) {  // D-17: manual spacing control via per-element padding
-            // Leading icon — always magnifyingglass (D-14)
+        HStack(spacing: vm.sheetDetent == .peek ? 6 : 0) {
+            // Leading icon — always magnifyingglass
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 17, weight: .regular))  // D-14
-                .foregroundStyle(.secondary)
-                .padding(.leading, 14)  // D-16: inner leading padding
-                .padding(.trailing, 6)  // D-17: 6pt icon-text gap
+                .font(.system(size: vm.sheetDetent == .peek ? 15 : 17, weight: .regular))
+                .foregroundStyle(vm.sheetDetent == .peek ? Color.white.opacity(0.6) : .secondary)
+                .padding(.leading, vm.sheetDetent == .peek ? 0 : 14)
+                .padding(.trailing, vm.sheetDetent == .peek ? 0 : 6)
 
             // In peek: show tappable placeholder that expands sheet
             // In half/full: show real TextField
             if vm.sheetDetent == .peek && !isSearchFocused {
-                Text(vm.searchQuery.isEmpty ? "Поиск" : vm.searchQuery)  // D-24
-                    .font(.system(size: 17))  // D-15
-                    .foregroundStyle(vm.searchQuery.isEmpty ? Color.white.opacity(0.5) : Color.primary)  // D-25
+                Text("Поиск")
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(Color.white.opacity(0.6))
                     .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()  // D-33
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            vm.sheetDetent = .half  // D-32: expand to half, not full
+                            vm.sheetDetent = .half
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                             isSearchFocused = true
@@ -269,22 +269,25 @@ struct MapSearchContent: View {
                 .onSubmit { vm.submitSearch() }
             }
 
-            if vm.isSearching || AIMapSearchService.shared.isLoading {
-                ProgressView().scaleEffect(0.65)
+            // Hide progress/clear/sparkle in peek — only icon + "Поиск" visible
+            if vm.sheetDetent != .peek {
+                if vm.isSearching || AIMapSearchService.shared.isLoading {
+                    ProgressView().scaleEffect(0.65)
+                }
             }
 
-            // Clear button — shown when query is not empty (D-37/D-38/D-39)
-            if !vm.searchQuery.isEmpty {
+            // Clear button — shown when query is not empty and not peek
+            if !vm.searchQuery.isEmpty && vm.sheetDetent != .peek {
                 Button {
                     vm.searchQuery = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))  // D-38
+                        .font(.system(size: 16))
                         .foregroundStyle(Color.secondary)
                 }
                 .padding(.trailing, 14)
             }
-            // AI sparkles — shown when query empty AND not peek (D-50/D-51/D-56)
+            // AI sparkles — shown when query empty AND not peek
             else if vm.sheetDetent != .peek {
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()  // D-57
@@ -307,7 +310,7 @@ struct MapSearchContent: View {
                 .padding(.trailing, 14)
             }
         }
-        .padding(.vertical, vm.sheetDetent == .peek ? 4 : 8)  // D-12
+        .padding(.vertical, vm.sheetDetent == .peek ? 9 : 8)
         // In peek mode the sheet itself IS the dark bar — no inner capsule background needed (D-19)
         .background(
             Group {
