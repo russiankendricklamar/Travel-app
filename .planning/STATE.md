@@ -80,6 +80,7 @@ Plan: Not started
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260321-k7k | Fix peek pill: solid black background | 2026-03-21 | pending | [260321-k7k](./quick/260321-k7k-fix-map-bottom-sheet-ui-search-pill-widt/) |
+| 260321-m0i | Match search pill layout to reference | 2026-03-21 | 9b493a4 | [260321-m0i](./quick/260321-m0i-match-search-pill-layout-to-reference-25/) |
 
 ## Session Continuity
 
