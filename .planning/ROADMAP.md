@@ -25,7 +25,7 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details.
 
 **Milestone Goal:** Карта выглядит и работает как Apple Maps — bottom sheet с правильными detent states, search pill с blur и пропорциями Apple Maps, floating controls, и плавные переходы между состояниями.
 
-- [ ] **Phase 7: Sheet Geometry** — Правильная геометрия peek/half/full и фоновые материалы
+- [x] **Phase 7: Sheet Geometry** — Правильная геометрия peek/half/full и фоновые материалы (completed 2026-03-21)
 - [ ] **Phase 8: Search Bar + Handle** — Drag handle и search bar полностью соответствуют Apple Maps
 - [ ] **Phase 9: Floating Controls** — Вертикальный стек кнопок справа с native MapKit интеграцией
 - [ ] **Phase 10: Sheet Content** — Category chips, секции контента и скролл без конфликтов
@@ -43,9 +43,9 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details.
   3. Half mode открывается на ~40% высоты экрана с непрозрачным тёмным фоном и скруглением только сверху
   4. Full mode занимает весь экран, поиск виден сразу под status bar
   5. Все три состояния используют единую `UnevenRoundedRectangle` форму без snap при переходе
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 07-01-PLAN.md — Refactor MapBottomSheet geometry, materials, and unified shape
+- [x] 07-01-PLAN.md — Refactor MapBottomSheet geometry, materials, and unified shape
 
 ### Phase 8: Search Bar + Handle
 **Goal**: Drag handle и search bar имеют правильные пропорции и поведение
@@ -103,7 +103,7 @@ Plans:
 | 4. Offline Routes | v1.0 | 3/3 | Complete | 2026-03-20 |
 | 5. Offline Route Fixes | v1.0 | 1/1 | Complete | 2026-03-20 |
 | 6. Offline Cache Wiring | v1.0 | 1/1 | Complete | 2026-03-20 |
-| 7. Sheet Geometry | v1.1 | 0/1 | Planning | - |
+| 7. Sheet Geometry | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 8. Search Bar + Handle | v1.1 | 0/? | Not started | - |
 | 9. Floating Controls | v1.1 | 0/? | Not started | - |
 | 10. Sheet Content | v1.1 | 0/? | Not started | - |

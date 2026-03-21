@@ -7,11 +7,11 @@
 
 ### Sheet Geometry
 
-- [ ] **GEOM-01**: Peek mode height = 56pt (полный search bar + верхний padding для drag handle)
-- [ ] **GEOM-02**: Peek mode background = `.ultraThinMaterial` с dark color scheme, rounded на все 4 угла (cornerRadius ~22pt)
-- [ ] **GEOM-03**: Peek mode padding horizontal 16pt — pill "плавает" с отступами от краёв
-- [ ] **GEOM-04**: Half mode = ~40% экрана, opaque dark background, rounded top corners only (30pt)
-- [ ] **GEOM-05**: Full mode = весь экран, тот же opaque dark фон, поиск сразу под safeAreaTop
+- [x] **GEOM-01**: Peek mode height = 56pt (полный search bar + верхний padding для drag handle)
+- [x] **GEOM-02**: Peek mode background = `.ultraThinMaterial` с dark color scheme, rounded на все 4 угла (cornerRadius ~22pt)
+- [x] **GEOM-03**: Peek mode padding horizontal 16pt — pill "плавает" с отступами от краёв
+- [x] **GEOM-04**: Half mode = ~40% экрана, opaque dark background, rounded top corners only (30pt)
+- [x] **GEOM-05**: Full mode = весь экран, тот же opaque dark фон, поиск сразу под safeAreaTop
 
 ### Drag Handle
 
@@ -73,11 +73,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GEOM-01 | Phase 7 | Pending |
-| GEOM-02 | Phase 7 | Pending |
-| GEOM-03 | Phase 7 | Pending |
-| GEOM-04 | Phase 7 | Pending |
-| GEOM-05 | Phase 7 | Pending |
+| GEOM-01 | Phase 7 | Complete |
+| GEOM-02 | Phase 7 | Complete |
+| GEOM-03 | Phase 7 | Complete |
+| GEOM-04 | Phase 7 | Complete |
+| GEOM-05 | Phase 7 | Complete |
 | HNDL-01 | Phase 8 | Pending |
 | HNDL-02 | Phase 8 | Pending |
 | HNDL-03 | Phase 8 | Pending |
