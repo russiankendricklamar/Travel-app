@@ -7,6 +7,7 @@ struct TripMapView: View {
 
     @Query var offlineCaches: [OfflineMapCache]
     @State private var vm: MapViewModel
+    @Namespace private var mapScope
     @FocusState private var isSearchFocused: Bool
     @Environment(\.modelContext) private var modelContext
 
@@ -146,39 +147,8 @@ struct TripMapView: View {
                     .animation(.spring(response: 0.3), value: vm.isOffNavCenter)
                 }
 
-                // MARK: - Floating Location Button (Apple Maps style, right side above search pill)
-                if isIdleMode && !vm.isNavigating {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Button {
-                                Task {
-                                    if let loc = await LocationManager.shared.requestCurrentLocation() {
-                                        withAnimation(.easeInOut(duration: 0.4)) {
-                                            vm.cameraPosition = .region(
-                                                MKCoordinateRegion(
-                                                    center: loc,
-                                                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                                                )
-                                            )
-                                        }
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "location.fill")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color(.secondarySystemGroupedBackground).opacity(0.97))
-                                    .clipShape(Circle())
-                                    .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
-                            }
-                        }
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 90) // Above search pill
-                    }
-                }
+                // MARK: - Floating Controls (Apple Maps style, right side)
+                FloatingControlsOverlay(vm: vm, mapScope: mapScope, isOfflineWithCache: isOfflineWithCache)
 
                 // MARK: - Bottom Sheet (always visible — Apple Maps style)
                 if !isOfflineWithCache {
@@ -187,6 +157,7 @@ struct TripMapView: View {
                     }
                 }
             }
+            .mapScope(mapScope)  // CRITICAL: links Map + MapCompass via namespace
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isIdleMode)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
@@ -296,7 +267,7 @@ struct TripMapView: View {
     // MARK: - Map Content
 
     private var mapContent: some View {
-        Map(position: $vm.cameraPosition, selection: $vm.selectedPlaceID) {
+        Map(position: $vm.cameraPosition, selection: $vm.selectedPlaceID, scope: mapScope) {
             // Place pins
             if vm.showPlaces {
                 ForEach(vm.visiblePlaces) { place in
@@ -411,11 +382,14 @@ struct TripMapView: View {
                 }
             }
         }
-        .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .including([.museum, .nationalPark, .park, .restaurant]), showsTraffic: true))
+        .mapStyle(.standard(
+            elevation: vm.show3DElevation ? .realistic : .flat,
+            pointsOfInterest: .including([.museum, .nationalPark, .park, .restaurant]),
+            showsTraffic: vm.showTraffic
+        ))
         .preferredColorScheme(.dark)
         .mapControls {
-            MapScaleView()
-            MapCompass()
+            MapScaleView()  // D-12: scale view stays in mapControls
         }
         .safeAreaPadding(.bottom, isIdleMode ? 66 : 0)
         .onMapCameraChange { context in
