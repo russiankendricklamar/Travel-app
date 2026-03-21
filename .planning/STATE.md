@@ -81,9 +81,10 @@ Plan: Not started
 |---|-------------|------|--------|-----------|
 | 260321-k7k | Fix peek pill: solid black background | 2026-03-21 | pending | [260321-k7k](./quick/260321-k7k-fix-map-bottom-sheet-ui-search-pill-widt/) |
 | 260321-m0i | Match search pill layout to reference | 2026-03-21 | 9b493a4 | [260321-m0i](./quick/260321-m0i-match-search-pill-layout-to-reference-25/) |
+| 260321-mhn | Fix search pill to match Apple Maps: taller pill, brighter text | 2026-03-21 | 686db45 | [260321-mhn](./quick/260321-mhn-fix-search-pill-to-match-apple-maps-incr/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-21 - Completed quick task 260321-k7k: Fix peek pill solid black
-Stopped at: Completed quick task 260321-k7k
+Last activity: 2026-03-21 - Completed quick task 260321-mhn: Fix search pill to match Apple Maps
+Stopped at: Completed quick task 260321-mhn
 Resume file: None
