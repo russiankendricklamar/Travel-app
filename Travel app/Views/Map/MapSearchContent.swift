@@ -78,6 +78,16 @@ struct MapSearchContent: View {
         }
     }
 
+    // Idle content is visible when: no completer active, no search query typed,
+    // no search results loaded, and sheet is in idle state (not showing category/text results).
+    // Removing isSearchFocused gate achieves Apple Maps parity (CONT-01 through CONT-03).
+    private var showIdleContent: Bool {
+        vm.completerResults.isEmpty
+            && vm.searchQuery.isEmpty
+            && vm.searchResults.isEmpty
+            && vm.sheetContent == .idle
+    }
+
     @ViewBuilder
     private var scrollableContent: some View {
         // Typeahead completer suggestions — shown while typing (before submit)
@@ -86,19 +96,28 @@ struct MapSearchContent: View {
             completerSuggestionsList
         }
 
-        // Category chips — only when focused, in idle with empty query
-        if isSearchFocused && vm.completerResults.isEmpty && vm.searchQuery.isEmpty,
-           vm.sheetContent == .idle || vm.sheetContent == .searchResults {
-            categoryChips
-                .padding(.bottom, 8)
-                .transition(.opacity)
+        // Idle content: category chips, today's places, map controls.
+        // Visible immediately in half/full mode — no search focus required (CONT-01 to CONT-03).
+        Group {
+            if showIdleContent {
+                categoryChips
+                    .padding(.bottom, 8)
+                    .transition(.opacity)
 
-            todayPlacesSection
-                .transition(.opacity)
+                todayPlacesSection
+                    .transition(.opacity)
 
-            mapControlsSection
-                .transition(.opacity)
+                mapControlsSection
+                    .transition(.opacity)
+
+                // Full-mode only: recent searches placeholder (D-03)
+                if vm.sheetDetent == .full {
+                    recentSearchesSection
+                        .transition(.opacity)
+                }
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: showIdleContent)
 
         if vm.sheetContent == .searchResults, !vm.searchResults.isEmpty {
             Divider().padding(.horizontal, 14)
@@ -596,6 +615,14 @@ struct MapSearchContent: View {
                 .font(.system(size: 10))
                 .foregroundStyle(tint ?? .secondary)
         }
+    }
+
+    // MARK: - Recent Searches (Full Mode)
+
+    @ViewBuilder
+    private var recentSearchesSection: some View {
+        // Renders nothing until recent search history is implemented (CONT-06 deferred)
+        EmptyView()
     }
 
     // MARK: - AI Messages
