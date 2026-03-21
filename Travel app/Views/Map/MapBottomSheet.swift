@@ -31,6 +31,7 @@ struct MapBottomSheet<Content: View>: View {
 
     @State private var dragOffset: CGFloat = 0
     @State private var screenHeight: CGFloat = 0
+    @State private var screenWidth: CGFloat = 0
     @State private var safeAreaTop: CGFloat = 0
 
     var body: some View {
@@ -45,6 +46,11 @@ struct MapBottomSheet<Content: View>: View {
                     proxy.size.height
                 } action: { newHeight in
                     screenHeight = newHeight
+                }
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.width
+                } action: { newWidth in
+                    screenWidth = newWidth
                 }
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.safeAreaInsets.top
@@ -75,12 +81,10 @@ struct MapBottomSheet<Content: View>: View {
                 Spacer(minLength: 0)
             }
             .frame(height: max(sheetHeight, 44), alignment: .top)
-            // In peek: compact centered pill; in half/full: full width
-            .frame(maxWidth: isPeek ? 257 : .infinity)
+            // In peek: match tab bar width; in half/full: full width
+            .frame(maxWidth: isPeek ? max(screenWidth - 56, 200) : .infinity)
             // Pad content below status bar in full mode
             .padding(.top, detent == .full ? safeAreaTop : 0)
-            // Bottom gap in peek: clearance above tab bar
-            .padding(.bottom, isPeek ? 28 : 0)
             .background {
                 let progress = dragProgress(in: screenHeight)
                 ZStack {
@@ -104,11 +108,13 @@ struct MapBottomSheet<Content: View>: View {
                     )
                     .fill(Color(uiColor: .systemBackground))
                     .shadow(color: .black.opacity(0.15), radius: 10, y: -5)
-                    .ignoresSafeArea(edges: detent == .full ? [.bottom, .top] : .bottom)
+                    .ignoresSafeArea(edges: isPeek ? [] : (detent == .full ? [.bottom, .top] : .bottom))
                     .opacity(progress)
                 }
             }
             .clipped()
+            // Bottom gap in peek: clearance above tab bar (AFTER background so bg doesn't fill padding)
+            .padding(.bottom, isPeek ? 7 : 0)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: detent)
             .accessibilityElement(children: .contain)
         }
