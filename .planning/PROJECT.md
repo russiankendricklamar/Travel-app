@@ -42,7 +42,7 @@
 - ✓ Bottom sheet geometry: 3 detent states (peek 56pt / half 40% / full) с правильной стилистикой — v1.1 (Phase 7)
 - ✓ Peek mode: тёмная полупрозрачная таблетка с `.ultraThinMaterial` blur — v1.1 (Phase 7)
 - ✓ Half/Full mode: непрозрачный тёмный фон, единый `UnevenRoundedRectangle` shape — v1.1 (Phase 7)
-- [ ] Search pill в стиле Apple Maps: drag handle + поиск + микрофон + аватар
+- ✓ Search bar в стиле Apple Maps: 17pt пропорции, RoundedRectangle(10), clear/sparkles, sticky header — v1.1 (Phase 8)
 - [ ] Floating map buttons: компас, транспорт, локация (правый вертикальный стек)
 - [ ] Sheet контент: структура как в Apple Maps (транспорт, места, недавние)
 
@@ -119,4 +119,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after Phase 7 (Sheet Geometry) completion*
+*Last updated: 2026-03-21 after Phase 8 (Search Bar + Handle) completion*
