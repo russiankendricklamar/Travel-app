@@ -29,13 +29,13 @@
 
 ### Floating Controls
 
-- [ ] **CTRL-01**: Вертикальный стек кнопок справа: компас → транспорт → локация
-- [ ] **CTRL-02**: Каждая кнопка: 44pt circle, `.ultraThinMaterial` + dark scheme background
-- [ ] **CTRL-03**: Позиция: правый край (16pt от края), над peek pill (~80pt от низа)
-- [ ] **CTRL-04**: Компас использует `MapCompass(scope: mapScope)` с `@Namespace`
-- [ ] **CTRL-05**: Кнопка локации центрирует карту на текущем GPS
-- [ ] **CTRL-06**: Кнопки плавно скрываются (opacity fade) при расширении sheet выше peek
-- [ ] **CTRL-07**: Кнопка транспорта переключает отображение transit линий на карте
+- [x] **CTRL-01**: Вертикальный стек кнопок справа: компас → транспорт → локация
+- [x] **CTRL-02**: Каждая кнопка: 44pt circle, `.ultraThinMaterial` + dark scheme background
+- [x] **CTRL-03**: Позиция: правый край (16pt от края), над peek pill (~80pt от низа)
+- [x] **CTRL-04**: Компас использует `MapCompass(scope: mapScope)` с `@Namespace`
+- [x] **CTRL-05**: Кнопка локации центрирует карту на текущем GPS
+- [x] **CTRL-06**: Кнопки плавно скрываются (opacity fade) при расширении sheet выше peek
+- [x] **CTRL-07**: Кнопка транспорта переключает отображение transit линий на карте
 
 ### Sheet Content
 
@@ -86,13 +86,13 @@
 | SRCH-03 | Phase 8 | Complete |
 | SRCH-04 | Phase 8 | Complete |
 | SRCH-05 | Phase 8 | Complete |
-| CTRL-01 | Phase 9 | Pending |
-| CTRL-02 | Phase 9 | Pending |
-| CTRL-03 | Phase 9 | Pending |
-| CTRL-04 | Phase 9 | Pending |
-| CTRL-05 | Phase 9 | Pending |
-| CTRL-06 | Phase 9 | Pending |
-| CTRL-07 | Phase 9 | Pending |
+| CTRL-01 | Phase 9 | Complete |
+| CTRL-02 | Phase 9 | Complete |
+| CTRL-03 | Phase 9 | Complete |
+| CTRL-04 | Phase 9 | Complete |
+| CTRL-05 | Phase 9 | Complete |
+| CTRL-06 | Phase 9 | Complete |
+| CTRL-07 | Phase 9 | Complete |
 | CONT-01 | Phase 10 | Pending |
 | CONT-02 | Phase 10 | Pending |
 | CONT-03 | Phase 10 | Pending |

@@ -27,7 +27,7 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details.
 
 - [x] **Phase 7: Sheet Geometry** — Правильная геометрия peek/half/full и фоновые материалы (completed 2026-03-21)
 - [x] **Phase 8: Search Bar + Handle** — Drag handle и search bar полностью соответствуют Apple Maps (completed 2026-03-21)
-- [ ] **Phase 9: Floating Controls** — Вертикальный стек кнопок справа с native MapKit интеграцией
+- [x] **Phase 9: Floating Controls** — Вертикальный стек кнопок справа с native MapKit интеграцией (completed 2026-03-21)
 - [ ] **Phase 10: Sheet Content** — Category chips, секции контента и скролл без конфликтов
 - [ ] **Phase 11: Transitions + Polish** — Spring анимации, морф фона и финальная полировка
 
@@ -71,9 +71,9 @@ Plans:
   3. Кнопка локации центрирует карту на текущем GPS при нажатии
   4. Компас использует нативный `MapCompass(scope: mapScope)` и скрывается когда north facing
   5. Кнопки плавно исчезают (opacity fade) когда sheet поднимается выше peek — без резких появлений/исчезновений
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 09-01-PLAN.md — Floating controls overlay with compass, transit/3D/location buttons, and TripMapView wiring
+- [x] 09-01-PLAN.md — Floating controls overlay with compass, transit/3D/location buttons, and TripMapView wiring
 
 ### Phase 10: Sheet Content
 **Goal**: Контент sheet заполняет half/full mode без пустых областей и конфликтов жестов
@@ -109,6 +109,6 @@ Plans:
 | 6. Offline Cache Wiring | v1.0 | 1/1 | Complete | 2026-03-20 |
 | 7. Sheet Geometry | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 8. Search Bar + Handle | v1.1 | 1/1 | Complete   | 2026-03-21 |
-| 9. Floating Controls | v1.1 | 0/1 | Planned | - |
+| 9. Floating Controls | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 10. Sheet Content | v1.1 | 0/? | Not started | - |
 | 11. Transitions + Polish | v1.1 | 0/? | Not started | - |

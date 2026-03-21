@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Apple Maps UI Parity
 status: unknown
-stopped_at: Phase 9 context gathered
-last_updated: "2026-03-21T03:00:03.528Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-03-21T03:22:04.414Z"
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Путешественник может построить маршрут между любыми точками, получить пошаговую навигацию с голосом на любом транспорте, и всё это работает офлайн в чужой стране без интернета.
-**Current focus:** Phase 08 — search-bar-handle
+**Current focus:** Phase 09 — floating-controls
 
 ## Current Position
 
-Phase: 9
-Plan: Not started
+Phase: 09 (floating-controls) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -43,6 +43,7 @@ Plan: Not started
 *Updated after each plan completion*
 | Phase 07-sheet-geometry P01 | 45 | 2 tasks | 3 files |
 | Phase 08-search-bar-handle P01 | 30 | 2 tasks | 1 files |
+| Phase 09 P01 | 189 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ Plan: Not started
 - [Phase 08-search-bar-handle]: Search bar background is RoundedRectangle(cornerRadius: 10) not Capsule — consistent with Apple Maps
 - [Phase 08-search-bar-handle]: Cancel button must NOT call vm.dismissSearch() — that sets sheetDetent = .peek; action inlined instead
 - [Phase 08-search-bar-handle]: Sparkles button hidden in peek mode (vm.sheetDetent != .peek) — no secondary controls in collapsed state
+- [Phase 09]: Used @Bindable var vm: MapViewModel (not @ObservedObject) for toggle writes with @Observable pattern
+- [Phase 09]: MapCompass moved from .mapControls into FloatingControlsOverlay with namespace scope wiring
 
 ### Blockers/Concerns
 
@@ -68,6 +71,6 @@ Plan: Not started
 
 ## Session Continuity
 
-Last session: 2026-03-21T03:00:03.520Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-floating-controls/09-CONTEXT.md
+Last session: 2026-03-21T03:22:04.412Z
+Stopped at: Completed 09-01-PLAN.md
+Resume file: None
