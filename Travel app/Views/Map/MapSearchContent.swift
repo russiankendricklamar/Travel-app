@@ -29,7 +29,7 @@ struct MapSearchContent: View {
                         vm.searchQuery = ""
                         isSearchFocused = false
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            vm.sheetDetent = .half
+                            vm.sheetDetent = .peek
                         }
                     }
                     .font(.system(size: 17, weight: .regular))

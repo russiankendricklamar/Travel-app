@@ -19,8 +19,6 @@ struct FloatingControlsOverlay: View {
 
             // Blur container with 3 buttons (D-03)
             VStack(spacing: 0) {
-                transitButton
-                divider
                 elevationButton
                 divider
                 locationButton

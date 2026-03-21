@@ -1,5 +1,12 @@
 import SwiftUI
 
+private extension View {
+    @ViewBuilder
+    func if_peek<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition { transform(self) } else { self }
+    }
+}
+
 /// Позиции bottom sheet (как в Apple Maps)
 enum SheetDetent: Equatable {
     case peek       // 56pt — drag handle + search bar visible
@@ -9,7 +16,7 @@ enum SheetDetent: Equatable {
     func height(in screenHeight: CGFloat) -> CGFloat {
         switch self {
         case .peek: return 44
-        case .half: return screenHeight * 0.40
+        case .half: return screenHeight * 0.70
         case .full: return screenHeight
         }
     }
@@ -112,8 +119,15 @@ struct MapBottomSheet<Content: View>: View {
                     .opacity(progress)
                 }
             }
-            .clipped()
-            // Bottom gap in peek: clearance above tab bar (AFTER background so bg doesn't fill padding)
+            .contentShape(Rectangle())
+            // Peek: clip to capsule shape; half/full: no clipping so bg extends into safe area
+            .if_peek(isPeek) { view in
+                view.clipShape(UnevenRoundedRectangle(
+                    topLeadingRadius: 30, bottomLeadingRadius: 30,
+                    bottomTrailingRadius: 30, topTrailingRadius: 30, style: .continuous
+                ))
+            }
+            // Bottom gap in peek: clearance above tab bar
             .padding(.bottom, isPeek ? 7 : 0)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: detent)
             .accessibilityElement(children: .contain)
