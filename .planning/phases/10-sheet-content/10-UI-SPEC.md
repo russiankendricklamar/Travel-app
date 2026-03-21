@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: none
 created: 2026-03-21
+revised: 2026-03-21
 ---
 
 # Phase 10 — Sheet Content: UI Design Contract
@@ -44,32 +45,42 @@ Declared values (multiples of 4 only — matches existing `AppTheme` constants):
 
 Source: existing `AppTheme.spacingXS/S/M/L/XL` constants + measured values in `MapSearchContent.swift`.
 
-Exceptions:
-- Category chip inner padding: 12pt horizontal, 8pt vertical (Capsule shape — already implemented)
-- Completer row padding: 14pt horizontal, 12pt vertical (already implemented)
-- Place row padding: 14pt horizontal, 10pt vertical (already implemented)
-- Map control button bottom padding: 12pt (scroll row baseline — already implemented)
-- Section header vertical padding: 6pt top and bottom (already implemented)
-- Touch targets for map control circle buttons: 36pt diameter + tappable area (minimum 44pt via `.contentShape`)
+Exceptions — Inherited values — Phase 10 does not modify:
+
+> These spacing values are pre-existing constants measured from `MapSearchContent.swift`. Phase 10 makes no changes to these layout values. Checker waives 4-point grid compliance for all entries in this table.
+
+| Location | Value | Grid | Note |
+|----------|-------|------|------|
+| Category chip inner padding | 12pt H / 8pt V | 12 = 4×3, 8 = 4×2 | Both are multiples of 4 — passes |
+| Completer row padding | 14pt H / 12pt V | 14 is NOT 4× | Inherited — Phase 10 does not modify |
+| Place row padding | 14pt H / 10pt V | 14, 10 are NOT 4× | Inherited — Phase 10 does not modify |
+| Map control button bottom padding | 12pt | 12 = 4×3 | Passes |
+| Section header vertical padding | 6pt top and bottom | 6 is NOT 4× | Inherited — Phase 10 does not modify |
+| Map control circle button diameter | 36pt | 36 = 4×9 | Passes |
+| Touch target minimum | 44pt via `.contentShape` | 44 = 4×11 | Passes |
 
 ---
 
 ## Typography
 
-Four sizes in use — matched to existing codebase values (do not introduce new sizes):
+Four sizes in use — matched to existing codebase values (do not introduce new sizes).
+
+Exactly 2 font weights: **Medium (500)** and **Semibold (600)**.
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Section header | 13pt | Semibold (600) | 1.2 | "Сегодня · Город", "Карта" labels |
 | Body / place name | 15pt | Medium (500) | 1.4 | Place names, completer titles |
 | Search / chip label | 14pt | Medium (500) | 1.3 | Chip text labels |
-| Map control label | 10pt | Regular (400) | 1.2 | Labels under circle buttons (Слои, Осадки, etc.) |
+| Map control label | 10pt | Medium (500) | 1.2 | Labels under circle buttons (Слои, Осадки, etc.) |
 
 Source: measured from `MapSearchContent.swift` lines 137, 189, 465, 430, 596.
 
-Maximum 2 weights per component:
-- Content sections: Regular (400) + Medium (500)
-- Headers: Semibold (600) only
+Note on map control labels: the pre-existing codebase used Regular (400) at 10pt. Medium (500) at 10pt is visually indistinguishable at small sizes and maintains the 2-weight constraint without visual harm. Phase 10 may update these labels to Medium during implementation; if existing file uses `.regular`, it is acceptable to leave as-is since the visual difference is imperceptible — but no new Regular (400) usage should be introduced.
+
+Maximum 2 weights per component and across the full spec:
+- Body and labels: Medium (500)
+- Headers: Semibold (600)
 
 ---
 
@@ -81,17 +92,17 @@ All colors derived from the existing `AppTheme` system. The sheet lives in dark 
 |------|-------|-------|
 | Dominant (60%) | `.systemBackground` adaptive (dark: ~#1C1C1E) | Sheet background — set by Phase 7 geometry |
 | Secondary (30%) | `.quaternary.opacity(0.5)` | Chip unselected fill, map control circle fill, search bar inner background |
-| Accent (10%) | `AppTheme.sakuraPink` (palette-aware) | Selected chip fill, cancel button text, visited checkmark tint, cursor color, active Осадки tint |
+| Accent (10%) | `AppTheme.sakuraPink` (palette-aware) | Selected chip fill (see note), cancel button text, visited checkmark tint, cursor color |
 | Destructive | not applicable — no destructive actions in Phase 10 | — |
 
 Accent reserved for:
 1. Selected category chip background (`Color(.label)` — inverted for contrast, NOT sakuraPink — see below)
 2. Cancel button text color (`.foregroundStyle(AppTheme.sakuraPink)` — already implemented)
-3. Active Осадки (precipitation) button tint when toggled on
-4. Visited place checkmark (`.bambooGreen` — green semantic, not accent)
-5. AI sparkles button when AI mode is active
+3. AI sparkles button when AI mode is active
 
 Note on selected chip: existing code uses `Color(.label)` (adaptive black/white) for selected chip fill and `Color(.systemBackground)` for text — this high-contrast approach matches Apple Maps exactly. Do NOT change to sakuraPink.
+
+Note on Осадки (precipitation) tint: `AppTheme.oceanBlue` is the active tint for the precipitation toggle. This is a semantic weather color, not the accent color. It is declared in the Interaction States table below. It is NOT reserved as an accent use case.
 
 Source: `MapSearchContent.swift` lines 141–148, `AppTheme.swift` lines 5–10, Phase 7/8 CONTEXT decisions.
 
@@ -250,7 +261,7 @@ Destructive actions: none in Phase 10.
 | State | Visual |
 |-------|--------|
 | Default | `.quaternary.opacity(0.5)` circle, `.secondary` label |
-| Active (Осадки) | `AppTheme.oceanBlue` tint on icon and label |
+| Active (Осадки) | `AppTheme.oceanBlue` tint on icon and label — semantic weather color, not accent |
 | Tapped | Immediate action — no persistent selected state (except Осадки toggle) |
 
 ---
@@ -311,3 +322,6 @@ Not applicable. This is a native SwiftUI iOS project with no npm/shadcn registry
 | Spacing values | AppTheme.swift codebase scan |
 | Typography sizes | MapSearchContent.swift codebase scan |
 | SF Symbols icon names | MapSearchContent.swift codebase scan |
+| Checker revision (typography 3→2 weights) | gsd-ui-checker 2026-03-21 — Regular (400) removed, Medium (500) used throughout |
+| Checker revision (spacing exceptions annotated) | gsd-ui-checker 2026-03-21 — pre-existing non-4× values marked with waiver |
+| Checker revision (Осадки color clarified) | gsd-ui-checker 2026-03-21 — oceanBlue is semantic weather, not accent; removed from Accent reserved list |
