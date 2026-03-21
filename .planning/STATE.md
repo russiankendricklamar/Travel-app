@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Apple Maps UI Parity
 status: unknown
-stopped_at: Phase 11 context gathered
-last_updated: "2026-03-21T04:15:58.689Z"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-21T04:37:05.411Z"
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 5
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Путешественник может построить маршрут между любыми точками, получить пошаговую навигацию с голосом на любом транспорте, и всё это работает офлайн в чужой стране без интернета.
-**Current focus:** Phase 10 — sheet-content
+**Current focus:** Phase 11 — transitions-polish
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
+Phase: 11 (transitions-polish) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -45,6 +45,7 @@ Plan: Not started
 | Phase 08-search-bar-handle P01 | 30 | 2 tasks | 1 files |
 | Phase 09 P01 | 189 | 2 tasks | 3 files |
 | Phase 10-sheet-content P01 | 2 | 2 tasks | 1 files |
+| Phase 11-transitions-polish P01 | 148 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Plan: Not started
 - [Phase 09]: MapCompass moved from .mapControls into FloatingControlsOverlay with namespace scope wiring
 - [Phase 10-sheet-content]: showIdleContent uses vm.sheetContent == .idle only (not .idle || .searchResults) to prevent chips rendering over category search results
 - [Phase 10-sheet-content]: Group wrapper scopes animation to idle content only — does not animate search bar or completer rows
+- [Phase 11-transitions-polish]: Dual-layer ZStack with progress-driven opacity replaces binary if/else for drag-linked background morph
+- [Phase 11-transitions-polish]: static let sheetSpring on MapViewModel unifies all 13 detent animation sites to response:0.35 dampingFraction:0.85
 
 ### Blockers/Concerns
 
@@ -74,6 +77,6 @@ Plan: Not started
 
 ## Session Continuity
 
-Last session: 2026-03-21T04:15:58.687Z
-Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-transitions-polish/11-CONTEXT.md
+Last session: 2026-03-21T04:37:05.408Z
+Stopped at: Completed 11-01-PLAN.md
+Resume file: None

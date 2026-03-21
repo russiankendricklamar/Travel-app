@@ -29,7 +29,7 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details.
 - [x] **Phase 8: Search Bar + Handle** — Drag handle и search bar полностью соответствуют Apple Maps (completed 2026-03-21)
 - [x] **Phase 9: Floating Controls** — Вертикальный стек кнопок справа с native MapKit интеграцией (completed 2026-03-21)
 - [x] **Phase 10: Sheet Content** — Category chips, секции контента и скролл без конфликтов (completed 2026-03-21)
-- [ ] **Phase 11: Transitions + Polish** — Spring анимации, морф фона и финальная полировка
+- [x] **Phase 11: Transitions + Polish** — Spring анимации, морф фона и финальная полировка (completed 2026-03-21)
 
 ## Phase Details
 
@@ -97,9 +97,9 @@ Plans:
   2. При переходе peek → half фон плавно меняется от blur pill к непрозрачному sheet
   3. Corner radius плавно морфирует от all-corners (peek) к top-only (half/full) в процессе drag
   4. Тап на поиск: sheet раскрывается до full, затем через 150ms появляется клавиатура — без сдвига контента
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 11-01-PLAN.md — Drag-progress morph, spring unification, haptics
+- [x] 11-01-PLAN.md — Drag-progress morph, spring unification, haptics
 
 ## Progress
 
@@ -115,4 +115,4 @@ Plans:
 | 8. Search Bar + Handle | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 9. Floating Controls | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 10. Sheet Content | v1.1 | 1/1 | Complete    | 2026-03-21 |
-| 11. Transitions + Polish | v1.1 | 0/1 | Not started | - |
+| 11. Transitions + Polish | v1.1 | 1/1 | Complete   | 2026-03-21 |

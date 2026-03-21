@@ -46,10 +46,10 @@
 
 ### Transitions
 
-- [ ] **TRAN-01**: Spring animation (response: 0.35, dampingFraction: 0.85) для detent переходов
-- [ ] **TRAN-02**: Background morph: blur pill → opaque sheet плавно при переходе peek → half
-- [ ] **TRAN-03**: Corner radius morph: all-corners (peek) → top-only (half/full)
-- [ ] **TRAN-04**: Keyboard expand: sheet → full, затем 150ms delay → focus text field
+- [x] **TRAN-01**: Spring animation (response: 0.35, dampingFraction: 0.85) для detent переходов
+- [x] **TRAN-02**: Background morph: blur pill → opaque sheet плавно при переходе peek → half
+- [x] **TRAN-03**: Corner radius morph: all-corners (peek) → top-only (half/full)
+- [x] **TRAN-04**: Keyboard expand: sheet → full, затем 150ms delay → focus text field
 
 ## Future Requirements
 
@@ -97,10 +97,10 @@
 | CONT-02 | Phase 10 | Complete |
 | CONT-03 | Phase 10 | Complete |
 | CONT-04 | Phase 10 | Complete |
-| TRAN-01 | Phase 11 | Pending |
-| TRAN-02 | Phase 11 | Pending |
-| TRAN-03 | Phase 11 | Pending |
-| TRAN-04 | Phase 11 | Pending |
+| TRAN-01 | Phase 11 | Complete |
+| TRAN-02 | Phase 11 | Complete |
+| TRAN-03 | Phase 11 | Complete |
+| TRAN-04 | Phase 11 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 28 total
