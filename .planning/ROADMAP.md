@@ -115,4 +115,4 @@ Plans:
 | 8. Search Bar + Handle | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 9. Floating Controls | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 10. Sheet Content | v1.1 | 1/1 | Complete    | 2026-03-21 |
-| 11. Transitions + Polish | v1.1 | 1/1 | Complete   | 2026-03-21 |
+| 11. Transitions + Polish | v1.1 | 1/1 | Complete    | 2026-03-21 |
