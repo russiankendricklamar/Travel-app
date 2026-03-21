@@ -39,10 +39,10 @@
 
 ### Sheet Content
 
-- [ ] **CONT-01**: Category chips (Музеи, Парки, Магазины, Отели) под search bar в half/full
-- [ ] **CONT-02**: "Сегодня · [Город]" секция с today's places
-- [ ] **CONT-03**: Map controls row (Слои, Осадки, Обзор, Все места) в half mode
-- [ ] **CONT-04**: Scrollable content в half/full mode не конфликтует с drag gesture
+- [x] **CONT-01**: Category chips (Музеи, Парки, Магазины, Отели) под search bar в half/full
+- [x] **CONT-02**: "Сегодня · [Город]" секция с today's places
+- [x] **CONT-03**: Map controls row (Слои, Осадки, Обзор, Все места) в half mode
+- [x] **CONT-04**: Scrollable content в half/full mode не конфликтует с drag gesture
 
 ### Transitions
 
@@ -93,10 +93,10 @@
 | CTRL-05 | Phase 9 | Complete |
 | CTRL-06 | Phase 9 | Complete |
 | CTRL-07 | Phase 9 | Complete |
-| CONT-01 | Phase 10 | Pending |
-| CONT-02 | Phase 10 | Pending |
-| CONT-03 | Phase 10 | Pending |
-| CONT-04 | Phase 10 | Pending |
+| CONT-01 | Phase 10 | Complete |
+| CONT-02 | Phase 10 | Complete |
+| CONT-03 | Phase 10 | Complete |
+| CONT-04 | Phase 10 | Complete |
 | TRAN-01 | Phase 11 | Pending |
 | TRAN-02 | Phase 11 | Pending |
 | TRAN-03 | Phase 11 | Pending |

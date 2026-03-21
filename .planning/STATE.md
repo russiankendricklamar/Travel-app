@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Apple Maps UI Parity
 status: unknown
-stopped_at: Phase 10 context gathered
-last_updated: "2026-03-21T03:34:17.089Z"
+stopped_at: Completed 10-sheet-content-10-01-PLAN.md
+last_updated: "2026-03-21T03:57:51.674Z"
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Путешественник может построить маршрут между любыми точками, получить пошаговую навигацию с голосом на любом транспорте, и всё это работает офлайн в чужой стране без интернета.
-**Current focus:** Phase 09 — floating-controls
+**Current focus:** Phase 10 — sheet-content
 
 ## Current Position
 
-Phase: 10
-Plan: Not started
+Phase: 10 (sheet-content) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -44,6 +44,7 @@ Plan: Not started
 | Phase 07-sheet-geometry P01 | 45 | 2 tasks | 3 files |
 | Phase 08-search-bar-handle P01 | 30 | 2 tasks | 1 files |
 | Phase 09 P01 | 189 | 2 tasks | 3 files |
+| Phase 10-sheet-content P01 | 2 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,8 @@ Plan: Not started
 - [Phase 08-search-bar-handle]: Sparkles button hidden in peek mode (vm.sheetDetent != .peek) — no secondary controls in collapsed state
 - [Phase 09]: Used @Bindable var vm: MapViewModel (not @ObservedObject) for toggle writes with @Observable pattern
 - [Phase 09]: MapCompass moved from .mapControls into FloatingControlsOverlay with namespace scope wiring
+- [Phase 10-sheet-content]: showIdleContent uses vm.sheetContent == .idle only (not .idle || .searchResults) to prevent chips rendering over category search results
+- [Phase 10-sheet-content]: Group wrapper scopes animation to idle content only — does not animate search bar or completer rows
 
 ### Blockers/Concerns
 
@@ -71,6 +74,6 @@ Plan: Not started
 
 ## Session Continuity
 
-Last session: 2026-03-21T03:34:17.086Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-sheet-content/10-CONTEXT.md
+Last session: 2026-03-21T03:57:51.672Z
+Stopped at: Completed 10-sheet-content-10-01-PLAN.md
+Resume file: None
