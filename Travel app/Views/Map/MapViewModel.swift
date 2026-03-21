@@ -52,6 +52,8 @@ enum MapSheetContent: Equatable {
 final class MapViewModel {
     let trip: Trip
 
+    static let sheetSpring = Animation.spring(response: 0.35, dampingFraction: 0.85)
+
     // Sheet state
     var sheetDetent: SheetDetent = .peek
     var sheetContent: MapSheetContent = .idle
@@ -256,12 +258,12 @@ final class MapViewModel {
         guard selectedPlace != nil else {
             if sheetContent == .placeDetail {
                 sheetContent = .idle
-                withAnimation(.spring(response: 0.3)) { sheetDetent = .peek }
+                withAnimation(Self.sheetSpring) { sheetDetent = .peek }
             }
             return
         }
         sheetContent = .placeDetail
-        withAnimation(.spring(response: 0.3)) { sheetDetent = .half }
+        withAnimation(Self.sheetSpring) { sheetDetent = .half }
     }
 
     func selectSearchResult(_ item: MKMapItem) {
@@ -269,7 +271,7 @@ final class MapViewModel {
         sheetContent = .searchItemDetail
         inlineAIDescription = nil
         isLoadingAIDescription = false
-        withAnimation(.spring(response: 0.3)) { sheetDetent = .half }
+        withAnimation(Self.sheetSpring) { sheetDetent = .half }
 
         if let coord = item.placemark.location?.coordinate {
             withAnimation(.easeInOut(duration: 0.4)) {
@@ -288,7 +290,7 @@ final class MapViewModel {
         sheetContent = .aiResultDetail
         inlineAIDescription = nil
         isLoadingAIDescription = false
-        withAnimation(.spring(response: 0.3)) { sheetDetent = .half }
+        withAnimation(Self.sheetSpring) { sheetDetent = .half }
 
         if rec.latitude != 0, rec.longitude != 0 {
             withAnimation {
@@ -312,7 +314,7 @@ final class MapViewModel {
         inlineAIDescription = nil
         isLoadingAIDescription = false
         sheetContent = .idle
-        withAnimation(.spring(response: 0.3)) { sheetDetent = .peek }
+        withAnimation(Self.sheetSpring) { sheetDetent = .peek }
     }
 
     /// Dismiss detail view and return to fresh search (swipe-down behavior)
@@ -381,7 +383,7 @@ final class MapViewModel {
             let response = try await search.start()
             searchResults = response.mapItems
             sheetContent = .searchResults
-            withAnimation(.spring(response: 0.3)) { sheetDetent = .half }
+            withAnimation(Self.sheetSpring) { sheetDetent = .half }
             zoomToSearchResults()
         } catch {
             searchResults = []
@@ -410,7 +412,7 @@ final class MapViewModel {
             let response = try await search.start()
             searchResults = response.mapItems
             sheetContent = .searchResults
-            withAnimation(.spring(response: 0.3)) { sheetDetent = .half }
+            withAnimation(Self.sheetSpring) { sheetDetent = .half }
             zoomToSearchResults()
         } catch {
             searchResults = []
@@ -485,7 +487,7 @@ final class MapViewModel {
         searchCompleter.queryFragment = ""
         AIMapSearchService.shared.clear()
         sheetContent = .idle
-        withAnimation(.spring(response: 0.3)) { sheetDetent = .peek }
+        withAnimation(Self.sheetSpring) { sheetDetent = .peek }
     }
 
     func formatSearchAddress(_ item: MKMapItem) -> String? {
@@ -538,7 +540,7 @@ final class MapViewModel {
         }
 
         if let firstRoute = results.first {
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(Self.sheetSpring) {
                 alternativeRoutes = results
                 selectedRouteIndex = 0
                 activeRoute = firstRoute
@@ -586,7 +588,7 @@ final class MapViewModel {
         )
 
         if let firstRoute = results.first {
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(Self.sheetSpring) {
                 alternativeRoutes = results
                 selectedRouteIndex = 0
                 activeRoute = firstRoute
@@ -622,7 +624,7 @@ final class MapViewModel {
         if isNavigating {
             stopNavigation()
         }
-        withAnimation(.spring(response: 0.3)) {
+        withAnimation(Self.sheetSpring) {
             activeRoute = nil
             alternativeRoutes = []
             selectedRouteIndex = 0
@@ -700,7 +702,7 @@ final class MapViewModel {
         }
 
         // Switch sheet to navigation mode
-        withAnimation(.spring(response: 0.3)) {
+        withAnimation(Self.sheetSpring) {
             sheetContent = .navigation
             sheetDetent = .peek
         }
@@ -740,7 +742,7 @@ final class MapViewModel {
         }
 
         // Return to route info sheet
-        withAnimation(.spring(response: 0.3)) {
+        withAnimation(Self.sheetSpring) {
             sheetContent = .routeInfo
             sheetDetent = .half
         }
