@@ -39,7 +39,7 @@ struct MapSearchContent: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 10)
-            .animation(.spring(response: 0.3), value: isSearchFocused || !vm.searchQuery.isEmpty)
+            .animation(MapViewModel.sheetSpring, value: isSearchFocused || !vm.searchQuery.isEmpty)
 
             // Divider — only in full mode when scrolled (D-41)
             if vm.sheetDetent == .full && isScrolled {
@@ -70,7 +70,7 @@ struct MapSearchContent: View {
                 scrollableContent
             }
         }
-        .animation(.spring(response: 0.3), value: isSearchFocused)
+        .animation(MapViewModel.sheetSpring, value: isSearchFocused)
         .onChange(of: vm.sheetDetent) { _, newDetent in
             if newDetent != .full {
                 isScrolled = false
@@ -288,7 +288,7 @@ struct MapSearchContent: View {
             else if vm.sheetDetent != .peek {
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()  // D-57
-                    withAnimation(.spring(response: 0.3)) {
+                    withAnimation(MapViewModel.sheetSpring) {
                         vm.isAISearchMode.toggle()
                         vm.searchResults = []
                         vm.searchedItem = nil

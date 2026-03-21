@@ -144,7 +144,7 @@ struct TripMapView: View {
                         }
                         .padding(.bottom, 100) // Above the bottom sheet peek
                     }
-                    .animation(.spring(response: 0.3), value: vm.isOffNavCenter)
+                    .animation(MapViewModel.sheetSpring, value: vm.isOffNavCenter)
                 }
 
                 // MARK: - Floating Controls (Apple Maps style, right side)
@@ -245,7 +245,7 @@ struct TripMapView: View {
                 } else if hasActiveSearch {
                     // Active search/typeahead → preserve search, just minimize
                     // Bounce to half so search bar stays visible (74pt peek is too small)
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                    withAnimation(MapViewModel.sheetSpring) {
                         vm.sheetDetent = .half
                     }
                 } else {
