@@ -84,7 +84,9 @@ Plans:
   2. Секция "Сегодня · [Город]" показывает today's places в half/full mode
   3. Map controls row (Слои, Осадки, Обзор, Все места) доступен в half mode
   4. Скролл контента в half/full не перехватывает drag gesture sheet при движении вниз
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 10-01-PLAN.md — Fix idle content visibility, fade animation, today's places truncation
 
 ### Phase 11: Transitions + Polish
 **Goal**: Все переходы между состояниями плавные, без визуальных артефактов, верифицированы на физическом устройстве
@@ -110,5 +112,5 @@ Plans:
 | 7. Sheet Geometry | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 8. Search Bar + Handle | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 9. Floating Controls | v1.1 | 1/1 | Complete   | 2026-03-21 |
-| 10. Sheet Content | v1.1 | 0/? | Not started | - |
+| 10. Sheet Content | v1.1 | 0/1 | In progress | - |
 | 11. Transitions + Polish | v1.1 | 0/? | Not started | - |
