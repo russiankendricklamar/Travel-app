@@ -235,7 +235,7 @@ struct MapSearchContent: View {
             // Leading icon — always magnifyingglass
             Image(systemName: "magnifyingglass")
                 .font(.system(size: vm.sheetDetent == .peek ? 15 : 17, weight: .regular))
-                .foregroundStyle(vm.sheetDetent == .peek ? Color.white.opacity(0.6) : .secondary)
+                .foregroundStyle(vm.sheetDetent == .peek ? Color.white.opacity(0.85) : .secondary)
                 .padding(.leading, vm.sheetDetent == .peek ? 0 : 14)
                 .padding(.trailing, vm.sheetDetent == .peek ? 0 : 6)
 
@@ -244,7 +244,7 @@ struct MapSearchContent: View {
             if vm.sheetDetent == .peek && !isSearchFocused {
                 Text("Поиск")
                     .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(Color.white.opacity(0.6))
+                    .foregroundStyle(Color.white.opacity(0.85))
                     .lineLimit(1)
                     .contentShape(Rectangle())
                     .onTapGesture {
@@ -310,7 +310,7 @@ struct MapSearchContent: View {
                 .padding(.trailing, 14)
             }
         }
-        .padding(.vertical, vm.sheetDetent == .peek ? 9 : 8)
+        .padding(.vertical, vm.sheetDetent == .peek ? 12 : 8)
         // In peek mode the sheet itself IS the dark bar — no inner capsule background needed (D-19)
         .background(
             Group {

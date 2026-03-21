@@ -8,7 +8,7 @@ enum SheetDetent: Equatable {
 
     func height(in screenHeight: CGFloat) -> CGFloat {
         switch self {
-        case .peek: return 36
+        case .peek: return 44
         case .half: return screenHeight * 0.40
         case .full: return screenHeight
         }
@@ -74,7 +74,7 @@ struct MapBottomSheet<Content: View>: View {
 
                 Spacer(minLength: 0)
             }
-            .frame(height: max(sheetHeight, 36), alignment: .top)
+            .frame(height: max(sheetHeight, 44), alignment: .top)
             // In peek: compact centered pill; in half/full: full width
             .frame(maxWidth: isPeek ? 257 : .infinity)
             // Pad content below status bar in full mode
