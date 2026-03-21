@@ -65,6 +65,10 @@ final class MapViewModel {
     var showPrecipitation = false
     var isLoadingRadar = false
 
+    // Floating controls toggles
+    var showTraffic: Bool = true        // D-15: starts ON (current behavior)
+    var show3DElevation: Bool = false   // UI-SPEC: starts flat
+
     // Camera
     var cameraPosition: MapCameraPosition = .automatic
     var hasSetInitialCamera = false
