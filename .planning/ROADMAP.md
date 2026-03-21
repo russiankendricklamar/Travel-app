@@ -21,7 +21,7 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details.
 
 </details>
 
-### 🚧 v1.1 Apple Maps UI Parity (In Progress)
+### v1.1 Apple Maps UI Parity (In Progress)
 
 **Milestone Goal:** Карта выглядит и работает как Apple Maps — bottom sheet с правильными detent states, search pill с blur и пропорциями Apple Maps, floating controls, и плавные переходы между состояниями.
 
@@ -52,12 +52,14 @@ Plans:
 **Depends on**: Phase 7
 **Requirements**: HNDL-01, HNDL-02, HNDL-03, SRCH-01, SRCH-02, SRCH-03, SRCH-04, SRCH-05
 **Success Criteria** (what must be TRUE):
-  1. Drag handle виден во всех трёх состояниях как 36pt × 5pt capsule по центру сверху
+  1. Drag handle виден во всех трёх состояниях как 36pt x 5pt capsule по центру сверху
   2. В peek mode search bar не имеет внутреннего фона — сама pill является фоном
   3. В half/full mode search bar показывает capsule background `.quaternary.opacity(0.5)` внутри sheet
   4. Тап на pill в peek mode раскрывает sheet до full и фокусирует текстовое поле
   5. Кнопка "Отмена" появляется справа от поиска в half/full mode
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 08-01-PLAN.md — Restyle search bar, cancel button, clear/sparkles, haptics, sticky header
 
 ### Phase 9: Floating Controls
 **Goal**: Вертикальный стек кнопок справа от карты работает с native MapKit интеграцией
@@ -104,7 +106,7 @@ Plans:
 | 5. Offline Route Fixes | v1.0 | 1/1 | Complete | 2026-03-20 |
 | 6. Offline Cache Wiring | v1.0 | 1/1 | Complete | 2026-03-20 |
 | 7. Sheet Geometry | v1.1 | 1/1 | Complete   | 2026-03-21 |
-| 8. Search Bar + Handle | v1.1 | 0/? | Not started | - |
+| 8. Search Bar + Handle | v1.1 | 0/1 | Not started | - |
 | 9. Floating Controls | v1.1 | 0/? | Not started | - |
 | 10. Sheet Content | v1.1 | 0/? | Not started | - |
 | 11. Transitions + Polish | v1.1 | 0/? | Not started | - |
