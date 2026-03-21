@@ -464,7 +464,13 @@ struct MapSearchContent: View {
 
                 Divider().padding(.horizontal, 14)
 
-                ForEach(Array(today.sortedPlaces.enumerated()), id: \.element.id) { index, place in
+                let allPlaces = today.sortedPlaces
+                let isHalf = vm.sheetDetent == .half
+                let displayedPlaces = isHalf && allPlaces.count > 3
+                    ? Array(allPlaces.prefix(3))
+                    : allPlaces
+
+                ForEach(Array(displayedPlaces.enumerated()), id: \.element.id) { index, place in
                     Button {
                         vm.selectedPlaceID = place.id
                         isSearchFocused = false
@@ -498,9 +504,27 @@ struct MapSearchContent: View {
                     }
                     .buttonStyle(.plain)
 
-                    if index < today.sortedPlaces.count - 1 {
+                    if index < displayedPlaces.count - 1 {
                         Divider().padding(.leading, 52)
                     }
+                }
+
+                // "Show all" overflow button — half mode with >3 places
+                if isHalf && allPlaces.count > 3 {
+                    Divider().padding(.leading, 52)
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            vm.sheetDetent = .full
+                        }
+                    } label: {
+                        Text("Показать все (\(allPlaces.count))")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(AppTheme.sakuraPink)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.bottom, 4)
