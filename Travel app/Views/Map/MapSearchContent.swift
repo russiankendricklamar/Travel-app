@@ -1,68 +1,118 @@
 import SwiftUI
 import MapKit
 
+// PreferenceKey to track scroll offset from within a ScrollView (iOS 17 compatible)
+private struct ScrollOffsetKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 /// Содержимое bottom sheet: поисковая строка + результаты
 struct MapSearchContent: View {
     @Bindable var vm: MapViewModel
     @FocusState.Binding var isSearchFocused: Bool
 
+    @State private var isScrolled: Bool = false
+
     var body: some View {
         VStack(spacing: 0) {
-            // Search bar + cancel button row
+            // STICKY: search bar + cancel — always outside ScrollView
             HStack(spacing: 10) {
                 searchFieldContent
                     .frame(maxWidth: .infinity)
 
-                // "Отмена" — shown when search is active
+                // "Отмена" — shown when search is active (D-44..D-49)
                 if isSearchFocused || !vm.searchQuery.isEmpty {
                     Button("Отмена") {
-                        vm.dismissSearch()
+                        vm.searchQuery = ""
                         isSearchFocused = false
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            vm.sheetDetent = .half  // D-49: stay at half, do NOT call vm.dismissSearch()
+                        }
                     }
-                    .font(.system(size: 16))
-                    .foregroundStyle(AppTheme.sakuraPink)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    .font(.system(size: 17, weight: .regular))  // D-46
+                    .foregroundStyle(AppTheme.sakuraPink)         // D-47
+                    .transition(.move(edge: .trailing).combined(with: .opacity))  // D-48
                 }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 10)
             .animation(.spring(response: 0.3), value: isSearchFocused || !vm.searchQuery.isEmpty)
 
-            // Typeahead completer suggestions — shown while typing (before submit)
-            if vm.isCompleterActive && !vm.completerResults.isEmpty {
-                Divider().padding(.horizontal, 14)
-                completerSuggestionsList
-            }
-
-            // Category chips — only when focused, in idle with empty query
-            if isSearchFocused && vm.completerResults.isEmpty && vm.searchQuery.isEmpty,
-               vm.sheetContent == .idle || vm.sheetContent == .searchResults {
-                categoryChips
-                    .padding(.bottom, 8)
+            // Divider — only in full mode when scrolled (D-41)
+            if vm.sheetDetent == .full && isScrolled {
+                Divider()
                     .transition(.opacity)
-
-                todayPlacesSection
-                    .transition(.opacity)
-
-                mapControlsSection
-                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.15), value: isScrolled)
             }
 
-            if vm.sheetContent == .searchResults, !vm.searchResults.isEmpty {
-                Divider().padding(.horizontal, 14)
-                searchResultsList
-            }
+            // Scrollable in full mode, flat in half/peek
+            if vm.sheetDetent == .full {
+                ScrollView(.vertical, showsIndicators: false) {
+                    // Invisible geometry reader anchored to .named("scrollView") reports offset
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: ScrollOffsetKey.self,
+                            value: -geo.frame(in: .named("scrollView")).origin.y
+                        )
+                    }
+                    .frame(height: 0)
 
-            if vm.sheetContent == .aiSearchResults || (vm.isAISearchMode && !AIMapSearchService.shared.results.isEmpty) {
-                Divider().padding(.horizontal, 14)
-                aiSearchResultsList
-            }
-
-            if vm.isAISearchMode {
-                aiMessages
+                    scrollableContent
+                }
+                .coordinateSpace(name: "scrollView")
+                .onPreferenceChange(ScrollOffsetKey.self) { offset in
+                    isScrolled = offset > 2
+                }
+            } else {
+                scrollableContent
             }
         }
         .animation(.spring(response: 0.3), value: isSearchFocused)
+        .onChange(of: vm.sheetDetent) { _, newDetent in
+            if newDetent != .full {
+                isScrolled = false
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var scrollableContent: some View {
+        // Typeahead completer suggestions — shown while typing (before submit)
+        if vm.isCompleterActive && !vm.completerResults.isEmpty {
+            Divider().padding(.horizontal, 14)
+            completerSuggestionsList
+        }
+
+        // Category chips — only when focused, in idle with empty query
+        if isSearchFocused && vm.completerResults.isEmpty && vm.searchQuery.isEmpty,
+           vm.sheetContent == .idle || vm.sheetContent == .searchResults {
+            categoryChips
+                .padding(.bottom, 8)
+                .transition(.opacity)
+
+            todayPlacesSection
+                .transition(.opacity)
+
+            mapControlsSection
+                .transition(.opacity)
+        }
+
+        if vm.sheetContent == .searchResults, !vm.searchResults.isEmpty {
+            Divider().padding(.horizontal, 14)
+            searchResultsList
+        }
+
+        if vm.sheetContent == .aiSearchResults || (vm.isAISearchMode && !AIMapSearchService.shared.results.isEmpty) {
+            Divider().padding(.horizontal, 14)
+            aiSearchResultsList
+        }
+
+        if vm.isAISearchMode {
+            aiMessages
+        }
     }
 
     // MARK: - Category Chips
@@ -161,23 +211,27 @@ struct MapSearchContent: View {
     // Note: the outer Cancel button lives in `body` alongside this view.
 
     private var searchFieldContent: some View {
-        HStack(spacing: 8) {
-            Image(systemName: vm.isAISearchMode ? "sparkles" : "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(vm.isAISearchMode ? AppTheme.sakuraPink : .secondary)
+        HStack(spacing: 0) {  // D-17: manual spacing control via per-element padding
+            // Leading icon — always magnifyingglass (D-14)
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 17, weight: .regular))  // D-14
+                .foregroundStyle(.secondary)
+                .padding(.leading, 14)  // D-16: inner leading padding
+                .padding(.trailing, 6)  // D-17: 6pt icon-text gap
 
             // In peek: show tappable placeholder that expands sheet
             // In half/full: show real TextField
             if vm.sheetDetent == .peek && !isSearchFocused {
-                Text(vm.searchQuery.isEmpty ? "Поиск на карте" : vm.searchQuery)
-                    .font(.system(size: 16))
-                    .foregroundStyle(vm.searchQuery.isEmpty ? .secondary : .primary)
+                Text(vm.searchQuery.isEmpty ? "Поиск" : vm.searchQuery)  // D-24
+                    .font(.system(size: 17))  // D-15
+                    .foregroundStyle(vm.searchQuery.isEmpty ? Color.white.opacity(0.5) : Color.primary)  // D-25
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                     .onTapGesture {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()  // D-33
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            vm.sheetDetent = .full
+                            vm.sheetDetent = .half  // D-32: expand to half, not full
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                             isSearchFocused = true
@@ -185,11 +239,13 @@ struct MapSearchContent: View {
                     }
             } else {
                 TextField(
-                    vm.isAISearchMode ? "Спросите ИИ..." : "Поиск на карте",
+                    vm.isAISearchMode ? "Спросите ИИ..." : "Поиск",  // D-24
                     text: $vm.searchQuery
                 )
-                .font(.system(size: 16))
+                .font(.system(size: 17))  // D-15
                 .autocorrectionDisabled()
+                .autocapitalization(.none)  // D-29
+                .accentColor(AppTheme.sakuraPink)  // D-28: cursor color
                 .focused($isSearchFocused)
                 .onSubmit { vm.submitSearch() }
             }
@@ -198,40 +254,57 @@ struct MapSearchContent: View {
                 ProgressView().scaleEffect(0.65)
             }
 
-            // AI toggle — visible in all detent states
-            Button {
-                withAnimation(.spring(response: 0.3)) {
-                    vm.isAISearchMode.toggle()
-                    vm.searchResults = []
-                    vm.searchedItem = nil
-                    vm.completerResults = []
-                    if !vm.isAISearchMode {
-                        AIMapSearchService.shared.clear()
-                        vm.selectedAIResult = nil
-                    }
+            // Clear button — shown when query is not empty (D-37/D-38/D-39)
+            if !vm.searchQuery.isEmpty {
+                Button {
+                    vm.searchQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))  // D-38
+                        .foregroundStyle(Color.secondary)
                 }
-            } label: {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(vm.isAISearchMode ? .white : AppTheme.sakuraPink)
-                    .frame(width: 30, height: 30)
-                    .background(vm.isAISearchMode ? AppTheme.sakuraPink : .clear)
-                    .clipShape(Circle())
+                .padding(.trailing, 14)
+            }
+            // AI sparkles — shown when query empty AND not peek (D-50/D-51/D-56)
+            else if vm.sheetDetent != .peek {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()  // D-57
+                    withAnimation(.spring(response: 0.3)) {
+                        vm.isAISearchMode.toggle()
+                        vm.searchResults = []
+                        vm.searchedItem = nil
+                        vm.completerResults = []
+                        if !vm.isAISearchMode {
+                            AIMapSearchService.shared.clear()
+                            vm.selectedAIResult = nil
+                        }
+                    }
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 17))  // D-52
+                        .foregroundStyle(vm.isAISearchMode ? AppTheme.sakuraPink : Color.secondary)  // D-53/D-54
+                        .symbolEffect(.bounce, value: vm.isAISearchMode)  // D-55
+                }
+                .padding(.trailing, 14)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, vm.sheetDetent == .peek ? 4 : 8)
-        // In peek mode the sheet itself IS the dark bar — no inner capsule background needed
+        .padding(.vertical, vm.sheetDetent == .peek ? 4 : 8)  // D-12
+        // In peek mode the sheet itself IS the dark bar — no inner capsule background needed (D-19)
         .background(
             Group {
                 if vm.sheetDetent != .peek {
-                    Capsule()
-                        .fill(.quaternary.opacity(0.5))
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)  // D-22
+                        .fill(.quaternary.opacity(0.5))  // D-20
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)  // D-21
+                        )
                 } else {
                     Color.clear
                 }
             }
         )
+        .animation(.easeInOut(duration: 0.15), value: vm.sheetDetent == .peek)  // D-34
     }
 
     // MARK: - MK Search Results
