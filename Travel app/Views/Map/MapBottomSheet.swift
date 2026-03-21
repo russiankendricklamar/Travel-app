@@ -82,46 +82,54 @@ struct MapBottomSheet<Content: View>: View {
             // Bottom gap in peek: 8pt above safe area / tab bar
             .padding(.bottom, isPeek ? 8 : 0)
             .background {
-                if isPeek {
+                let progress = dragProgress(in: screenHeight)
+                ZStack {
+                    // Peek background (blur pill) — fades OUT as sheet rises
                     UnevenRoundedRectangle(
-                        topLeadingRadius: 22,
-                        bottomLeadingRadius: 22,
-                        bottomTrailingRadius: 22,
-                        topTrailingRadius: 22,
-                        style: .continuous
+                        topLeadingRadius: 22, bottomLeadingRadius: 22,
+                        bottomTrailingRadius: 22, topTrailingRadius: 22, style: .continuous
                     )
                     .fill(.ultraThinMaterial)
                     .overlay(
                         UnevenRoundedRectangle(
-                            topLeadingRadius: 22,
-                            bottomLeadingRadius: 22,
-                            bottomTrailingRadius: 22,
-                            topTrailingRadius: 22,
-                            style: .continuous
+                            topLeadingRadius: 22, bottomLeadingRadius: 22,
+                            bottomTrailingRadius: 22, topTrailingRadius: 22, style: .continuous
                         )
                         .fill(Color.black.opacity(0.35))
                     )
                     .environment(\.colorScheme, .dark)
                     .shadow(color: .black.opacity(0.35), radius: 14, x: 0, y: 4)
-                    .transition(.opacity)
-                } else {
+                    .opacity(1 - progress)
+
+                    // Expanded background (opaque) — fades IN as sheet rises
+                    // Bottom corners interpolate: 22pt → 0pt when fully expanded
                     UnevenRoundedRectangle(
                         topLeadingRadius: 22,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: 0,
+                        bottomLeadingRadius: 22 * (1 - progress),
+                        bottomTrailingRadius: 22 * (1 - progress),
                         topTrailingRadius: 22,
                         style: .continuous
                     )
                     .fill(Color(uiColor: .systemBackground))
                     .shadow(color: .black.opacity(0.15), radius: 10, y: -5)
                     .ignoresSafeArea(edges: detent == .full ? [.bottom, .top] : .bottom)
-                    .transition(.opacity)
+                    .opacity(progress)
                 }
             }
-            .animation(.easeInOut(duration: 0.15), value: isPeek)
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: detent)
             .accessibilityElement(children: .contain)
         }
         .ignoresSafeArea(.keyboard)
+    }
+
+    // MARK: - Drag Progress
+
+    private func dragProgress(in screenHeight: CGFloat) -> CGFloat {
+        guard screenHeight > 0 else { return detent == .peek ? 0 : 1 }
+        let peekH = SheetDetent.peek.height(in: screenHeight)
+        let halfH = SheetDetent.half.height(in: screenHeight)
+        let currentH = detent.height(in: screenHeight) + dragOffset
+        return max(0, min(1, (currentH - peekH) / (halfH - peekH)))
     }
 
     // MARK: - Drag Gesture
@@ -147,6 +155,7 @@ struct MapBottomSheet<Content: View>: View {
                 }
 
                 let nearest = SheetDetent.nearest(to: targetHeight, in: totalHeight)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                     detent = nearest
                     dragOffset = 0
