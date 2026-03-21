@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Apple Maps UI Parity
 status: unknown
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-03-21T00:45:12.075Z"
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-21T02:20:00.802Z"
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Путешественник может построить маршрут между любыми точками, получить пошаговую навигацию с голосом на любом транспорте, и всё это работает офлайн в чужой стране без интернета.
-**Current focus:** Phase 07 — sheet-geometry
+**Current focus:** Phase 08 — search-bar-handle
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
+Phase: 08 (search-bar-handle) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Plan: Not started
 
 *Updated after each plan completion*
 | Phase 07-sheet-geometry P01 | 45 | 2 tasks | 3 files |
+| Phase 08-search-bar-handle P01 | 30 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -56,6 +57,9 @@ Plan: Not started
 - [Phase 07-sheet-geometry]: Used opacity crossfade between two UnevenRoundedRectangle backgrounds rather than animating corner radii to avoid interpolation jank
 - [Phase 07-sheet-geometry]: Peek background uses ultraThinMaterial + black.opacity(0.35) + dark colorScheme so map tiles show through regardless of terrain color
 - [Phase 07-sheet-geometry]: Drag gesture scoped to full pill in peek, handle-only in half/full to avoid scroll interference
+- [Phase 08-search-bar-handle]: Search bar background is RoundedRectangle(cornerRadius: 10) not Capsule — consistent with Apple Maps
+- [Phase 08-search-bar-handle]: Cancel button must NOT call vm.dismissSearch() — that sets sheetDetent = .peek; action inlined instead
+- [Phase 08-search-bar-handle]: Sparkles button hidden in peek mode (vm.sheetDetent != .peek) — no secondary controls in collapsed state
 
 ### Blockers/Concerns
 
@@ -64,6 +68,6 @@ Plan: Not started
 
 ## Session Continuity
 
-Last session: 2026-03-21T00:40:06.991Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-03-21T02:20:00.799Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None

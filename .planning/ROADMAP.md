@@ -26,7 +26,7 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details.
 **Milestone Goal:** Карта выглядит и работает как Apple Maps — bottom sheet с правильными detent states, search pill с blur и пропорциями Apple Maps, floating controls, и плавные переходы между состояниями.
 
 - [x] **Phase 7: Sheet Geometry** — Правильная геометрия peek/half/full и фоновые материалы (completed 2026-03-21)
-- [ ] **Phase 8: Search Bar + Handle** — Drag handle и search bar полностью соответствуют Apple Maps
+- [x] **Phase 8: Search Bar + Handle** — Drag handle и search bar полностью соответствуют Apple Maps (completed 2026-03-21)
 - [ ] **Phase 9: Floating Controls** — Вертикальный стек кнопок справа с native MapKit интеграцией
 - [ ] **Phase 10: Sheet Content** — Category chips, секции контента и скролл без конфликтов
 - [ ] **Phase 11: Transitions + Polish** — Spring анимации, морф фона и финальная полировка
@@ -57,9 +57,9 @@ Plans:
   3. В half/full mode search bar показывает capsule background `.quaternary.opacity(0.5)` внутри sheet
   4. Тап на pill в peek mode раскрывает sheet до full и фокусирует текстовое поле
   5. Кнопка "Отмена" появляется справа от поиска в half/full mode
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 08-01-PLAN.md — Restyle search bar, cancel button, clear/sparkles, haptics, sticky header
+- [x] 08-01-PLAN.md — Restyle search bar, cancel button, clear/sparkles, haptics, sticky header
 
 ### Phase 9: Floating Controls
 **Goal**: Вертикальный стек кнопок справа от карты работает с native MapKit интеграцией
@@ -106,7 +106,7 @@ Plans:
 | 5. Offline Route Fixes | v1.0 | 1/1 | Complete | 2026-03-20 |
 | 6. Offline Cache Wiring | v1.0 | 1/1 | Complete | 2026-03-20 |
 | 7. Sheet Geometry | v1.1 | 1/1 | Complete   | 2026-03-21 |
-| 8. Search Bar + Handle | v1.1 | 0/1 | Not started | - |
+| 8. Search Bar + Handle | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 9. Floating Controls | v1.1 | 0/? | Not started | - |
 | 10. Sheet Content | v1.1 | 0/? | Not started | - |
 | 11. Transitions + Polish | v1.1 | 0/? | Not started | - |

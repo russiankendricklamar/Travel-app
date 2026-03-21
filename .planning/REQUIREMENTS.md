@@ -15,17 +15,17 @@
 
 ### Drag Handle
 
-- [ ] **HNDL-01**: Drag handle capsule 36pt wide x 5pt tall, `Color(.systemFill)`
-- [ ] **HNDL-02**: Handle виден во ВСЕХ detent states (peek, half, full) — по центру над search bar
-- [ ] **HNDL-03**: Handle padding top 10pt, bottom 6pt
+- [x] **HNDL-01**: Drag handle capsule 36pt wide x 5pt tall, `Color(.systemFill)`
+- [x] **HNDL-02**: Handle виден во ВСЕХ detent states (peek, half, full) — по центру над search bar
+- [x] **HNDL-03**: Handle padding top 10pt, bottom 6pt
 
 ### Search Bar
 
-- [ ] **SRCH-01**: Magnifying glass icon + "Поиск на карте" placeholder + AI sparkles toggle
-- [ ] **SRCH-02**: В peek mode: нет внутреннего capsule background (pill сама является фоном)
-- [ ] **SRCH-03**: В half/full mode: capsule background `.quaternary.opacity(0.5)` внутри sheet
-- [ ] **SRCH-04**: Тап на pill в peek → expand to full + focus text field
-- [ ] **SRCH-05**: "Отмена" кнопка справа от поиска в half/full mode
+- [x] **SRCH-01**: Magnifying glass icon + "Поиск на карте" placeholder + AI sparkles toggle
+- [x] **SRCH-02**: В peek mode: нет внутреннего capsule background (pill сама является фоном)
+- [x] **SRCH-03**: В half/full mode: capsule background `.quaternary.opacity(0.5)` внутри sheet
+- [x] **SRCH-04**: Тап на pill в peek → expand to full + focus text field
+- [x] **SRCH-05**: "Отмена" кнопка справа от поиска в half/full mode
 
 ### Floating Controls
 
@@ -78,14 +78,14 @@
 | GEOM-03 | Phase 7 | Complete |
 | GEOM-04 | Phase 7 | Complete |
 | GEOM-05 | Phase 7 | Complete |
-| HNDL-01 | Phase 8 | Pending |
-| HNDL-02 | Phase 8 | Pending |
-| HNDL-03 | Phase 8 | Pending |
-| SRCH-01 | Phase 8 | Pending |
-| SRCH-02 | Phase 8 | Pending |
-| SRCH-03 | Phase 8 | Pending |
-| SRCH-04 | Phase 8 | Pending |
-| SRCH-05 | Phase 8 | Pending |
+| HNDL-01 | Phase 8 | Complete |
+| HNDL-02 | Phase 8 | Complete |
+| HNDL-03 | Phase 8 | Complete |
+| SRCH-01 | Phase 8 | Complete |
+| SRCH-02 | Phase 8 | Complete |
+| SRCH-03 | Phase 8 | Complete |
+| SRCH-04 | Phase 8 | Complete |
+| SRCH-05 | Phase 8 | Complete |
 | CTRL-01 | Phase 9 | Pending |
 | CTRL-02 | Phase 9 | Pending |
 | CTRL-03 | Phase 9 | Pending |
