@@ -75,8 +75,14 @@ Plan: Not started
 - Phase 11 requires physical device testing (`.ultraThinMaterial` over park/beach map tiles)
 - Shape morph complexity: if `UnevenRoundedRectangle` parameter interpolation produces jank, use opacity crossfade fallback
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260321-k7k | Fix peek pill: solid black background | 2026-03-21 | pending | [260321-k7k](./quick/260321-k7k-fix-map-bottom-sheet-ui-search-pill-widt/) |
+
 ## Session Continuity
 
-Last session: 2026-03-21T04:37:05.408Z
-Stopped at: Completed 11-01-PLAN.md
+Last activity: 2026-03-21 - Completed quick task 260321-k7k: Fix peek pill solid black
+Stopped at: Completed quick task 260321-k7k
 Resume file: None

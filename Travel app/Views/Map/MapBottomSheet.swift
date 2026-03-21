@@ -84,20 +84,12 @@ struct MapBottomSheet<Content: View>: View {
             .background {
                 let progress = dragProgress(in: screenHeight)
                 ZStack {
-                    // Peek background (blur pill) — fades OUT as sheet rises
+                    // Peek background (solid black pill) — fades OUT as sheet rises
                     UnevenRoundedRectangle(
                         topLeadingRadius: 22, bottomLeadingRadius: 22,
                         bottomTrailingRadius: 22, topTrailingRadius: 22, style: .continuous
                     )
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        UnevenRoundedRectangle(
-                            topLeadingRadius: 22, bottomLeadingRadius: 22,
-                            bottomTrailingRadius: 22, topTrailingRadius: 22, style: .continuous
-                        )
-                        .fill(Color.black.opacity(0.35))
-                    )
-                    .environment(\.colorScheme, .dark)
+                    .fill(Color.black)
                     .shadow(color: .black.opacity(0.35), radius: 14, x: 0, y: 4)
                     .opacity(1 - progress)
 
