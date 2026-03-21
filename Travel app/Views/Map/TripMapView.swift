@@ -385,13 +385,13 @@ struct TripMapView: View {
         .mapStyle(.standard(
             elevation: vm.show3DElevation ? .realistic : .flat,
             pointsOfInterest: .including([.museum, .nationalPark, .park, .restaurant]),
-            showsTraffic: vm.showTraffic
+            showsTraffic: false
         ))
         .preferredColorScheme(.dark)
         .mapControls {
             MapScaleView()  // D-12: scale view stays in mapControls
         }
-        .safeAreaPadding(.bottom, isIdleMode ? 66 : 0)
+        .safeAreaPadding(.bottom, isIdleMode ? 54 : 0)
         .onMapCameraChange { context in
             vm.visibleRegion = context.region
             // Detect manual pan during navigation — show recenter button if > 50m from user location
