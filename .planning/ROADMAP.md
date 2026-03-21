@@ -97,7 +97,9 @@ Plans:
   2. При переходе peek → half фон плавно меняется от blur pill к непрозрачному sheet
   3. Corner radius плавно морфирует от all-corners (peek) к top-only (half/full) в процессе drag
   4. Тап на поиск: sheet раскрывается до full, затем через 150ms появляется клавиатура — без сдвига контента
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 11-01-PLAN.md — Drag-progress morph, spring unification, haptics
 
 ## Progress
 
@@ -113,4 +115,4 @@ Plans:
 | 8. Search Bar + Handle | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 9. Floating Controls | v1.1 | 1/1 | Complete   | 2026-03-21 |
 | 10. Sheet Content | v1.1 | 1/1 | Complete    | 2026-03-21 |
-| 11. Transitions + Polish | v1.1 | 0/? | Not started | - |
+| 11. Transitions + Polish | v1.1 | 0/1 | Not started | - |
