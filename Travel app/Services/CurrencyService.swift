@@ -247,8 +247,10 @@ final class CurrencyService {
             print("[CurrencyService] Historical rate error: \(error)")
         }
 
-        if let r = rates[from], r > 0 { return r }
-        if let r = rates[to], r > 0 { return 1.0 / r }
+        // rates stores: 1 base = X target
+        // We need: 1 unit of `from` = X units of `to`
+        if let r = rates[from], r > 0 { return 1.0 / r }
+        if let r = rates[to], r > 0 { return r }
         return nil
     }
 

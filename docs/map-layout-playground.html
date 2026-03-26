@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Map Tab Layout Playground</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e8;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .controls {
+    width: 340px;
+    min-width: 340px;
+    background: #111118;
+    border-right: 1px solid #222;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .controls h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    background: linear-gradient(135deg, #ff6b9d, #7c5bf0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .controls .subtitle { font-size: 12px; color: #666; margin-bottom: 16px; }
+
+  .section { margin-bottom: 16px; }
+
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; color: #666; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+    cursor: pointer; user-select: none;
+  }
+  .section-title::before { content: '\25BE'; font-size: 9px; transition: transform 0.2s; }
+  .section-title.collapsed::before { transform: rotate(-90deg); }
+
+  .section-body { display: flex; flex-direction: column; gap: 8px; }
+  .section-body.hidden { display: none; }
+
+  .control-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .control-label { font-size: 13px; color: #aaa; flex-shrink: 0; }
+  .control-value { font-size: 11px; color: #666; font-family: 'SF Mono', monospace; min-width: 36px; text-align: right; }
+
+  input[type="range"] {
+    -webkit-appearance: none; height: 4px; background: #333;
+    border-radius: 2px; outline: none; flex: 1; min-width: 80px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: #7c5bf0; cursor: pointer;
+  }
+
+  .toggle { position: relative; width: 36px; height: 20px; cursor: pointer; flex-shrink: 0; }
+  .toggle input { display: none; }
+  .toggle .slider {
+    position: absolute; inset: 0; background: #333;
+    border-radius: 10px; transition: 0.2s;
+  }
+  .toggle .slider::after {
+    content: ''; position: absolute; width: 16px; height: 16px;
+    left: 2px; top: 2px; background: #888; border-radius: 50%; transition: 0.2s;
+  }
+  .toggle input:checked + .slider { background: #7c5bf0; }
+  .toggle input:checked + .slider::after { transform: translateX(16px); background: #fff; }
+
+  select {
+    background: #1a1a24; color: #ccc; border: 1px solid #333;
+    border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; cursor: pointer;
+  }
+
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .preset-btn {
+    padding: 5px 10px; border-radius: 8px; border: 1px solid #333;
+    background: #1a1a24; color: #aaa; font-size: 11px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .preset-btn:hover { border-color: #7c5bf0; color: #fff; }
+  .preset-btn.active { background: #7c5bf0; border-color: #7c5bf0; color: #fff; }
+
+  .preview-area {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 20px; gap: 16px;
+  }
+
+  .phone-frame {
+    width: 390px; height: 844px; border-radius: 50px;
+    border: 3px solid #333; background: #1a1a20;
+    position: relative; overflow: hidden;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.05);
+    transform: scale(var(--phone-scale, 0.72)); transform-origin: center center;
+  }
+
+  .dynamic-island {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 126px; height: 36px; background: #000; border-radius: 18px; z-index: 100;
+  }
+
+  .status-bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 54px; z-index: 90;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    padding: 0 28px 4px; font-size: 13px; font-weight: 600; color: #fff;
+  }
+
+  .map-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 30% 40%, #2a3a2e 0%, transparent 40%),
+      radial-gradient(circle at 70% 60%, #2e3a45 0%, transparent 35%),
+      radial-gradient(circle at 50% 30%, #3a3a2e 0%, transparent 30%),
+      linear-gradient(180deg, #1e2530 0%, #252d38 50%, #2a3040 100%);
+  }
+  .map-bg::after {
+    content: ''; position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px);
+  }
+
+  .map-pins { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+  .map-pin {
+    position: absolute; display: flex; flex-direction: column; align-items: center;
+    font-size: 9px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  }
+  .pin-dot {
+    width: 28px; height: 28px; border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg); display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4); margin-bottom: 2px;
+  }
+  .pin-dot span { transform: rotate(45deg); font-size: 12px; }
+  .pin-label {
+    font-weight: 600; letter-spacing: 0.3px; white-space: nowrap;
+    background: rgba(0,0,0,0.5); padding: 1px 5px; border-radius: 3px;
+  }
+
+  .tab-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 83px;
+    background: rgba(30,30,40,0.85); backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px); border-top: 0.5px solid rgba(255,255,255,0.1);
+    display: flex; align-items: flex-start; justify-content: space-around;
+    padding-top: 8px; z-index: 50;
+  }
+  .tab-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    font-size: 10px; color: #666; width: 64px;
+  }
+  .tab-item.active { color: #ff6b9d; }
+  .tab-icon { font-size: 22px; }
+
+  .toolbar-btn {
+    position: absolute; z-index: 60; width: 40px; height: 40px;
+    border-radius: 50%; background: rgba(80,80,100,0.6);
+    backdrop-filter: blur(10px); display: flex; align-items: center;
+    justify-content: center; font-size: 18px; color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: move;
+  }
+
+  .bottom-sheet {
+    position: absolute; left: 0; right: 0; z-index: 40;
+    overflow: hidden; transition: height 0.3s ease, bottom 0.3s ease;
+    cursor: ns-resize;
+  }
+  .sheet-bg {
+    position: absolute; inset: 0; backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+  }
+  .sheet-bg-color { position: absolute; inset: 0; }
+  .sheet-content { position: relative; z-index: 1; padding: 0; height: 100%; overflow: hidden; }
+
+  .prompt-panel {
+    width: 320px; min-width: 320px; background: #111118;
+    border-left: 1px solid #222; display: flex; flex-direction: column; padding: 16px;
+  }
+  .prompt-panel h2 {
+    font-size: 13px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; color: #666; margin-bottom: 12px;
+  }
+  .prompt-output {
+    flex: 1; background: #0d0d14; border: 1px solid #222; border-radius: 8px;
+    padding: 12px; font-size: 13px; line-height: 1.6; color: #bbb;
+    overflow-y: auto; font-family: -apple-system, system-ui, sans-serif;
+    white-space: pre-wrap;
+  }
+  .copy-btn {
+    margin-top: 10px; padding: 10px; border-radius: 8px; border: none;
+    background: #7c5bf0; color: #fff; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .copy-btn:hover { background: #6a4ae0; }
+  .copy-btn.copied { background: #22c55e; }
+
+  .color-input { display: flex; align-items: center; gap: 6px; }
+  .color-swatch {
+    width: 24px; height: 24px; border-radius: 6px; border: 1px solid #444;
+    cursor: pointer; position: relative; overflow: hidden;
+  }
+  .color-swatch input[type="color"] {
+    position: absolute; width: 40px; height: 40px; top: -8px; left: -8px;
+    cursor: pointer; opacity: 0;
+  }
+
+  .sheet-states { display: flex; gap: 4px; }
+  .state-btn {
+    flex: 1; padding: 5px; border-radius: 6px; border: 1px solid #333;
+    background: #1a1a24; color: #888; font-size: 11px; font-weight: 600;
+    cursor: pointer; text-align: center; transition: all 0.15s;
+  }
+  .state-btn.active { background: #7c5bf0; border-color: #7c5bf0; color: #fff; }
+
+  .content-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+  .content-tab {
+    flex: 1; padding: 5px; border-radius: 6px; border: 1px solid #333;
+    background: #1a1a24; color: #888; font-size: 10px; font-weight: 600;
+    cursor: pointer; text-align: center; transition: all 0.15s;
+  }
+  .content-tab.active {
+    background: rgba(255,107,157,0.15); border-color: #ff6b9d; color: #ff6b9d;
+  }
+
+  .divider { height: 1px; background: #222; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>Map Tab Layout</h1>
+  <div class="subtitle">Drag-and-drop + settings for map tab</div>
+
+  <div class="presets" id="presets-container"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Content Mode</div>
+    <div class="section-body">
+      <div class="content-tabs" id="content-tabs"></div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Sheet Position</div>
+    <div class="section-body">
+      <div class="sheet-states" id="sheet-states"></div>
+      <div class="control-row">
+        <span class="control-label">Peek height</span>
+        <input type="range" min="50" max="120" value="68" data-key="peekHeight">
+        <span class="control-value" id="val-peek">68</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Half %</span>
+        <input type="range" min="25" max="60" value="45" data-key="halfPct">
+        <span class="control-value" id="val-half">45%</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Full %</span>
+        <input type="range" min="70" max="95" value="88" data-key="fullPct">
+        <span class="control-value" id="val-full">88%</span>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Sheet Appearance</div>
+    <div class="section-body">
+      <div class="control-row">
+        <span class="control-label">Radius</span>
+        <input type="range" min="0" max="30" value="14" data-key="sheetRadius">
+        <span class="control-value" id="val-sr">14</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Blur</span>
+        <input type="range" min="0" max="60" value="40" data-key="sheetBlur">
+        <span class="control-value" id="val-sb">40</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Opacity</span>
+        <input type="range" min="0" max="100" value="70" data-key="sheetOpacity">
+        <span class="control-value" id="val-so">70%</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Shadow</span>
+        <input type="range" min="0" max="40" value="16" data-key="sheetShadow">
+        <span class="control-value" id="val-ss">16</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Background</span>
+        <select data-key="sheetBg">
+          <option value="material">Material (blur)</option>
+          <option value="solid-dark">Solid dark</option>
+          <option value="solid-light">Solid light</option>
+          <option value="gradient">Gradient</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Color</span>
+        <div class="color-input">
+          <div class="color-swatch" id="swatch-sheet">
+            <input type="color" value="#1a1a28" data-key="sheetColor">
+          </div>
+          <span class="control-value" id="val-sc">#1a1a28</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Grab Handle</div>
+    <div class="section-body">
+      <div class="control-row">
+        <span class="control-label">Show</span>
+        <label class="toggle"><input type="checkbox" checked data-key="showHandle"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Width</span>
+        <input type="range" min="20" max="60" value="36" data-key="handleWidth">
+        <span class="control-value" id="val-hw">36</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Height</span>
+        <input type="range" min="3" max="8" value="5" data-key="handleHeight">
+        <span class="control-value" id="val-hh">5</span>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Search Bar</div>
+    <div class="section-body">
+      <div class="control-row">
+        <span class="control-label">Radius</span>
+        <input type="range" min="4" max="24" value="10" data-key="searchRadius">
+        <span class="control-value" id="val-searchr">10</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Pad H</span>
+        <input type="range" min="8" max="24" value="14" data-key="searchPadH">
+        <span class="control-value" id="val-sph">14</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Pad V</span>
+        <input type="range" min="4" max="16" value="8" data-key="searchPadV">
+        <span class="control-value" id="val-spv">8</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">AI button</span>
+        <label class="toggle"><input type="checkbox" checked data-key="showAI"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Background</span>
+        <select data-key="searchBg">
+          <option value="quaternary">Quaternary</option>
+          <option value="solid">Solid</option>
+          <option value="outline">Outline only</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Floating Search Mode</div>
+    <div class="section-body">
+      <div class="control-row">
+        <span class="control-label">Floating pill</span>
+        <label class="toggle"><input type="checkbox" data-key="floatingSearch"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Bottom offset</span>
+        <input type="range" min="88" max="200" value="96" data-key="floatingBottom">
+        <span class="control-value" id="val-fb">96</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Side margin</span>
+        <input type="range" min="8" max="40" value="16" data-key="floatingMargin">
+        <span class="control-value" id="val-fm">16</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Shadow</span>
+        <input type="range" min="0" max="30" value="12" data-key="floatingShadow">
+        <span class="control-value" id="val-fs">12</span>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Apple Legal Badge</div>
+    <div class="section-body">
+      <div class="control-row">
+        <span class="control-label">Show</span>
+        <label class="toggle"><input type="checkbox" checked data-key="showLegal"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Pos X</span>
+        <input type="range" min="10" max="370" value="310" data-key="legalX">
+        <span class="control-value" id="val-lx">310</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Pos Y</span>
+        <input type="range" min="60" max="750" value="700" data-key="legalY">
+        <span class="control-value" id="val-ly">700</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Opacity</span>
+        <input type="range" min="10" max="100" value="40" data-key="legalOpacity">
+        <span class="control-value" id="val-lo">40%</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Font size</span>
+        <input type="range" min="7" max="14" value="9" data-key="legalFontSize">
+        <span class="control-value" id="val-lfs">9</span>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Map Layers</div>
+    <div class="section-body">
+      <div class="control-row">
+        <span class="control-label">Places</span>
+        <label class="toggle"><input type="checkbox" checked data-key="showPins"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">GPS tracks</span>
+        <label class="toggle"><input type="checkbox" data-key="showTracks"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Flights</span>
+        <label class="toggle"><input type="checkbox" data-key="showFlights"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Trains</span>
+        <label class="toggle"><input type="checkbox" data-key="showTrains"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Pin size</span>
+        <input type="range" min="20" max="40" value="28" data-key="pinSize">
+        <span class="control-value" id="val-ps">28</span>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Action Buttons</div>
+    <div class="section-body">
+      <div class="control-row">
+        <span class="control-label">Radius</span>
+        <input type="range" min="4" max="20" value="10" data-key="pillRadius">
+        <span class="control-value" id="val-pr">10</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Style</span>
+        <select data-key="pillStyle">
+          <option value="mixed">Mix (1 filled)</option>
+          <option value="all-filled">All filled</option>
+          <option value="all-ghost">All ghost</option>
+          <option value="outline">Outline</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Route</span>
+        <label class="toggle"><input type="checkbox" checked data-key="pillRoute"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Call</span>
+        <label class="toggle"><input type="checkbox" checked data-key="pillCall"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Website</span>
+        <label class="toggle"><input type="checkbox" checked data-key="pillWeb"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">AR</span>
+        <label class="toggle"><input type="checkbox" checked data-key="pillAR"><div class="slider"></div></label>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Toolbar</div>
+    <div class="section-body">
+      <div class="control-row">
+        <span class="control-label">Filter btn</span>
+        <label class="toggle"><input type="checkbox" checked data-key="showFilter"><div class="slider"></div></label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Pos X</span>
+        <input type="range" min="290" max="370" value="340" data-key="filterX">
+        <span class="control-value" id="val-fx">340</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Pos Y</span>
+        <input type="range" min="48" max="120" value="58" data-key="filterY">
+        <span class="control-value" id="val-fy">58</span>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title" onclick="toggleSection(this)">Accent Colors</div>
+    <div class="section-body">
+      <div class="control-row">
+        <span class="control-label">Primary</span>
+        <div class="color-input">
+          <div class="color-swatch" id="swatch-accent">
+            <input type="color" value="#ff6b9d" data-key="accentColor">
+          </div>
+          <span class="control-value" id="val-ac">#ff6b9d</span>
+        </div>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Secondary</span>
+        <div class="color-input">
+          <div class="color-swatch" id="swatch-secondary">
+            <input type="color" value="#7c5bf0" data-key="secondaryColor">
+          </div>
+          <span class="control-value" id="val-ac2">#7c5bf0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="preview-area">
+  <div class="phone-frame" id="phone">
+    <div class="dynamic-island"></div>
+    <div class="status-bar">
+      <span>9:41</span>
+      <span style="font-size:11px">WiFi</span>
+    </div>
+    <div class="map-bg" id="map-bg"></div>
+
+    <div class="map-pins" id="map-pins">
+      <div class="map-pin" style="left:120px;top:180px">
+        <div class="pin-dot" style="background:#ff6b9d"><span>T</span></div>
+        <div class="pin-label">Senso-ji</div>
+      </div>
+      <div class="map-pin" style="left:230px;top:250px">
+        <div class="pin-dot" style="background:#7c5bf0"><span>R</span></div>
+        <div class="pin-label">Tsukiji</div>
+      </div>
+      <div class="map-pin" style="left:80px;top:350px">
+        <div class="pin-dot" style="background:#22c55e"><span>P</span></div>
+        <div class="pin-label">Ueno</div>
+      </div>
+      <div class="map-pin" style="left:280px;top:400px">
+        <div class="pin-dot" style="background:#f59e0b"><span>S</span></div>
+        <div class="pin-label">Meiji</div>
+      </div>
+      <div class="map-pin" style="left:180px;top:320px">
+        <div class="pin-dot" style="background:#3b82f6"><span>L</span></div>
+        <div class="pin-label">Tokyo Tower</div>
+      </div>
+    </div>
+
+    <svg id="tracks-layer" style="position:absolute;inset:0;z-index:8;pointer-events:none;display:none" width="390" height="844">
+      <path d="M 120 200 C 150 230, 200 240, 230 270" stroke="#ff6b9d" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.7"/>
+      <path d="M 230 270 C 250 300, 200 320, 180 340" stroke="#ff6b9d" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.7"/>
+    </svg>
+
+    <svg id="flights-layer" style="position:absolute;inset:0;z-index:9;pointer-events:none;display:none" width="390" height="844">
+      <path d="M 60 140 Q 195 80 330 200" stroke="rgba(255,255,255,0.7)" stroke-width="2" fill="none" stroke-dasharray="6,4"/>
+      <text x="190" y="120" fill="white" font-size="14" text-anchor="middle">A</text>
+    </svg>
+
+    <svg id="trains-layer" style="position:absolute;inset:0;z-index:8;pointer-events:none;display:none" width="390" height="844">
+      <path d="M 80 370 C 130 350, 250 380, 280 420" stroke="#f97316" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <circle cx="180" cy="380" r="10" fill="#f97316"/>
+      <text x="180" y="384" fill="white" font-size="10" text-anchor="middle" font-weight="bold">T</text>
+    </svg>
+
+    <div class="toolbar-btn" id="filter-btn" style="right:12px;top:58px">F</div>
+
+    <!-- Floating search pill (shown when floatingSearch=true and peek) -->
+    <div id="floating-search" style="position:absolute;z-index:45;left:16px;right:16px;display:none;cursor:pointer"></div>
+
+    <!-- Apple Maps Legal badge (draggable) -->
+    <div id="legal-badge" style="position:absolute;z-index:45;cursor:move;font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.3px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,0.5)">Legal</div>
+
+    <div class="bottom-sheet" id="bottom-sheet">
+      <div class="sheet-bg" id="sheet-bg-blur"></div>
+      <div class="sheet-bg-color" id="sheet-bg-color"></div>
+      <div class="sheet-content" id="sheet-content"></div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab-item"><div class="tab-icon">H</div><div>Home</div></div>
+      <div class="tab-item"><div class="tab-icon">P</div><div>Plan</div></div>
+      <div class="tab-item active"><div class="tab-icon">M</div><div>Map</div></div>
+      <div class="tab-item"><div class="tab-icon">$</div><div>Expenses</div></div>
+      <div class="tab-item"><div class="tab-icon">*</div><div>More</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="prompt-panel">
+  <h2>Prompt</h2>
+  <div class="prompt-output" id="prompt-output">Configure map elements on the left - prompt generates automatically.</div>
+  <button class="copy-btn" id="copy-btn">Copy Prompt</button>
+</div>
+
+<script>
+const DEFAULTS = {
+  detent: 'peek', contentMode: 'search',
+  peekHeight: 68, halfPct: 45, fullPct: 88,
+  sheetRadius: 14, sheetBlur: 40, sheetOpacity: 70, sheetShadow: 16,
+  sheetBg: 'material', sheetColor: '#1a1a28',
+  showHandle: true, handleWidth: 36, handleHeight: 5,
+  searchRadius: 10, searchPadH: 14, searchPadV: 8, showAI: true, searchBg: 'quaternary',
+  floatingSearch: true, floatingBottom: 96, floatingMargin: 16, floatingShadow: 12,
+  showLegal: true, legalX: 280, legalY: 680, legalOpacity: 70, legalFontSize: 11,
+  showPins: true, showTracks: false, showFlights: false, showTrains: false, pinSize: 28,
+  pillRadius: 10, pillStyle: 'mixed', pillRoute: true, pillCall: true, pillWeb: true, pillAR: true,
+  showFilter: true, filterX: 340, filterY: 58,
+  accentColor: '#ff6b9d', secondaryColor: '#7c5bf0'
+};
+
+const state = Object.assign({}, DEFAULTS);
+
+const PRESETS = {
+  apple: Object.assign({}, DEFAULTS),
+  google: Object.assign({}, DEFAULTS, {
+    sheetRadius:20, searchRadius:24, searchBg:'solid', pillStyle:'outline',
+    pillRadius:16, sheetBlur:30, sheetOpacity:90, accentColor:'#4285f4',
+    secondaryColor:'#34a853', handleWidth:30, handleHeight:4
+  }),
+  compact: Object.assign({}, DEFAULTS, {
+    peekHeight:56, halfPct:35, sheetRadius:10, searchRadius:8,
+    searchPadH:10, searchPadV:6, showAI:false, pillAR:false, pillCall:false, pinSize:22
+  }),
+  minimal: Object.assign({}, DEFAULTS, {
+    showHandle:false, showAI:false, sheetShadow:6, sheetBlur:20,
+    sheetOpacity:85, pillCall:false, pillWeb:false, pillAR:false,
+    showFilter:false, sheetRadius:8, searchRadius:6
+  }),
+  full: Object.assign({}, DEFAULTS, {
+    detent:'half', showTracks:true, showFlights:true, showTrains:true,
+    peekHeight:72, sheetBlur:50, sheetShadow:24
+  })
+};
+
+const PRESET_LABELS = { apple:'Apple Maps', google:'Google Maps', compact:'Compact', minimal:'Minimal', full:'Full' };
+
+// Build presets
+(function() {
+  var c = document.getElementById('presets-container');
+  Object.keys(PRESETS).forEach(function(k) {
+    var b = document.createElement('button');
+    b.className = 'preset-btn' + (k === 'apple' ? ' active' : '');
+    b.textContent = PRESET_LABELS[k];
+    b.setAttribute('data-preset', k);
+    b.addEventListener('click', function() { applyPreset(k); });
+    c.appendChild(b);
+  });
+})();
+
+// Build content tabs
+(function() {
+  var c = document.getElementById('content-tabs');
+  var tabs = [['search','Search'],['place','Place'],['route','Route']];
+  tabs.forEach(function(t) {
+    var d = document.createElement('div');
+    d.className = 'content-tab' + (t[0] === 'search' ? ' active' : '');
+    d.setAttribute('data-content', t[0]);
+    d.textContent = t[1];
+    d.addEventListener('click', function() { setContent(t[0]); });
+    c.appendChild(d);
+  });
+})();
+
+// Build sheet states
+(function() {
+  var c = document.getElementById('sheet-states');
+  ['peek','half','full'].forEach(function(s) {
+    var b = document.createElement('div');
+    b.className = 'state-btn' + (s === 'peek' ? ' active' : '');
+    b.setAttribute('data-state', s);
+    b.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+    b.addEventListener('click', function() { setDetent(s); });
+    c.appendChild(b);
+  });
+})();
+
+// Bind controls via data-key
+document.querySelectorAll('input[type="range"][data-key]').forEach(function(el) {
+  el.addEventListener('input', function() { state[el.dataset.key] = +el.value; updateAll(); });
+});
+document.querySelectorAll('.toggle input[data-key]').forEach(function(el) {
+  el.addEventListener('change', function() { state[el.dataset.key] = el.checked; updateAll(); });
+});
+document.querySelectorAll('select[data-key]').forEach(function(el) {
+  el.addEventListener('change', function() { state[el.dataset.key] = el.value; updateAll(); });
+});
+document.querySelectorAll('input[type="color"][data-key]').forEach(function(el) {
+  el.addEventListener('input', function() { state[el.dataset.key] = el.value; updateAll(); });
+});
+
+// Copy button
+document.getElementById('copy-btn').addEventListener('click', function() {
+  var text = document.getElementById('prompt-output').textContent;
+  navigator.clipboard.writeText(text);
+  var btn = this;
+  btn.classList.add('copied');
+  btn.textContent = 'Copied!';
+  setTimeout(function() { btn.classList.remove('copied'); btn.textContent = 'Copy Prompt'; }, 1500);
+});
+
+function applyPreset(name) {
+  Object.assign(state, PRESETS[name]);
+  document.querySelectorAll('.preset-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.preset === name);
+  });
+  syncControls();
+  updateAll();
+}
+
+function setDetent(d) {
+  state.detent = d;
+  document.querySelectorAll('.state-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.state === d);
+  });
+  updateAll();
+}
+
+function setContent(mode) {
+  state.contentMode = mode;
+  document.querySelectorAll('.content-tab').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.content === mode);
+  });
+  updateAll();
+}
+
+function toggleSection(el) {
+  el.classList.toggle('collapsed');
+  el.nextElementSibling.classList.toggle('hidden');
+}
+
+function getSheetHeight() {
+  var phoneH = 844, tabH = 83, usable = phoneH - tabH;
+  if (state.detent === 'peek') return state.peekHeight;
+  if (state.detent === 'half') return usable * state.halfPct / 100;
+  return usable * state.fullPct / 100;
+}
+
+function buildSheetContent() {
+  var content = document.getElementById('sheet-content');
+  // Clear safely
+  while (content.firstChild) content.removeChild(content.firstChild);
+
+  // Grab handle
+  if (state.showHandle) {
+    var handle = document.createElement('div');
+    handle.style.cssText = 'width:' + state.handleWidth + 'px;height:' + state.handleHeight + 'px;border-radius:3px;margin:7px auto 5px;background:rgba(255,255,255,0.25)';
+    content.appendChild(handle);
+  }
+
+  if (state.contentMode === 'search') {
+    buildSearchContent(content);
+  } else if (state.contentMode === 'place') {
+    buildPlaceContent(content);
+  } else if (state.contentMode === 'route') {
+    buildRouteContent(content);
+  }
+}
+
+function buildSearchContent(parent) {
+  // Search capsule
+  var capsule = document.createElement('div');
+  var bgStyle = '';
+  if (state.searchBg === 'quaternary') bgStyle = 'background:rgba(255,255,255,0.06)';
+  else if (state.searchBg === 'solid') bgStyle = 'background:rgba(40,40,55,0.9)';
+  else bgStyle = 'background:transparent;border:1px solid rgba(255,255,255,0.15)';
+
+  capsule.style.cssText = 'margin:0 ' + state.searchPadH + 'px 10px;display:flex;align-items:center;gap:8px;padding:' + state.searchPadV + 'px ' + state.searchPadH + 'px;border-radius:' + state.searchRadius + 'px;' + bgStyle;
+
+  var icon = document.createElement('span');
+  icon.textContent = 'Q';
+  icon.style.cssText = 'font-size:15px;opacity:0.5;font-weight:bold';
+  capsule.appendChild(icon);
+
+  var txt = document.createElement('span');
+  txt.textContent = 'Search on map';
+  txt.style.cssText = 'font-size:16px;opacity:0.35;flex:1';
+  capsule.appendChild(txt);
+
+  if (state.showAI) {
+    var ai = document.createElement('span');
+    ai.textContent = '*';
+    ai.style.cssText = 'width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;border:1.5px solid ' + state.accentColor + ';color:' + state.accentColor;
+    capsule.appendChild(ai);
+  }
+
+  parent.appendChild(capsule);
+
+  // Results in half/full
+  if (state.detent !== 'peek') {
+    var results = [
+      ['Tokyo Tower', 'Minato, Tokyo'],
+      ['Senso-ji', 'Taito, Asakusa'],
+      ['Ueno Park', 'Taito, Tokyo']
+    ];
+    var list = document.createElement('div');
+    list.style.cssText = 'border-top:0.5px solid rgba(255,255,255,0.08)';
+
+    results.forEach(function(r, i) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px';
+
+      var ic = document.createElement('div');
+      ic.textContent = 'P';
+      ic.style.cssText = 'width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;background:' + state.secondaryColor + ';color:#fff;flex-shrink:0';
+      row.appendChild(ic);
+
+      var textDiv = document.createElement('div');
+      textDiv.style.cssText = 'flex:1;min-width:0';
+      var name = document.createElement('div');
+      name.textContent = r[0];
+      name.style.cssText = 'font-size:15px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+      textDiv.appendChild(name);
+      var sub = document.createElement('div');
+      sub.textContent = r[1];
+      sub.style.cssText = 'font-size:13px;opacity:0.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+      textDiv.appendChild(sub);
+      row.appendChild(textDiv);
+
+      var chev = document.createElement('span');
+      chev.textContent = '>';
+      chev.style.cssText = 'font-size:13px;opacity:0.25;flex-shrink:0';
+      row.appendChild(chev);
+
+      list.appendChild(row);
+
+      if (i < results.length - 1) {
+        var div = document.createElement('div');
+        div.style.cssText = 'height:0.5px;background:rgba(255,255,255,0.06);margin-left:56px';
+        list.appendChild(div);
+      }
+    });
+    parent.appendChild(list);
+  }
+}
+
+function buildPlaceContent(parent) {
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'padding:0 16px';
+
+  // Header
+  var header = document.createElement('div');
+  header.style.cssText = 'text-align:center;padding:4px 0 0;position:relative';
+
+  var closeBtn = document.createElement('span');
+  closeBtn.textContent = 'x';
+  closeBtn.style.cssText = 'position:absolute;right:0;top:0;font-size:28px;opacity:0.3;cursor:pointer;font-weight:300';
+  header.appendChild(closeBtn);
+
+  var name = document.createElement('div');
+  name.textContent = 'Tokyo Tower';
+  name.style.cssText = 'font-size:20px;font-weight:700;color:#fff';
+  header.appendChild(name);
+
+  var sub = document.createElement('div');
+  sub.textContent = 'Minato, Tokyo';
+  sub.style.cssText = 'font-size:14px;opacity:0.5;margin-top:2px';
+  header.appendChild(sub);
+
+  wrap.appendChild(header);
+
+  // Action pills
+  var pills = [];
+  if (state.pillRoute) pills.push(['D','Route', true]);
+  if (state.pillCall) pills.push(['C','Call', false]);
+  if (state.pillWeb) pills.push(['W','Web', false]);
+  if (state.pillAR) pills.push(['A','AR', false]);
+
+  if (pills.length) {
+    var pillRow = document.createElement('div');
+    pillRow.style.cssText = 'display:flex;gap:8px;margin-top:14px';
+
+    pills.forEach(function(p) {
+      var isFilled = state.pillStyle === 'all-filled' || (state.pillStyle === 'mixed' && p[2]);
+      var isOutline = state.pillStyle === 'outline';
+
+      var pill = document.createElement('div');
+      var st = 'flex:1;text-align:center;padding:10px 0;border-radius:' + state.pillRadius + 'px;font-size:11px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:4px;';
+
+      if (isFilled) st += 'background:' + state.accentColor + ';color:#fff;';
+      else if (isOutline) st += 'background:transparent;border:1.5px solid ' + state.accentColor + ';color:' + state.accentColor + ';';
+      else st += 'background:' + state.accentColor + '22;color:' + state.accentColor + ';';
+
+      pill.style.cssText = st;
+
+      var ic = document.createElement('div');
+      ic.textContent = p[0];
+      ic.style.cssText = 'font-size:16px;font-weight:600';
+      pill.appendChild(ic);
+
+      var lb = document.createElement('div');
+      lb.textContent = p[1];
+      pill.appendChild(lb);
+
+      pillRow.appendChild(pill);
+    });
+    wrap.appendChild(pillRow);
+  }
+
+  // Quick info in half/full
+  if (state.detent !== 'peek') {
+    var info = document.createElement('div');
+    info.style.cssText = 'display:flex;margin-top:14px';
+
+    var items = [['Status','Open','#22c55e'],['Rating','4.5','#f59e0b'],['Type','Temple','rgba(255,255,255,0.8)']];
+    items.forEach(function(it, i) {
+      var item = document.createElement('div');
+      item.style.cssText = 'flex:1;text-align:center;font-size:13px;display:flex;flex-direction:column;gap:2px';
+
+      var lbl = document.createElement('div');
+      lbl.textContent = it[0];
+      lbl.style.cssText = 'opacity:0.4;font-size:11px';
+      item.appendChild(lbl);
+
+      var val = document.createElement('div');
+      val.textContent = it[1];
+      val.style.cssText = 'font-weight:600;color:' + it[2];
+      item.appendChild(val);
+
+      info.appendChild(item);
+
+      if (i < items.length - 1) {
+        var div = document.createElement('div');
+        div.style.cssText = 'width:0.5px;align-self:stretch;background:rgba(255,255,255,0.15)';
+        info.appendChild(div);
+      }
+    });
+    wrap.appendChild(info);
+  }
+
+  parent.appendChild(wrap);
+}
+
+function buildRouteContent(parent) {
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'padding:0 16px';
+
+  // Header
+  var header = document.createElement('div');
+  header.style.cssText = 'text-align:center;position:relative;padding:4px 0 0';
+
+  var closeBtn = document.createElement('span');
+  closeBtn.textContent = 'x';
+  closeBtn.style.cssText = 'position:absolute;right:0;top:0;font-size:28px;opacity:0.3;cursor:pointer;font-weight:300';
+  header.appendChild(closeBtn);
+
+  var name = document.createElement('div');
+  name.textContent = 'Senso-ji';
+  name.style.cssText = 'font-size:20px;font-weight:700;color:#fff';
+  header.appendChild(name);
+
+  var sub = document.createElement('div');
+  sub.textContent = 'From current location';
+  sub.style.cssText = 'font-size:14px;opacity:0.5;margin-top:2px';
+  header.appendChild(sub);
+
+  wrap.appendChild(header);
+
+  // Transport pills
+  var tPills = document.createElement('div');
+  tPills.style.cssText = 'display:flex;gap:8px;margin-top:12px';
+
+  var modes = [['W','Walk','#22c55e',false],['C','Car','#3b82f6',true],['M','Metro','#f97316',false],['B','Bike','#a855f7',false]];
+  modes.forEach(function(m) {
+    var p = document.createElement('div');
+    var bg = m[3] ? m[2] : 'rgba(255,255,255,0.06)';
+    var col = m[3] ? '#fff' : 'rgba(255,255,255,0.6)';
+    p.style.cssText = 'flex:1;text-align:center;padding:10px 0;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:4px;background:' + bg + ';color:' + col;
+
+    var ic = document.createElement('div');
+    ic.textContent = m[0];
+    ic.style.cssText = 'font-size:16px;font-weight:600';
+    p.appendChild(ic);
+
+    var lb = document.createElement('div');
+    lb.textContent = m[1];
+    lb.style.cssText = 'font-size:11px;font-weight:500';
+    p.appendChild(lb);
+
+    tPills.appendChild(p);
+  });
+  wrap.appendChild(tPills);
+
+  // Stats in half/full
+  if (state.detent !== 'peek') {
+    var stats = document.createElement('div');
+    stats.style.cssText = 'display:flex;margin-top:14px';
+
+    var timeCol = document.createElement('div');
+    timeCol.style.cssText = 'flex:1;text-align:center';
+    var tLbl = document.createElement('div');
+    tLbl.textContent = 'Time';
+    tLbl.style.cssText = 'font-size:11px;opacity:0.4';
+    timeCol.appendChild(tLbl);
+    var tVal = document.createElement('div');
+    tVal.textContent = '18 min';
+    tVal.style.cssText = 'font-size:18px;font-weight:700;color:#3b82f6';
+    timeCol.appendChild(tVal);
+    stats.appendChild(timeCol);
+
+    var div = document.createElement('div');
+    div.style.cssText = 'width:0.5px;background:rgba(255,255,255,0.1);align-self:stretch';
+    stats.appendChild(div);
+
+    var distCol = document.createElement('div');
+    distCol.style.cssText = 'flex:1;text-align:center';
+    var dLbl = document.createElement('div');
+    dLbl.textContent = 'Distance';
+    dLbl.style.cssText = 'font-size:11px;opacity:0.4';
+    distCol.appendChild(dLbl);
+    var dVal = document.createElement('div');
+    dVal.textContent = '5.2 km';
+    dVal.style.cssText = 'font-size:18px;font-weight:700;color:rgba(255,255,255,0.9)';
+    distCol.appendChild(dVal);
+    stats.appendChild(distCol);
+
+    wrap.appendChild(stats);
+  }
+
+  parent.appendChild(wrap);
+}
+
+function renderSheet() {
+  var sheet = document.getElementById('bottom-sheet');
+  var bgBlur = document.getElementById('sheet-bg-blur');
+  var bgColor = document.getElementById('sheet-bg-color');
+  var h = getSheetHeight();
+
+  sheet.style.bottom = '83px';
+  sheet.style.height = h + 'px';
+  sheet.style.borderRadius = state.sheetRadius + 'px ' + state.sheetRadius + 'px 0 0';
+  sheet.style.boxShadow = state.sheetShadow > 0 ? '0 -' + (state.sheetShadow/4) + 'px ' + state.sheetShadow + 'px rgba(0,0,0,' + (state.sheetShadow/50) + ')' : 'none';
+
+  bgBlur.style.borderRadius = 'inherit';
+  bgColor.style.borderRadius = 'inherit';
+
+  if (state.sheetBg === 'material') {
+    bgBlur.style.backdropFilter = 'blur(' + state.sheetBlur + 'px)';
+    bgBlur.style.webkitBackdropFilter = 'blur(' + state.sheetBlur + 'px)';
+    bgBlur.style.background = 'transparent';
+    bgColor.style.background = 'rgba(26,26,40,' + (state.sheetOpacity / 100) + ')';
+  } else if (state.sheetBg === 'solid-dark') {
+    bgBlur.style.backdropFilter = 'none';
+    bgBlur.style.webkitBackdropFilter = 'none';
+    bgColor.style.background = state.sheetColor;
+  } else if (state.sheetBg === 'solid-light') {
+    bgBlur.style.backdropFilter = 'none';
+    bgBlur.style.webkitBackdropFilter = 'none';
+    bgColor.style.background = '#f5f5f7';
+  } else if (state.sheetBg === 'gradient') {
+    bgBlur.style.backdropFilter = 'blur(' + state.sheetBlur + 'px)';
+    bgBlur.style.webkitBackdropFilter = 'blur(' + state.sheetBlur + 'px)';
+    bgColor.style.background = 'linear-gradient(180deg, ' + state.sheetColor + 'ee 0%, ' + state.sheetColor + ' 100%)';
+  }
+}
+
+function renderMapElements() {
+  document.getElementById('map-pins').style.display = state.showPins ? 'block' : 'none';
+  document.querySelectorAll('.pin-dot').forEach(function(p) {
+    p.style.width = state.pinSize + 'px';
+    p.style.height = state.pinSize + 'px';
+  });
+  document.getElementById('tracks-layer').style.display = state.showTracks ? 'block' : 'none';
+  document.getElementById('flights-layer').style.display = state.showFlights ? 'block' : 'none';
+  document.getElementById('trains-layer').style.display = state.showTrains ? 'block' : 'none';
+
+  var fb = document.getElementById('filter-btn');
+  fb.style.display = state.showFilter ? 'flex' : 'none';
+  fb.style.right = (390 - state.filterX) + 'px';
+  fb.style.top = state.filterY + 'px';
+
+  // Floating search pill
+  var floatEl = document.getElementById('floating-search');
+  var sheet = document.getElementById('bottom-sheet');
+  var isFloatingActive = state.floatingSearch && state.detent === 'peek' && state.contentMode === 'search';
+
+  if (isFloatingActive) {
+    floatEl.style.display = 'block';
+    sheet.style.display = 'none';
+    floatEl.style.left = state.floatingMargin + 'px';
+    floatEl.style.right = state.floatingMargin + 'px';
+    floatEl.style.bottom = state.floatingBottom + 'px';
+    buildFloatingPill(floatEl);
+  } else {
+    floatEl.style.display = 'none';
+    sheet.style.display = '';
+  }
+
+  // Legal badge
+  var legal = document.getElementById('legal-badge');
+  if (state.showLegal) {
+    legal.style.display = 'block';
+    legal.style.left = state.legalX + 'px';
+    legal.style.top = state.legalY + 'px';
+    legal.style.opacity = state.legalOpacity / 100;
+    legal.style.fontSize = state.legalFontSize + 'px';
+  } else {
+    legal.style.display = 'none';
+  }
+}
+
+function buildFloatingPill(el) {
+  while (el.firstChild) el.removeChild(el.firstChild);
+
+  var bgStyle = '';
+  if (state.searchBg === 'quaternary') bgStyle = 'background:rgba(255,255,255,0.06)';
+  else if (state.searchBg === 'solid') bgStyle = 'background:rgba(40,40,55,0.9)';
+  else bgStyle = 'background:transparent;border:1px solid rgba(255,255,255,0.15)';
+
+  var pill = document.createElement('div');
+  var shadow = state.floatingShadow > 0 ? 'box-shadow:0 2px ' + state.floatingShadow + 'px rgba(0,0,0,0.4);' : '';
+  pill.style.cssText = 'display:flex;align-items:center;gap:8px;padding:' + state.searchPadV + 'px ' + state.searchPadH + 'px;border-radius:' + state.searchRadius + 'px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);' + bgStyle + ';' + shadow;
+
+  var icon = document.createElement('span');
+  icon.textContent = 'Q';
+  icon.style.cssText = 'font-size:15px;opacity:0.5;font-weight:bold';
+  pill.appendChild(icon);
+
+  var txt = document.createElement('span');
+  txt.textContent = 'Search on map';
+  txt.style.cssText = 'font-size:16px;opacity:0.35;flex:1';
+  pill.appendChild(txt);
+
+  if (state.showAI) {
+    var ai = document.createElement('span');
+    ai.textContent = '*';
+    ai.style.cssText = 'width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;border:1.5px solid ' + state.accentColor + ';color:' + state.accentColor;
+    pill.appendChild(ai);
+  }
+
+  el.appendChild(pill);
+}
+
+function updateValues() {
+  document.getElementById('val-peek').textContent = state.peekHeight;
+  document.getElementById('val-half').textContent = state.halfPct + '%';
+  document.getElementById('val-full').textContent = state.fullPct + '%';
+  document.getElementById('val-sr').textContent = state.sheetRadius;
+  document.getElementById('val-sb').textContent = state.sheetBlur;
+  document.getElementById('val-so').textContent = state.sheetOpacity + '%';
+  document.getElementById('val-ss').textContent = state.sheetShadow;
+  document.getElementById('val-sc').textContent = state.sheetColor;
+  document.getElementById('val-hw').textContent = state.handleWidth;
+  document.getElementById('val-hh').textContent = state.handleHeight;
+  document.getElementById('val-searchr').textContent = state.searchRadius;
+  document.getElementById('val-sph').textContent = state.searchPadH;
+  document.getElementById('val-spv').textContent = state.searchPadV;
+  document.getElementById('val-fb').textContent = state.floatingBottom;
+  document.getElementById('val-fm').textContent = state.floatingMargin;
+  document.getElementById('val-fs').textContent = state.floatingShadow;
+  document.getElementById('val-lx').textContent = state.legalX;
+  document.getElementById('val-ly').textContent = state.legalY;
+  document.getElementById('val-lo').textContent = state.legalOpacity + '%';
+  document.getElementById('val-lfs').textContent = state.legalFontSize;
+  document.getElementById('val-ps').textContent = state.pinSize;
+  document.getElementById('val-pr').textContent = state.pillRadius;
+  document.getElementById('val-fx').textContent = state.filterX;
+  document.getElementById('val-fy').textContent = state.filterY;
+  document.getElementById('val-ac').textContent = state.accentColor;
+  document.getElementById('val-ac2').textContent = state.secondaryColor;
+  document.getElementById('swatch-sheet').style.background = state.sheetColor;
+  document.getElementById('swatch-accent').style.background = state.accentColor;
+  document.getElementById('swatch-secondary').style.background = state.secondaryColor;
+}
+
+function updatePrompt() {
+  var parts = [];
+  var d = function(key) { return state[key] !== DEFAULTS[key]; };
+
+  parts.push('Update map tab in TripMapView / MapBottomSheet / MapSearchContent / MapPlaceDetailContent / MapRouteContent.');
+
+  var sheetParts = [];
+  if (d('peekHeight')) sheetParts.push('peek = ' + state.peekHeight + 'pt');
+  if (d('halfPct')) sheetParts.push('half = ' + state.halfPct + '%');
+  if (d('fullPct')) sheetParts.push('full = ' + state.fullPct + '%');
+  if (d('sheetRadius')) sheetParts.push('corner radius = ' + state.sheetRadius + 'px');
+  if (d('sheetBlur')) sheetParts.push('blur = ' + state.sheetBlur);
+  if (d('sheetOpacity')) sheetParts.push('bg opacity = ' + state.sheetOpacity + '%');
+  if (d('sheetShadow')) sheetParts.push('shadow radius = ' + state.sheetShadow);
+  if (d('sheetBg')) {
+    var labels = { material:'material (blur)', 'solid-dark':'solid dark', 'solid-light':'solid light', gradient:'gradient' };
+    sheetParts.push('bg style = ' + labels[state.sheetBg]);
+  }
+  if (d('sheetColor')) sheetParts.push('bg color = ' + state.sheetColor);
+  if (sheetParts.length) parts.push('\nBottom sheet: ' + sheetParts.join(', ') + '.');
+
+  if (!state.showHandle) {
+    parts.push('\nRemove grab handle.');
+  } else if (d('handleWidth') || d('handleHeight')) {
+    parts.push('\nGrab handle: ' + state.handleWidth + 'x' + state.handleHeight + 'px.');
+  }
+
+  var searchParts = [];
+  if (d('searchRadius')) searchParts.push('radius = ' + state.searchRadius + 'px');
+  if (d('searchPadH')) searchParts.push('horizontal padding = ' + state.searchPadH + 'px');
+  if (d('searchPadV')) searchParts.push('vertical padding = ' + state.searchPadV + 'px');
+  if (!state.showAI) searchParts.push('remove AI button');
+  if (d('searchBg')) {
+    var slabels = { quaternary:'.quaternary', solid:'solid', outline:'outline only' };
+    searchParts.push('bg = ' + slabels[state.searchBg]);
+  }
+  if (state.floatingSearch) {
+    searchParts.push('FLOATING PILL MODE (detach from sheet in peek/idle)');
+    if (d('floatingBottom')) searchParts.push('bottom offset = ' + state.floatingBottom + 'px');
+    if (d('floatingMargin')) searchParts.push('side margin = ' + state.floatingMargin + 'px');
+    if (d('floatingShadow')) searchParts.push('shadow = ' + state.floatingShadow);
+  }
+  if (searchParts.length) parts.push('\nSearch bar: ' + searchParts.join(', ') + '.');
+
+  // Legal badge
+  var legalParts = [];
+  if (!state.showLegal) {
+    legalParts.push('hide Apple Maps legal text');
+  } else {
+    if (d('legalX') || d('legalY')) legalParts.push('position = (' + state.legalX + ', ' + state.legalY + ')');
+    if (d('legalOpacity')) legalParts.push('opacity = ' + state.legalOpacity + '%');
+    if (d('legalFontSize')) legalParts.push('font size = ' + state.legalFontSize + 'px');
+  }
+  if (legalParts.length) parts.push('\nApple Legal: ' + legalParts.join(', ') + '.');
+
+  var layerParts = [];
+  if (!state.showPins) layerParts.push('hide place pins');
+  if (state.showTracks) layerParts.push('show GPS tracks');
+  if (state.showFlights) layerParts.push('show flights');
+  if (state.showTrains) layerParts.push('show trains');
+  if (d('pinSize')) layerParts.push('pin size = ' + state.pinSize + 'px');
+  if (layerParts.length) parts.push('\nMap layers: ' + layerParts.join(', ') + '.');
+
+  var pillParts = [];
+  if (d('pillRadius')) pillParts.push('radius = ' + state.pillRadius + 'px');
+  if (d('pillStyle')) {
+    var plabels = { mixed:'mix (1 filled + ghost)', 'all-filled':'all filled', 'all-ghost':'all ghost', outline:'outline' };
+    pillParts.push('style = ' + plabels[state.pillStyle]);
+  }
+  var hidden = [];
+  if (!state.pillRoute) hidden.push('Route');
+  if (!state.pillCall) hidden.push('Call');
+  if (!state.pillWeb) hidden.push('Website');
+  if (!state.pillAR) hidden.push('AR');
+  if (hidden.length) pillParts.push('remove: ' + hidden.join(', '));
+  if (pillParts.length) parts.push('\nAction buttons: ' + pillParts.join(', ') + '.');
+
+  if (!state.showFilter) {
+    parts.push('\nRemove filter button.');
+  } else if (d('filterX') || d('filterY')) {
+    parts.push('\nFilter button position: (' + state.filterX + ', ' + state.filterY + ').');
+  }
+
+  if (d('accentColor') || d('secondaryColor')) {
+    parts.push('\nColors: accent = ' + state.accentColor + ', secondary = ' + state.secondaryColor + '.');
+  }
+
+  document.getElementById('prompt-output').textContent = parts.join('');
+}
+
+function syncControls() {
+  document.querySelectorAll('input[type="range"][data-key]').forEach(function(el) {
+    if (state[el.dataset.key] !== undefined) el.value = state[el.dataset.key];
+  });
+  document.querySelectorAll('.toggle input[data-key]').forEach(function(el) {
+    if (state[el.dataset.key] !== undefined) el.checked = state[el.dataset.key];
+  });
+  document.querySelectorAll('select[data-key]').forEach(function(el) {
+    if (state[el.dataset.key] !== undefined) el.value = state[el.dataset.key];
+  });
+  document.querySelectorAll('input[type="color"][data-key]').forEach(function(el) {
+    if (state[el.dataset.key] !== undefined) el.value = state[el.dataset.key];
+  });
+  document.querySelectorAll('.state-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.state === state.detent);
+  });
+  document.querySelectorAll('.content-tab').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.content === state.contentMode);
+  });
+}
+
+function updateAll() {
+  renderSheet();
+  buildSheetContent();
+  renderMapElements();
+  updateValues();
+  updatePrompt();
+}
+
+// Phone scale
+function updatePhoneScale() {
+  var area = document.querySelector('.preview-area');
+  var maxH = area.clientHeight - 40;
+  var scale = Math.min(1, maxH / 844);
+  document.getElementById('phone').style.setProperty('--phone-scale', scale);
+}
+window.addEventListener('resize', updatePhoneScale);
+
+// Draggable filter button
+(function() {
+  var btn = document.getElementById('filter-btn');
+  var phone = document.getElementById('phone');
+  var dragging = false, startX, startY, startRight, startTop;
+
+  btn.addEventListener('mousedown', function(e) {
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startRight = parseInt(btn.style.right);
+    startTop = parseInt(btn.style.top);
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var scale = parseFloat(getComputedStyle(phone).getPropertyValue('--phone-scale')) || 0.72;
+    var dx = (e.clientX - startX) / scale;
+    var dy = (e.clientY - startY) / scale;
+    var newRight = Math.max(5, Math.min(345, startRight - dx));
+    var newTop = Math.max(48, Math.min(700, startTop + dy));
+    btn.style.right = newRight + 'px';
+    btn.style.top = newTop + 'px';
+    state.filterX = 390 - Math.round(newRight);
+    state.filterY = Math.round(newTop);
+    updateValues();
+    updatePrompt();
+  });
+
+  document.addEventListener('mouseup', function() { dragging = false; });
+})();
+
+// Sheet drag to snap
+(function() {
+  var sheet = document.getElementById('bottom-sheet');
+  var dragging = false, startY, startH;
+
+  sheet.addEventListener('mousedown', function(e) {
+    if (e.target !== sheet && e.target !== document.getElementById('sheet-content') && !e.target.style.cssText.match(/margin.*auto/)) return;
+    dragging = true;
+    startY = e.clientY;
+    startH = getSheetHeight();
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var scale = parseFloat(getComputedStyle(document.getElementById('phone')).getPropertyValue('--phone-scale')) || 0.72;
+    var dy = -(e.clientY - startY) / scale;
+    var newH = Math.max(50, Math.min(740, startH + dy));
+    sheet.style.height = newH + 'px';
+  });
+
+  document.addEventListener('mouseup', function(e) {
+    if (!dragging) return;
+    dragging = false;
+    var scale = parseFloat(getComputedStyle(document.getElementById('phone')).getPropertyValue('--phone-scale')) || 0.72;
+    var dy = -(e.clientY - startY) / scale;
+    var finalH = startH + dy;
+    var phoneH = 844 - 83;
+
+    var detents = [
+      { name: 'peek', h: state.peekHeight },
+      { name: 'half', h: phoneH * state.halfPct / 100 },
+      { name: 'full', h: phoneH * state.fullPct / 100 }
+    ];
+
+    var closest = detents[0];
+    detents.forEach(function(dd) {
+      if (Math.abs(dd.h - finalH) < Math.abs(closest.h - finalH)) closest = dd;
+    });
+
+    state.detent = closest.name;
+    document.querySelectorAll('.state-btn').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.state === state.detent);
+    });
+    updateAll();
+  });
+})();
+
+// Draggable legal badge
+(function() {
+  var badge = document.getElementById('legal-badge');
+  var phone = document.getElementById('phone');
+  var dragging = false, startX, startY, startLeft, startTop;
+
+  badge.addEventListener('mousedown', function(e) {
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startLeft = state.legalX;
+    startTop = state.legalY;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var scale = parseFloat(getComputedStyle(phone).getPropertyValue('--phone-scale')) || 0.72;
+    var dx = (e.clientX - startX) / scale;
+    var dy = (e.clientY - startY) / scale;
+    var newLeft = Math.max(5, Math.min(370, startLeft + dx));
+    var newTop = Math.max(60, Math.min(750, startTop + dy));
+    state.legalX = Math.round(newLeft);
+    state.legalY = Math.round(newTop);
+    badge.style.left = state.legalX + 'px';
+    badge.style.top = state.legalY + 'px';
+    updateValues();
+    updatePrompt();
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (dragging) dragging = false;
+  });
+})();
+
+// Draggable floating search pill
+(function() {
+  var el = document.getElementById('floating-search');
+  var phone = document.getElementById('phone');
+  var dragging = false, startY, startBottom;
+
+  el.addEventListener('mousedown', function(e) {
+    dragging = true;
+    startY = e.clientY;
+    startBottom = state.floatingBottom;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var scale = parseFloat(getComputedStyle(phone).getPropertyValue('--phone-scale')) || 0.72;
+    var dy = -(e.clientY - startY) / scale;
+    var newBottom = Math.max(88, Math.min(500, startBottom + dy));
+    state.floatingBottom = Math.round(newBottom);
+    el.style.bottom = state.floatingBottom + 'px';
+    updateValues();
+    updatePrompt();
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (dragging) dragging = false;
+  });
+})();
+
+// Rebind dynamically added data-key controls
+document.querySelectorAll('input[type="range"][data-key]').forEach(function(el) {
+  if (!el._bound) {
+    el._bound = true;
+    el.addEventListener('input', function() { state[el.dataset.key] = +el.value; updateAll(); });
+  }
+});
+document.querySelectorAll('.toggle input[data-key]').forEach(function(el) {
+  if (!el._bound) {
+    el._bound = true;
+    el.addEventListener('change', function() { state[el.dataset.key] = el.checked; updateAll(); });
+  }
+});
+
+// Init
+updatePhoneScale();
+updateAll();
+</script>
+</body>
+</html>
